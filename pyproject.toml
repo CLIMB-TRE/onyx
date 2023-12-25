@@ -22,7 +22,7 @@ django-query-tools = "^0.3.3"
 optional = true
 
 [tool.poetry.group.test.dependencies]
-coverage = "^7.3.2"
+coverage = "^7.3.4"
 
 [build-system]
 requires = ["poetry-core"]

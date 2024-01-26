@@ -3,9 +3,11 @@
     "name": "Test Project",
     "description": "This is a test project",
     "content_type": "data.testmodel",
-    "groups": {
-        "add": {
-            "base": [
+    "groups": [
+        {
+            "action": "add",
+            "scope": "base",
+            "fields": [
                 "sample_id",
                 "run_name",
                 "collection_month",
@@ -30,8 +32,10 @@
                 "records__score_c"
             ]
         },
-        "view": {
-            "base": [
+        {
+            "action": "view",
+            "scope": "base",
+            "fields": [
                 "climb_id",
                 "published_date",
                 "sample_id",
@@ -58,8 +62,10 @@
                 "records__score_c"
             ]
         },
-        "change": {
-            "base": [
+        {
+            "action": "change",
+            "scope": "base",
+            "fields": [
                 "collection_month",
                 "received_month",
                 "text_option_1",
@@ -82,50 +88,84 @@
                 "records__score_c"
             ]
         },
-        "delete": {
-            "base": []
+        {
+            "action": "delete",
+            "scope": "base",
+            "fields": []
         }
-    },
-    "choices": {
-        "country": [
-            "eng",
-            "wales",
-            "scot",
-            "ni"
-        ],
-        "region": [
-            "ne",
-            "nw",
-            "se",
-            "sw",
-            "other"
-        ]
-    },
-    "choice_constraints": {
-        "country": {
-            "eng": {
-                "region": [
-                    "ne",
-                    "nw",
-                    "se",
-                    "sw"
-                ]
-            },
-            "wales": {
-                "region": [
-                    "other"
-                ]
-            },
-            "scot": {
-                "region": [
-                    "other"
-                ]
-            },
-            "ni": {
-                "region": [
-                    "other"
-                ]
-            }
+    ],
+    "choices": [
+        {
+            "field": "country",
+            "options": [
+                "eng",
+                "wales",
+                "scot",
+                "ni"
+            ]
+        },
+        {
+            "field": "region",
+            "options": [
+                "ne",
+                "nw",
+                "se",
+                "sw",
+                "other"
+            ]
         }
-    }
+    ],
+    "choice_constraints": [
+        {
+            "field": "country",
+            "option": "eng",
+            "constraints": [
+                {
+                    "field": "region",
+                    "options": [
+                        "ne",
+                        "nw",
+                        "se",
+                        "sw"
+                    ]
+                }
+            ]
+        },
+        {
+            "field": "country",
+            "option": "wales",
+            "constraints": [
+                {
+                    "field": "region",
+                    "options": [
+                        "other"
+                    ]
+                }
+            ]
+        },
+        {
+            "field": "country",
+            "option": "scot",
+            "constraints": [
+                {
+                    "field": "region",
+                    "options": [
+                        "other"
+                    ]
+                }
+            ]
+        },
+        {
+            "field": "country",
+            "option": "ni",
+            "constraints": [
+                {
+                    "field": "region",
+                    "options": [
+                        "other"
+                    ]
+                }
+            ]
+        }
+    ]
 }

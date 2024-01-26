@@ -85,47 +85,56 @@ class Command(base.BaseCommand):
         self.print("Description:", self.project.description)
         self.print("Model:", self.project.content_type.model_class())
 
-    def set_groups(self, data: Dict[str, Dict[str, List[str]]]):
+    def set_groups(self, data: List[Dict[str, str | List[str]]]):
         """
         Create/update the groups for the project.
         """
 
         groups = {}
-        for action, scopes in data.items():
-            for scope, fields in scopes.items():
-                name = f"{self.project.code}.{action}.{scope}"
-                group, g_created = Group.objects.get_or_create(name=name)
 
-                if g_created:
-                    self.print(f"Created group: {name}")
-                else:
-                    self.print(f"Updated group: {name}")
+        # Iterate through the groups in the data
+        for group in data:
+            action = group["action"]
+            scope = group["scope"]
+            fields = group["fields"]
 
-                permissions = []
+            # Create or retrieve underlying permissions group
+            # This is based on project code, action and scope
+            name = f"{self.project.code}.{action}.{scope}"
+            group, g_created = Group.objects.get_or_create(name=name)
 
-                for field in fields:
-                    codename = f"{action}_{self.project.code}__{field}"
-                    permission, p_created = Permission.objects.get_or_create(
-                        content_type=self.project.content_type,
-                        codename=codename,
-                        name=f"Can {action} {self.project.code}{' ' + field if field else ''}",
-                    )
-                    if p_created:
-                        self.print("Created permission:", permission)
+            if g_created:
+                self.print(f"Created group: {name}")
+            else:
+                self.print(f"Updated group: {name}")
 
-                    permissions.append(permission)
+            # Create or retrieve permissions for the group from the fields within the data
+            permissions = []
+            for field in fields:
+                codename = f"{action}_{self.project.code}__{field}"
+                permission, p_created = Permission.objects.get_or_create(
+                    content_type=self.project.content_type,
+                    codename=codename,
+                    name=f"Can {action} {self.project.code}{' ' + field if field else ''}",
+                )
+                if p_created:
+                    self.print("Created permission:", permission)
 
-                group.permissions.set(permissions)
+                permissions.append(permission)
 
-                if permissions:
-                    self.print(f"Permissions for {name}:")
-                    for perm in group.permissions.all():
-                        self.print(f"\t{perm}")
-                else:
-                    self.print(f"Group {name} has no permissions.")
+            # Set permissions for the group, and print them if they exist
+            group.permissions.set(permissions)
+            if permissions:
+                self.print(f"Permissions for {name}:")
+                for perm in group.permissions.all():
+                    self.print(f"\t{perm}")
+            else:
+                self.print(f"Group {name} has no permissions.")
 
-                groups[(action, scope)] = group
+            # Add the group to the groups structure
+            groups[(action, scope)] = group
 
+        # Create/update the corresponding project group for each group
         for (action, scope), group in groups.items():
             projectgroup, pg_created = ProjectGroup.objects.update_or_create(
                 group=group,
@@ -140,7 +149,7 @@ class Command(base.BaseCommand):
                     f"Updated project group: {self.project.code} | {projectgroup.action} | {projectgroup.scope}"
                 )
 
-    def set_choices(self, data: Dict[str, List[str]]):
+    def set_choices(self, data: List[Dict[str, str | List[str]]]):
         """
         Create/update the choices for the project.
         """
@@ -150,13 +159,16 @@ class Command(base.BaseCommand):
         # E.g. if a new choice Swab comes in, DELETE the old choice swab
         # TL:DR we need case insensitivity in handling
 
-        for field, choices in data.items():
+        for choice in data:
+            field = choice["field"]
+            options = choice["options"]
+
             # Create new choices if required
-            for choice in choices:
+            for option in options:
                 instance, created = Choice.objects.get_or_create(
                     project_id=self.project.code,
                     field=field,
-                    choice=choice,
+                    choice=option,
                 )
 
                 if created:
@@ -182,14 +194,16 @@ class Command(base.BaseCommand):
             )
 
             for instance in instances:
-                if instance.choice not in choices:
+                if instance.choice not in options:
                     instance.is_active = False
                     instance.save()
                     self.print(
                         f"Deactivated choice: {self.project.code} | {instance.field} | {instance.choice}",
                     )
 
-    def set_choice_constraints(self, data: Dict[str, Dict[str, Dict[str, List[str]]]]):
+    def set_choice_constraints(
+        self, data: List[Dict[str, str | List[Dict[str, str | List[str]]]]]
+    ):
         """
         Create/update the choice constraints for the project.
         """
@@ -200,34 +214,40 @@ class Command(base.BaseCommand):
         for choice in Choice.objects.filter(project_id=self.project.code):
             choice.constraints.clear()
 
-        for field, choices in data.items():
-            for choice, constraint_fields in choices.items():
-                choice_instance = Choice.objects.get(
-                    project_id=self.project.code, field=field, choice=choice
-                )
+        # Set constraints
+        for choice in data:
+            field = choice["field"]
+            option = choice["option"]
+            constraints = choice["constraints"]
 
-                for (
-                    constraint_field,
-                    constraint_choices,
-                ) in constraint_fields.items():
-                    # Get each constraint choice instance
-                    constraint_instances = [
-                        Choice.objects.get(
-                            project_id=self.project.code,
-                            field=constraint_field,
-                            choice=constraint_choice,
-                        )
-                        for constraint_choice in constraint_choices
-                    ]
-                    # Set constraints
-                    # This is set both ways: each constraint is added for the choice
-                    # And the choice is added for each constraint
-                    for constraint_instance in constraint_instances:
-                        choice_instance.constraints.add(constraint_instance)
-                        constraint_instance.constraints.add(choice_instance)
-                        self.print(
-                            f"Set constraint: {self.project.code} | ({choice_instance.field}, {choice_instance.choice}) | ({constraint_instance.field}, {constraint_instance.choice})",
-                        )
+            choice_instance = Choice.objects.get(
+                project_id=self.project.code, field=field, choice=option
+            )
+
+            assert isinstance(constraints, list)
+            for constraint in constraints:
+                constraint_field = constraint["field"]
+                constraint_options = constraint["options"]
+
+                # Get each constraint choice instance
+                constraint_instances = [
+                    Choice.objects.get(
+                        project_id=self.project.code,
+                        field=constraint_field,
+                        choice=constraint_option,
+                    )
+                    for constraint_option in constraint_options
+                ]
+
+                # Set constraints
+                # This is set both ways: each constraint is added for the choice
+                # And the choice is added for each constraint
+                for constraint_instance in constraint_instances:
+                    choice_instance.constraints.add(constraint_instance)
+                    constraint_instance.constraints.add(choice_instance)
+                    self.print(
+                        f"Set constraint: {self.project.code} | ({choice_instance.field}, {choice_instance.choice}) | ({constraint_instance.field}, {constraint_instance.choice})",
+                    )
 
         # Check that each constraint in a choice's constraint set also has the choice itself as a constraint
         valid = True

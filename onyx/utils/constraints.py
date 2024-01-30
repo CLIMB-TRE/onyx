@@ -40,6 +40,10 @@ def ordering(model_name: str, fields: tuple[str, str]):
     )
 
 
+# TODO: BROKEN
+# The reason it keeps self adding/removing is because it changes each time the date changes
+# So it's not a static constraint
+# Could be fixed by doing a comparison to e.g. the last_modified date
 def non_futures(model_name: str, fields: list[str]):
     return models.CheckConstraint(
         check=functools.reduce(

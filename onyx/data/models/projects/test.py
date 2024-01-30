@@ -4,6 +4,8 @@ from utils.fields import YearMonthField, StrippedCharField, ChoiceField
 from utils.constraints import (
     unique_together,
     optional_value_group,
+    ordering,
+    non_futures,
     conditional_required,
 )
 
@@ -58,6 +60,18 @@ class BaseTestModel(ProjectRecord):
                 model_name="basetestmodel",
                 fields=["text_option_1", "text_option_2"],
             ),
+            ordering(
+                model_name="basetestmodel",
+                fields=("collection_month", "received_month"),
+            ),
+            ordering(
+                model_name="basetestmodel",
+                fields=("start", "end"),
+            ),
+            non_futures(
+                model_name="basetestmodel",
+                fields=["collection_month", "received_month", "submission_date"],
+            ),
             conditional_required(
                 model_name="basetestmodel",
                 field="region",
@@ -97,6 +111,10 @@ class TestModelRecord(BaseRecord):
             optional_value_group(
                 model_name="testmodelrecord",
                 fields=["score_a", "score_b"],
+            ),
+            ordering(
+                model_name="testmodelrecord",
+                fields=("test_start", "test_end"),
             ),
             conditional_required(
                 model_name="testmodelrecord",

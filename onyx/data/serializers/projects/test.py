@@ -1,7 +1,13 @@
 from utils.validators import OnyxUniqueTogetherValidator
 from ..serializers import BaseRecordSerializer, ProjectRecordSerializer
-from ...models.projects.test import BaseTestModel, TestModel, TestModelRecord
-from utils.fieldserializers import ChoiceField, YearMonthField
+from ...models.projects.test import (
+    BaseTestModel,
+    TestModel,
+    TestModelRecord,
+    TestSampleID,
+    TestRunName,
+)
+from utils.fieldserializers import ChoiceField, YearMonthField, AnonymiserField
 
 
 class TestModelRecordSerializer(BaseRecordSerializer):
@@ -34,6 +40,8 @@ class TestModelRecordSerializer(BaseRecordSerializer):
 
 
 class BaseTestModelSerializer(ProjectRecordSerializer):
+    sample_id = AnonymiserField(TestSampleID)
+    run_name = AnonymiserField(TestRunName)
     collection_month = YearMonthField(required=False, allow_null=True)
     received_month = YearMonthField(required=False, allow_null=True)
     country = ChoiceField("test", "country", required=False, allow_blank=True)
@@ -46,6 +54,7 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
             "run_name",
             "collection_month",
             "received_month",
+            "char_max_length_20",
             "text_option_1",
             "text_option_2",
             "submission_date",
@@ -87,6 +96,10 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         conditional_required = ProjectRecordSerializer.OnyxMeta.conditional_required | {
             "region": ["country"]
         }
+        action_success_fields = (
+            ProjectRecordSerializer.OnyxMeta.action_success_fields
+            + ["sample_id", "run_name"]
+        )
 
 
 class TestModelSerializer(BaseTestModelSerializer):

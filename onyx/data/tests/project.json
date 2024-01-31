@@ -12,6 +12,7 @@
                 "run_name",
                 "collection_month",
                 "received_month",
+                "char_max_length_20",
                 "text_option_1",
                 "text_option_2",
                 "submission_date",
@@ -42,6 +43,7 @@
                 "run_name",
                 "collection_month",
                 "received_month",
+                "char_max_length_20",
                 "text_option_1",
                 "text_option_2",
                 "submission_date",
@@ -68,6 +70,7 @@
             "fields": [
                 "collection_month",
                 "received_month",
+                "char_max_length_20",
                 "text_option_1",
                 "text_option_2",
                 "submission_date",
@@ -86,6 +89,14 @@
                 "records__score_a",
                 "records__score_b",
                 "records__score_c"
+            ]
+        },
+        {
+            "action": "identify",
+            "scope": "base",
+            "fields": [
+                "sample_id",
+                "run_name"
             ]
         },
         {

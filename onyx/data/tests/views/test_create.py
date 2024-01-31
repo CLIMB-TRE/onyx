@@ -19,6 +19,7 @@ default_payload = {
     "run_name": "run-5678",
     "collection_month": "2023-01",
     "received_month": "2023-02",
+    "char_max_length_20": "X" * 20,
     "text_option_1": "hi",
     "text_option_2": "bye",
     "submission_date": "2023-03-01",
@@ -71,6 +72,8 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 1
         assert TestModelRecord.objects.count() == 2
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
         _test_record(self, payload, instance, created=True)
 
     def test_basic_test(self):
@@ -125,6 +128,8 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 1
         assert TestModelRecord.objects.count() == 2
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
         _test_record(self, payload, instance, created=True)
 
     def test_unpermissioned_viewable_field(self):
@@ -224,6 +229,8 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 1
         assert TestModelRecord.objects.count() == 2
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
         _test_record(self, payload, instance, created=True)
 
     def test_unique_together(self):
@@ -237,6 +244,10 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 1
         assert TestModelRecord.objects.count() == 2
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        default_sample_id_identifier = payload["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        default_run_name_identifier = payload["run_name"]
         _test_record(self, payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
@@ -246,6 +257,8 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 2
         assert TestModelRecord.objects.count() == 4
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
         _test_record(self, payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
@@ -255,6 +268,8 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 3
         assert TestModelRecord.objects.count() == 6
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
         _test_record(self, payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
@@ -263,11 +278,11 @@ class TestCreateView(OnyxTestCase):
         assert TestModel.objects.count() == 3
         assert TestModelRecord.objects.count() == 6
         assert (
-            TestModel.objects.filter(sample_id=default_payload["sample_id"]).count()
+            TestModel.objects.filter(sample_id=default_sample_id_identifier).count()
             == 2
         )
         assert (
-            TestModel.objects.filter(run_name=default_payload["run_name"]).count() == 2
+            TestModel.objects.filter(run_name=default_run_name_identifier).count() == 2
         )
 
     def test_nested_unique_together(self):
@@ -421,7 +436,7 @@ class TestCreateView(OnyxTestCase):
         """
 
         payload = copy.deepcopy(default_payload)
-        payload["sample_id"] = "A" * 1000 + "H"
+        payload["char_max_length_20"] = "X" * 21
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert TestModel.objects.count() == 0
@@ -458,6 +473,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -504,6 +521,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -549,6 +568,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -593,6 +614,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -644,6 +667,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -694,6 +719,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 
@@ -739,6 +766,8 @@ class TestCreateView(OnyxTestCase):
             instance = TestModel.objects.get(
                 climb_id=response.json()["data"]["climb_id"]
             )
+            payload["sample_id"] = response.json()["data"]["sample_id"]
+            payload["run_name"] = response.json()["data"]["run_name"]
             _test_record(self, payload, instance, created=True)
             TestModel.objects.all().delete()
 

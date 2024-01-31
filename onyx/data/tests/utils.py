@@ -69,6 +69,7 @@ def generate_test_data(n=100):
             "run_name": f"run-{random.randint(1, 3)}",
             "collection_month": f"2022-{random.randint(1, 12)}",
             "received_month": f"2023-{random.randint(1, 6)}",
+            "char_max_length_20": "X" * 20,
             "text_option_1": random.choice(["hi", ""]),
             "text_option_2": "bye",
             "submission_date": f"2023-{random.randint(1, 6)}-{random.randint(1, 25)}",
@@ -131,6 +132,9 @@ def _test_record(self, payload, instance, created=False):
         payload.get("received_month"),
         instance.received_month.strftime("%Y-%m") if instance.received_month else None,
     )
+    self.assertEqual(payload.get("char_max_length_20", ""), instance.char_max_length_20)
+    self.assertEqual(payload.get("text_option_1", ""), instance.text_option_1)
+    self.assertEqual(payload.get("text_option_2", ""), instance.text_option_2)
     self.assertEqual(
         payload.get("submission_date"),
         instance.submission_date.strftime("%Y-%m-%d")
@@ -142,6 +146,8 @@ def _test_record(self, payload, instance, created=False):
     self.assertEqual(payload.get("concern"), instance.concern)
     self.assertEqual(payload.get("tests"), instance.tests)
     self.assertEqual(payload.get("score"), instance.score)
+    self.assertEqual(payload.get("start"), instance.start)
+    self.assertEqual(payload.get("end"), instance.end)
 
     # If the payload has nested records, check the correctness of these
     if payload.get("records"):

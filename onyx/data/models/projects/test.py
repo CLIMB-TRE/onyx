@@ -1,6 +1,6 @@
 from django.db import models
-from ..models import BaseRecord, ProjectRecord
-from utils.fields import YearMonthField, StrippedCharField, ChoiceField
+from ..models import BaseRecord, ProjectRecord, Anonymiser
+from utils.fields import YearMonthField, UpperCharField, ChoiceField
 from utils.constraints import (
     unique_together,
     optional_value_group,
@@ -13,15 +13,40 @@ from utils.constraints import (
 __version__ = "0.1.0"
 
 
+class TestSampleID(Anonymiser):
+    @classmethod
+    def get_identifier_prefix(cls):
+        return "S"
+
+    class Meta:
+        default_permissions = []
+        indexes = [
+            models.Index(fields=["hash"]),
+        ]
+
+
+class TestRunName(Anonymiser):
+    @classmethod
+    def get_identifier_prefix(cls):
+        return "R"
+
+    class Meta:
+        default_permissions = []
+        indexes = [
+            models.Index(fields=["hash"]),
+        ]
+
+
 class BaseTestModel(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
 
-    sample_id = StrippedCharField(max_length=24)
-    run_name = StrippedCharField(max_length=96)
+    sample_id = UpperCharField()
+    run_name = UpperCharField()
     collection_month = YearMonthField(null=True)
     received_month = YearMonthField(null=True)
+    char_max_length_20 = models.CharField(max_length=20)
     text_option_1 = models.TextField(blank=True)
     text_option_2 = models.TextField(blank=True)
     submission_date = models.DateField(null=True)

@@ -43,6 +43,14 @@ class SummarySerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
 
+class IdentifierSerializer(serializers.Serializer):
+    """
+    Serializer for input to the `data.project.identify` endpoint.
+    """
+
+    value = serializers.CharField()
+
+
 # https://www.django-rest-framework.org/api-guide/serializers/#dynamically-modifying-fields
 class BaseRecordSerializer(serializers.ModelSerializer):
     """

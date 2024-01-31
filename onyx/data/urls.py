@@ -52,4 +52,9 @@ urlpatterns = [
         views.ChoicesView.as_view(),
         name="data.project.choices",
     ),
+    re_path(
+        r"^(?P<code>[a-zA-Z_]*)/identify/(?P<field>[a-zA-Z0-9_]*)/$",
+        views.IdentifyView.as_view(),
+        name="data.project.identify",
+    ),
 ]

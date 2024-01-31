@@ -33,7 +33,18 @@ class ProjectGroup(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     action = LowerCharField(
         max_length=10,
-        choices=[(x, x) for x in ["add", "view", "change", "delete"]],
+        choices=[
+            (x, x)
+            for x in [
+                "add",
+                "view",
+                "filter",
+                "summarise",
+                "identify",
+                "change",
+                "delete",
+            ]
+        ],
     )
     scope = LowerCharField(max_length=50, default="base")
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 from pydantic import RootModel, ValidationError as PydanticValidationError
 from django.db.models import Count
 from rest_framework import status, exceptions
@@ -7,9 +8,15 @@ from rest_framework.response import Response
 from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
+from utils.fieldserializers import AnonymiserField
 from accounts.permissions import Approved, ProjectApproved, ProjectAdmin
 from .models import Project, Choice, ProjectRecord
-from .serializers import ProjectSerializerMap, SerializerNode, SummarySerializer
+from .serializers import (
+    ProjectSerializerMap,
+    SerializerNode,
+    SummarySerializer,
+    IdentifierSerializer,
+)
 from .exceptions import ClimbIDNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
@@ -224,6 +231,54 @@ class ChoicesView(ProjectAPIView):
 
         # Return choices for the field
         return Response(choices)
+
+
+class IdentifyView(ProjectAPIView):
+    permission_classes = ProjectApproved
+    project_action = "identify"
+
+    def post(self, request: Request, code: str, field: str) -> Response:
+        """
+        Retrieve the identifier for a given `value` of the given `field`.
+        """
+
+        # Validate the request field
+        try:
+            self.handler.resolve_field(field)
+        except exceptions.ValidationError as e:
+            raise exceptions.ValidationError({"detail": e.args[0]})
+
+        # Determine the field serializer
+        field_serializer = self.serializer_cls().get_fields()[field]  # type: ignore
+        assert isinstance(field_serializer, AnonymiserField)
+
+        # Validate request body
+        serializer = IdentifierSerializer(data=self.request_data)
+        if not serializer.is_valid():
+            raise exceptions.ValidationError(serializer.errors)
+
+        # Hash the value
+        value = serializer.data["value"]  #  type: ignore
+        hasher = hashlib.sha256()
+        hasher.update(value.strip().lower().encode("utf-8"))
+        hash = hasher.hexdigest()
+
+        # Get the anonymised field data from the hash
+        try:
+            anonymised_field = field_serializer.anonymiser_model.objects.get(hash=hash)
+        except field_serializer.anonymiser_model.DoesNotExist:
+            raise exceptions.ValidationError(
+                {"detail": f"No identifier exists for this value."}
+            )
+
+        # Return field, value and identifier
+        return Response(
+            {
+                "field": field,
+                "value": value,
+                "identifier": anonymised_field.identifier,
+            }
+        )
 
 
 class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):

@@ -2,7 +2,12 @@ import pkgutil
 import importlib, inspect
 from django.db.models import Model
 from . import projects
-from .serializers import ProjectRecordSerializer, SerializerNode, SummarySerializer
+from .serializers import (
+    ProjectRecordSerializer,
+    SerializerNode,
+    SummarySerializer,
+    IdentifierSerializer,
+)
 
 
 class ProjectSerializerMap:

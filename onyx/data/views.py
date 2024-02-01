@@ -268,7 +268,7 @@ class IdentifyView(ProjectAPIView):
             anonymised_field = field_serializer.anonymiser_model.objects.get(hash=hash)
         except field_serializer.anonymiser_model.DoesNotExist:
             raise exceptions.ValidationError(
-                {"detail": f"No identifier exists for this value."}
+                {"detail": "No identifier exists for this value."}
             )
 
         # Return field, value and identifier

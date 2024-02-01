@@ -17,7 +17,7 @@ from .serializers import (
     SummarySerializer,
     IdentifierSerializer,
 )
-from .exceptions import ClimbIDNotFound
+from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType
@@ -267,9 +267,7 @@ class IdentifyView(ProjectAPIView):
         try:
             anonymised_field = field_serializer.anonymiser_model.objects.get(hash=hash)
         except field_serializer.anonymiser_model.DoesNotExist:
-            raise exceptions.ValidationError(
-                {"detail": "No identifier exists for this value."}
-            )
+            raise IdentifierNotFound
 
         # Return field, value and identifier
         return Response(

@@ -4,3 +4,7 @@ from rest_framework import exceptions
 
 class ClimbIDNotFound(exceptions.NotFound):
     default_detail = _("CLIMB ID not found.")
+
+
+class IdentifierNotFound(exceptions.NotFound):
+    default_detail = _("Identifier not found.")

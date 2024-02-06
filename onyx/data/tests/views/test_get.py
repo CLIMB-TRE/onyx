@@ -16,17 +16,14 @@ class TestGetView(OnyxTestCase):
             "data.project.climb_id", kwargs={"code": "test", "climb_id": climb_id}
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.view.base"]
+            "testuser", roles=["is_staff"], groups=["test.test"]
         )
-
-        self.user.groups.add(Group.objects.get(name="test.add.base"))
         response = self.client.post(
             reverse("data.project", kwargs={"code": "test"}),
             data=next(iter(generate_test_data(n=1))),
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.climb_id = response.json()["data"]["climb_id"]
-        self.user.groups.remove(Group.objects.get(name="test.add.base"))
 
     def test_basic(self):
         """

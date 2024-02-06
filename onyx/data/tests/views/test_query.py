@@ -16,11 +16,7 @@ class TestQueryView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse("data.project", kwargs={"code": "test"})
         self.user = self.setup_user(
-            "testuser",
-            roles=["is_staff"],
-            groups=[
-                "test.view.base",
-            ],
+            "testuser", roles=["is_staff"], groups=["test.test"]
         )
 
         self.user.groups.add(Group.objects.get(name="test.add.base"))

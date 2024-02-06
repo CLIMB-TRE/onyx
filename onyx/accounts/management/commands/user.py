@@ -160,18 +160,17 @@ def list_users():
 
         groups = []
 
-        # Filter user groups to determine all distinct (code, action, scope) pairs
-        for project_action_scope in (
+        # Filter user groups to determine all distinct (code, scope) pairs
+        for project_scope in (
             user.groups.filter(projectgroup__isnull=False)
             .values(
                 "projectgroup__project__code",
-                "projectgroup__action",
                 "projectgroup__scope",
             )
             .distinct()
         ):
             groups.append(
-                f"{project_action_scope['projectgroup__project__code']}[{project_action_scope['projectgroup__action']}][{project_action_scope['projectgroup__scope']}]",
+                f"{project_scope['projectgroup__project__code']}[{project_scope['projectgroup__scope']}]",
             )
 
         print(

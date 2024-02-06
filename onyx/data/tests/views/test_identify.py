@@ -16,10 +16,8 @@ class TestIdentifyView(OnyxTestCase):
             "data.project.identify", kwargs={"code": "test", "field": field}
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.identify.base"]
+            "testuser", roles=["is_staff"], groups=["test.test"]
         )
-
-        self.user.groups.add(Group.objects.get(name="test.add.base"))
         test_record = next(iter(generate_test_data(n=1)))
         self.input_sample_id = test_record["sample_id"]
         self.input_run_name = test_record["run_name"]
@@ -30,7 +28,6 @@ class TestIdentifyView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.output_sample_id = response.json()["data"]["sample_id"]
         self.output_run_name = response.json()["data"]["run_name"]
-        self.user.groups.remove(Group.objects.get(name="test.add.base"))
 
     def test_basic(self):
         """

@@ -12,7 +12,7 @@ class TestProjectsView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse("data.projects")
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.view.base"]
+            "testuser", roles=["is_staff"], groups=["test.test"]
         )
 
     def test_basic(self):
@@ -24,5 +24,5 @@ class TestProjectsView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.json()["data"],
-            [{"project": "test", "action": "view", "scope": "base"}],
+            [{"project": "test", "scope": "test"}],
         )

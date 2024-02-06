@@ -20,10 +20,6 @@ class Project(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
 
 
-# TODO: Finalise and test
-# This is just on the brink of exactly what I was after: a singular model for linking project, action, scope, group.
-# Assuming speed not a problem, from this we can search groups by scope, action, project, without needing a group naming convention
-# We do have the issue though that deleting a project will not cascade delete the groups, but I guess this is not an issue (?)
 class ProjectGroup(models.Model):
     group = models.OneToOneField(
         Group,
@@ -31,28 +27,13 @@ class ProjectGroup(models.Model):
         primary_key=True,
     )
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    action = LowerCharField(
-        max_length=10,
-        choices=[
-            (x, x)
-            for x in [
-                "add",
-                "view",
-                "filter",
-                "summarise",
-                "identify",
-                "change",
-                "delete",
-            ]
-        ],
-    )
-    scope = LowerCharField(max_length=50, default="base")
+    scope = LowerCharField(max_length=50)
 
     class Meta:
         constraints = [
             unique_together(
                 model_name="projectgroup",
-                fields=["project", "scope", "action"],
+                fields=["project", "scope"],
             ),
         ]
 

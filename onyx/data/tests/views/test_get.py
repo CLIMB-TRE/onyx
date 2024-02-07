@@ -1,4 +1,3 @@
-from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data, _test_record

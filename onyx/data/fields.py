@@ -1,6 +1,5 @@
 from typing import Any
 from django.db import models
-from django.contrib.auth.models import Group
 from rest_framework import exceptions
 from utils.fields import (
     StrippedCharField,
@@ -13,6 +12,7 @@ from utils.functions import get_suggestions, get_permission
 from accounts.models import User
 from .models import Choice, Project, ProjectRecord
 from .types import OnyxType, ALL_LOOKUPS
+from .actions import Actions
 
 
 class OnyxField:
@@ -163,7 +163,8 @@ class FieldHandler:
             The list of fields that the user can action on.
         """
 
-        if not self.fields:
+        # If fields have not been cached, retrieve them
+        if self.fields is None:
             fields = []
 
             for permission in self.user.get_all_permissions():
@@ -211,7 +212,7 @@ class FieldHandler:
             onyx_field: The `OnyxField` object to check user permissions for.
         """
 
-        # TODO: Refactor this to use model name rather than project code (more granular permissions).
+        # TODO: Refactor this to use model name rather than project code?
 
         # Check the user's permission to access the field
         # If the user does not have permission, tell them it is unknown
@@ -353,60 +354,123 @@ def generate_fields_spec(
     fields_dict: dict,
     onyx_fields: dict[str, OnyxField],
     actions_map: dict[str, str],
+    serializer,  # TODO: Can't type this as it's a circular import
     prefix: str | None = None,
 ) -> dict[str, Any]:
     """
-    Annote `fields_dict` with information from `onyx_fields`.
+    Generate the fields specification for a project from the provided `fields_dict`, `onyx_fields`, `actions_map`, and `serializer`.
 
-    This information includes the front-facing type name, required status, and restricted choices for each field.
+    For each field, this information includes:
+    * The front-facing type name
+    * Required status
+    * Available actions
+    * Choices
+    * Default value
+    * Additional restrictions (e.g. max length, optional value groups)
 
     Args:
-        fields_dict: The nested dictionary structure containing fields to annotate.
+        fields_dict: The dictionary containing fields to annotate.
         onyx_fields: The dictionary of `OnyxField` objects to use for annotation.
+        actions_map: The dictionary of field paths to their available actions.
+        serializer: The serializer to use for annotation.
         prefix: The prefix to use for the field paths.
 
     Returns:
         The annotated dictionary of fields.
     """
 
-    for field, nested in fields_dict.items():
+    fields_spec = {}
+
+    # Handle serializer fields
+    for field in serializer.Meta.fields:
+        # Skip fields that are not in the fields_dict
+        if field not in fields_dict:
+            continue
+
+        # If a prefix is provided, use it to create the field path
         if prefix:
             field_path = f"{prefix}__{field}"
         else:
             field_path = field
 
+        # Get the field's OnyxType and field instance
         onyx_type = onyx_fields[field_path].onyx_type
         field_instance = onyx_fields[field_path].field_instance
-        field_dict = {
+
+        # Generate initial spec for the field
+        field_spec = {
             "description": onyx_fields[field_path].description,
             "type": onyx_type.label,
             "required": onyx_fields[field_path].required,
-            "actions": actions_map[field_path],
+            "actions": [
+                action.value
+                for action in Actions
+                if action.value in actions_map[field_path]
+            ],
         }
 
-        if onyx_type == OnyxType.RELATION:
-            generate_fields_spec(
-                fields_dict=nested,
+        # Add default value if it exists
+        if field_instance.default != models.NOT_PROVIDED:
+            field_spec["default"] = field_instance.default
+
+        # Add choices if the field is a choice field
+        if onyx_type == OnyxType.CHOICE and onyx_fields[field_path].choices:
+            field_spec["values"] = onyx_fields[field_path].choices
+
+        # Add additional restrictions
+        restrictions = []
+        if onyx_type == OnyxType.TEXT and field_instance.max_length:
+            restrictions.append(f"Max length: {field_instance.max_length}")
+
+        for optional_value_group in serializer.OnyxMeta.optional_value_groups:
+            if field in optional_value_group:
+                restrictions.append(
+                    f"At least one required: {', '.join(optional_value_group)}"
+                )
+
+        if restrictions:
+            field_spec["restrictions"] = restrictions
+
+        # Add the field spec to the fields spec
+        fields_spec[field] = field_spec
+
+    # Handle serializer relations
+    for field, nested_serializer in serializer.OnyxMeta.relations.items():
+        # Skip fields that are not in the fields_dict
+        if field not in fields_dict:
+            continue
+
+        # If a prefix is provided, use it to create the field path
+        if prefix:
+            field_path = f"{prefix}__{field}"
+        else:
+            field_path = field
+
+        # Get the field's OnyxType and field instance
+        onyx_type = onyx_fields[field_path].onyx_type
+        field_instance = onyx_fields[field_path].field_instance
+
+        # Generate spec for the field
+        fields_spec[field] = {
+            "description": onyx_fields[field_path].description,
+            "type": onyx_type.label,
+            "required": onyx_fields[field_path].required,
+            "actions": [
+                action.value
+                for action in Actions
+                if action.value in actions_map[field_path]
+            ],
+            # Recursively generate fields spec for the nested serializer
+            "fields": generate_fields_spec(
+                fields_dict=fields_dict[field],
                 onyx_fields=onyx_fields,
                 actions_map=actions_map,
+                serializer=nested_serializer,
                 prefix=field_path,
-            )
-            field_dict["fields"] = nested
-        else:
-            if field_instance.default != models.NOT_PROVIDED:
-                field_dict["default"] = field_instance.default
+            ),
+        }
 
-            if onyx_type == OnyxType.TEXT and field_instance.max_length:
-                field_dict["restrictions"] = [
-                    f"Max length: {field_instance.max_length}"
-                ]
-
-            if onyx_type == OnyxType.CHOICE and onyx_fields[field_path].choices:
-                field_dict["values"] = onyx_fields[field_path].choices
-
-        fields_dict[field] = field_dict
-
-    return fields_dict
+    return fields_spec
 
 
 # TODO: This function feels very hacky.

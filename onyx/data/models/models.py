@@ -28,6 +28,7 @@ class ProjectGroup(models.Model):
     )
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     scope = LowerCharField(max_length=50)
+    actions = models.TextField(blank=True)
 
     class Meta:
         constraints = [

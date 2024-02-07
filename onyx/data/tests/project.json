@@ -38,8 +38,8 @@
                 {
                     "action": [
                         "get",
-                        "filter",
-                        "view"
+                        "list",
+                        "filter"
                     ],
                     "fields": [
                         "climb_id",

@@ -133,18 +133,23 @@ class Command(base.BaseCommand):
                 Permission.objects.get_or_create(
                     content_type=self.project.content_type,
                     codename=access_project_codename,
-                    name=f"Can access {self.project.code}",
+                    defaults={
+                        "name": f"Can access {self.project.code}",
+                    },
                 )
             )
             if access_project_created:
                 self.print("Created permission:", access_project_permission)
             permissions.append(access_project_permission)
 
+            group_actions = ["access"]
             for permission_config in group_config.permissions:
                 if isinstance(permission_config.action, str):
                     actions = [permission_config.action]
                 else:
                     actions = permission_config.action
+
+                group_actions.extend(actions)
 
                 for action in actions:
                     # Permission to action on project
@@ -153,7 +158,9 @@ class Command(base.BaseCommand):
                         Permission.objects.get_or_create(
                             content_type=self.project.content_type,
                             codename=action_project_codename,
-                            name=f"Can {action} {self.project.code}",
+                            defaults={
+                                "name": f"Can {action} {self.project.code}",
+                            },
                         )
                     )
                     if action_project_created:
@@ -170,7 +177,9 @@ class Command(base.BaseCommand):
                             Permission.objects.get_or_create(
                                 content_type=self.project.content_type,
                                 codename=access_field_codename,
-                                name=f"Can access {self.project.code} {field}",
+                                defaults={
+                                    "name": f"Can access {self.project.code} {field}",
+                                },
                             )
                         )
                         if access_field_created:
@@ -183,7 +192,9 @@ class Command(base.BaseCommand):
                             Permission.objects.get_or_create(
                                 content_type=self.project.content_type,
                                 codename=action_field_codename,
-                                name=f"Can {action} {self.project.code} {field}",
+                                defaults={
+                                    "name": f"Can {action} {self.project.code} {field}",
+                                },
                             )
                         )
                         if action_field_created:
@@ -202,13 +213,17 @@ class Command(base.BaseCommand):
                 self.print(f"Group {name} has no permissions.")
 
             # Add the group to the groups structure
-            groups[group_config.scope] = group
+            groups[group_config.scope] = (group, group_actions)
 
         # Create/update the corresponding projectgroup for each group
-        for scope, group in groups.items():
+        for scope, (group, group_actions) in groups.items():
             projectgroup, pg_created = ProjectGroup.objects.update_or_create(
                 group=group,
-                defaults={"project": self.project, "scope": scope},
+                defaults={
+                    "project": self.project,
+                    "scope": scope,
+                    "actions": ",".join(group_actions),
+                },
             )
             if pg_created:
                 self.print(
@@ -218,6 +233,7 @@ class Command(base.BaseCommand):
                 self.print(
                     f"Updated project group: {self.project.code} | {projectgroup.scope}"
                 )
+            self.print(f"Actions: {" | ".join(group_actions)}")
 
     def set_choices(self, choice_configs: List[ChoiceConfig]):
         """

@@ -21,6 +21,7 @@ from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType
+from .actions import Actions
 from .fields import (
     FieldHandler,
     generate_fields_spec,
@@ -123,23 +124,28 @@ class ProjectsView(APIView):
         List all projects that the user has allowed actions on.
         """
 
-        # TODO: Add the actions back as a list?
-
-        # Filter user groups to determine all (project, scope) tuples
-        project_groups = [
-            {
-                "project": project_action_scope["projectgroup__project__code"],
-                "scope": project_action_scope["projectgroup__scope"],
-            }
-            for project_action_scope in request.user.groups.filter(
-                projectgroup__isnull=False
-            )
-            .values(
+        # Filter user groups to determine all (project, scope, actions) tuples
+        project_groups = []
+        for project, scope, actions_str in (
+            request.user.groups.filter(projectgroup__isnull=False)
+            .values_list(
                 "projectgroup__project__code",
                 "projectgroup__scope",
+                "projectgroup__actions",
             )
             .distinct()
-        ]
+        ):
+            project_groups.append(
+                {
+                    "project": project,
+                    "scope": scope,
+                    "actions": [
+                        action.value
+                        for action in Actions
+                        if action.value in actions_str
+                    ],
+                }
+            )
 
         # Return list of allowed project groups
         return Response(project_groups)
@@ -181,6 +187,7 @@ class FieldsView(ProjectAPIView):
             fields_dict=fields_dict,
             onyx_fields=onyx_fields,
             actions_map=actions_map,
+            serializer=self.serializer_cls,
         )
 
         # Return response with project information and fields
@@ -227,7 +234,7 @@ class ChoicesView(ProjectAPIView):
 
         if onyx_field.onyx_type != OnyxType.CHOICE:
             raise exceptions.ValidationError(
-                {"detail": [f"This field is not a '{OnyxType.CHOICE.label}' field."]}
+                {"detail": [f"This field is not a {OnyxType.CHOICE.label} field."]}
             )
 
         # Obtain choices for the field
@@ -300,7 +307,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             case ("POST", "list"):
                 permission_classes = ProjectApproved
-                self.project_action = "view"
+                self.project_action = "list"
 
             case ("GET", "retrieve"):
                 permission_classes = ProjectApproved
@@ -308,7 +315,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             case ("GET", "list"):
                 permission_classes = ProjectApproved
-                self.project_action = "view"
+                self.project_action = "list"
 
             case ("PATCH", "partial_update"):
                 permission_classes = ProjectAdmin

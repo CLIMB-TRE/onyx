@@ -3,7 +3,6 @@ import importlib, inspect
 from django.db.models import Model
 from . import projects
 from .serializers import (
-    BaseRecordSerializer,
     ProjectRecordSerializer,
     SerializerNode,
     SummarySerializer,

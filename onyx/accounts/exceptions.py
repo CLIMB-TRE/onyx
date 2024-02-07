@@ -6,10 +6,6 @@ class ProjectNotFound(exceptions.NotFound):
     default_detail = _("Project not found.")
 
 
-class ScopeNotFound(exceptions.NotFound):
-    default_detail = _("Scope not found.")
-
-
 class UserNotFound(exceptions.NotFound):
     default_detail = _("User not found.")
 

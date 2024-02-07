@@ -233,7 +233,7 @@ class Command(base.BaseCommand):
                 self.print(
                     f"Updated project group: {self.project.code} | {projectgroup.scope}"
                 )
-            self.print(f"Actions: {" | ".join(group_actions)}")
+            self.print(f"Actions: {' | '.join(group_actions)}")
 
     def set_choices(self, choice_configs: List[ChoiceConfig]):
         """

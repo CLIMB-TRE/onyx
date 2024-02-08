@@ -127,15 +127,16 @@ class ProjectUserView(KnoxLoginView):
     permission_classes = Admin
 
     def post(self, request, *args, **kwargs):
+        # TODO: Change method back to POST
         raise exceptions.MethodNotAllowed(self.request.method)
 
     def get(self, request, code, site_code, username):
-        # Get the base view group for the requested project
+        # Get the analyst group for the requested project
+        # TODO: This is ad-hoc for CLIMB-TRE purposes and needs generalising
         try:
-            view_group = Group.objects.get(
+            analyst_group = Group.objects.get(
                 projectgroup__project__code=code,
-                projectgroup__action="view",
-                projectgroup__scope="base",
+                projectgroup__scope="analyst",
             )
         except Group.DoesNotExist:
             raise ProjectNotFound
@@ -168,7 +169,8 @@ class ProjectUserView(KnoxLoginView):
             user.set_unusable_password()
             user.save()
 
-        user.groups.add(view_group)
+        # Add the user to the analyst group
+        user.groups.add(analyst_group)
 
         request.user = user
         return super().post(request)

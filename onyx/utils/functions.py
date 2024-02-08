@@ -62,6 +62,20 @@ def get_permission(
         return f"{app_label}.{action}_{code}"
 
 
+def parse_permission(permission: str) -> tuple[str, str, str, str]:
+    """
+    Parses a permission string into its components.
+
+    Returns a tuple containing the `app_label`, `action`, `code`, and `field`.
+    """
+
+    app_label, codename = permission.split(".")
+    action_project, _, field_path = codename.partition("__")
+    action, project = action_project.split("_")
+
+    return app_label, action, project, field_path
+
+
 def strtobool(val):
     """
     Convert a string representation of truth to True or False.

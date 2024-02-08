@@ -9,6 +9,7 @@ from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.fieldserializers import AnonymiserField
+from utils.functions import parse_permission
 from accounts.permissions import Approved, ProjectApproved, ProjectAdmin
 from .models import Project, Choice, ProjectRecord
 from .serializers import (
@@ -163,18 +164,17 @@ class FieldsView(ProjectAPIView):
         # Get all accessible fields
         field_names = self.handler.get_fields()
 
+        # Get all actions for each field (excluding access)
         actions_map = {}
         for permission in request.user.get_all_permissions():
-            _, codename = permission.split(".")
-            action_project, _, field_path = codename.partition("__")
+            _, action, project, field = parse_permission(permission)
 
-            if not field_path:
-                continue
-
-            action, project = action_project.split("_")
-
-            if action != "access" and project == self.project.code:
-                actions_map.setdefault(field_path, []).append(action)
+            if (
+                action != "access"
+                and project == self.project.code
+                and field in field_names
+            ):
+                actions_map.setdefault(field, []).append(action)
 
         # Determine OnyxField objects for each field
         onyx_fields = self.handler.resolve_fields(field_names)

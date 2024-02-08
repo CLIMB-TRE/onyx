@@ -8,7 +8,7 @@ from utils.fields import (
     ChoiceField,
     YearMonthField,
 )
-from utils.functions import get_suggestions, get_permission
+from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
 from .models import Choice, Project, ProjectRecord
 from .types import OnyxType, ALL_LOOKUPS
@@ -168,16 +168,10 @@ class FieldHandler:
             fields = []
 
             for permission in self.user.get_all_permissions():
-                _, codename = permission.split(".")
-                action_project, _, field_path = codename.partition("__")
+                _, action, project, field = parse_permission(permission)
 
-                if not field_path:
-                    continue
-
-                action, project = action_project.split("_")
-
-                if action == self.action and project == self.code:
-                    fields.append(field_path)
+                if action == self.action and project == self.code and field:
+                    fields.append(field)
 
             self.fields = fields
 

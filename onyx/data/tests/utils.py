@@ -51,7 +51,7 @@ class OnyxTestCase(APITestCase):
         return user
 
 
-def generate_test_data(n=100):
+def generate_test_data(n: int = 100):
     """
     Generate test data.
     """
@@ -108,7 +108,7 @@ def generate_test_data(n=100):
     return data
 
 
-def _test_record(self, payload, instance, created=False):
+def _test_record(self, payload, instance, created: bool = False):
     """
     Test that a payload's values match an instance.
     """
@@ -117,16 +117,23 @@ def _test_record(self, payload, instance, created=False):
     if not created:
         self.assertEqual(payload.get("climb_id", ""), instance.climb_id)
         self.assertEqual(
-            payload.get("published_date"), instance.published_date.strftime("%Y-%m-%d")
+            payload.get("published_date"),
+            (
+                instance.published_date.strftime("%Y-%m-%d")
+                if instance.published_date
+                else None
+            ),
         )
 
     self.assertEqual(payload.get("sample_id", ""), instance.sample_id)
     self.assertEqual(payload.get("run_name", ""), instance.run_name)
     self.assertEqual(
         payload.get("collection_month"),
-        instance.collection_month.strftime("%Y-%m")
-        if instance.collection_month
-        else None,
+        (
+            instance.collection_month.strftime("%Y-%m")
+            if instance.collection_month
+            else None
+        ),
     )
     self.assertEqual(
         payload.get("received_month"),
@@ -137,9 +144,11 @@ def _test_record(self, payload, instance, created=False):
     self.assertEqual(payload.get("text_option_2", ""), instance.text_option_2)
     self.assertEqual(
         payload.get("submission_date"),
-        instance.submission_date.strftime("%Y-%m-%d")
-        if instance.submission_date
-        else None,
+        (
+            instance.submission_date.strftime("%Y-%m-%d")
+            if instance.submission_date
+            else None
+        ),
     )
     self.assertEqual(payload.get("country", ""), instance.country)
     self.assertEqual(payload.get("region", ""), instance.region)
@@ -159,15 +168,19 @@ def _test_record(self, payload, instance, created=False):
             self.assertEqual(subrecord.get("test_pass"), subinstance.test_pass)
             self.assertEqual(
                 subrecord.get("test_start"),
-                subinstance.test_start.strftime("%Y-%m")
-                if subinstance.test_start
-                else None,
+                (
+                    subinstance.test_start.strftime("%Y-%m")
+                    if subinstance.test_start
+                    else None
+                ),
             )
             self.assertEqual(
                 subrecord.get("test_end"),
-                subinstance.test_end.strftime("%Y-%m")
-                if subinstance.test_end
-                else None,
+                (
+                    subinstance.test_end.strftime("%Y-%m")
+                    if subinstance.test_end
+                    else None
+                ),
             )
             self.assertEqual(subrecord.get("score_a"), subinstance.score_a)
             self.assertEqual(subrecord.get("score_b"), subinstance.score_b)

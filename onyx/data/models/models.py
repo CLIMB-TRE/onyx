@@ -1,5 +1,6 @@
 from typing import Any
 import uuid
+from datetime import datetime
 from secrets import token_hex
 from django.db import models
 from django.contrib.auth.models import Group
@@ -119,17 +120,21 @@ class ProjectRecord(BaseRecord):
     climb_id = UpperCharField(
         max_length=12,
         unique=True,
-        help_text="Unique identifier for a project record. Set by Onyx.",
+        help_text="Unique identifier for a project record in Onyx.",
+    )
+    is_published = models.BooleanField(
+        default=True,
+        help_text="Indicator for whether a project record has been published.",
     )
     published_date = models.DateField(
-        auto_now_add=True,
-        help_text="The date the project record was published. Set by Onyx.",
+        null=True,
+        help_text="The date the project record was published in Onyx.",
     )
-    suppressed = models.BooleanField(
+    is_suppressed = models.BooleanField(
         default=False,
         help_text="Indicator for whether a project record has been hidden from users.",
     )
-    site_restricted = models.BooleanField(
+    is_site_restricted = models.BooleanField(
         default=False,
         help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
     )
@@ -141,6 +146,9 @@ class ProjectRecord(BaseRecord):
         if not self.pk:
             climb_id = ClimbID.objects.create()
             self.climb_id = climb_id.climb_id
+
+        if self.published_date is None and self.is_published:
+            self.published_date = datetime.today().date()
 
         super().save(*args, **kwargs)
 

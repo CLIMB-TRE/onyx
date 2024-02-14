@@ -580,6 +580,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         qs = init_project_queryset(
             model=self.model,
             user=request.user,
+            fields=self.handler.get_fields(),
         )
 
         # Get the instance to be updated
@@ -624,10 +625,24 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         """
         Use the `climb_id` to permanently delete an instance of the given project `code`.
         """
+
+        if not request.user.is_staff:
+            # TODO: # This logic is currently unused as only staff members can access this endpoint
+            # If its opened to non-staff, the IsObjectSite permission will need to be added
+
+            # If the user is not staff, they can only delete instances if:
+            # The instance is published
+            # The instance is not suppressed
+            # The instance is not site restricted to a different site
+            fields = []
+        else:
+            fields = ["is_published", "is_suppressed", "is_site_restricted"]
+
         # Initial queryset
         qs = init_project_queryset(
             model=self.model,
             user=request.user,
+            fields=fields,
         )
 
         # Get the instance to be deleted

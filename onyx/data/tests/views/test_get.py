@@ -50,14 +50,17 @@ class TestGetView(OnyxTestCase):
             self.endpoint(self.climb_id),
             data={"include": ["climb_id", "published_date"]},
         )
+        record = TestModel.objects.get(climb_id=self.climb_id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.json()["data"],
             {
-                "climb_id": self.climb_id,
-                "published_date": TestModel.objects.get(
-                    climb_id=self.climb_id
-                ).published_date.strftime("%Y-%m-%d"),
+                "climb_id": record.climb_id,
+                "published_date": (
+                    record.published_date.strftime("%Y-%m-%d")
+                    if record.published_date
+                    else None
+                ),
             },
         )
 
@@ -109,7 +112,7 @@ class TestGetView(OnyxTestCase):
         """
 
         instance = TestModel.objects.get(climb_id=self.climb_id)
-        instance.suppressed = True
+        instance.is_suppressed = True
         instance.save()
 
         response = self.client.get(self.endpoint(self.climb_id))

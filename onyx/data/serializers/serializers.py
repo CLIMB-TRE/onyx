@@ -5,14 +5,7 @@ from rest_framework import serializers, exceptions
 from accounts.models import User, Site
 from utils.defaults import CurrentUserSiteDefault
 from utils.fieldserializers import YearMonthField
-from ..validators import (
-    validate_optional_value_groups,
-    validate_orderings,
-    validate_non_futures,
-    validate_identifiers,
-    validate_choice_constraints,
-    validate_conditional_required,
-)
+from .. import validators
 from ..types import OnyxType
 from ..fields import OnyxField
 
@@ -126,7 +119,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
 
         errors = {}
 
-        validate_identifiers(
+        validators.validate_identifiers(
             errors=errors,
             data=data,
             identifiers=self.OnyxMeta.identifiers,
@@ -138,21 +131,21 @@ class BaseRecordSerializer(serializers.ModelSerializer):
             # In this case, we don't want to apply the other object-level validation.
             pass
         else:
-            validate_optional_value_groups(
+            validators.validate_optional_value_groups(
                 errors=errors,
                 data=data,
                 groups=self.OnyxMeta.optional_value_groups,
                 instance=self.instance,
             )
 
-            validate_orderings(
+            validators.validate_orderings(
                 errors=errors,
                 data=data,
                 orderings=self.OnyxMeta.orderings,
                 instance=self.instance,
             )
 
-            validate_choice_constraints(
+            validators.validate_choice_constraints(
                 errors=errors,
                 data=data,
                 choice_constraints=self.OnyxMeta.choice_constraints,
@@ -160,16 +153,23 @@ class BaseRecordSerializer(serializers.ModelSerializer):
                 instance=self.instance,
             )
 
-            validate_non_futures(
+            validators.validate_non_futures(
                 errors=errors,
                 data=data,
                 non_futures=self.OnyxMeta.non_futures,
             )
 
-            validate_conditional_required(
+            validators.validate_conditional_required(
                 errors=errors,
                 data=data,
                 conditional_required=self.OnyxMeta.conditional_required,
+                instance=self.instance,
+            )
+
+            validators.validate_conditional_value_required(
+                errors=errors,
+                data=data,
+                conditional_value_required=self.OnyxMeta.conditional_value_required,
                 instance=self.instance,
             )
 
@@ -196,6 +196,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         non_futures: list[str] = []
         choice_constraints: list[tuple[str, str]] = []
         conditional_required: dict[str, list[str]] = {}
+        conditional_value_required: dict[tuple[str, Any, Any], list[str]] = {}
 
 
 class ProjectRecordSerializer(BaseRecordSerializer):
@@ -209,9 +210,10 @@ class ProjectRecordSerializer(BaseRecordSerializer):
         model: models.Model | None = None
         fields = BaseRecordSerializer.Meta.fields + [
             "climb_id",
+            "is_published",
             "published_date",
-            "suppressed",
-            "site_restricted",
+            "is_suppressed",
+            "is_site_restricted",
         ]
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):

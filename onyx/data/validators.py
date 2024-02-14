@@ -7,6 +7,10 @@ from .models import Choice
 EMPTY_VALUES = [None, ""]
 
 
+# TODO: Move validator logic into DRF class-based validator format
+# Then they can be attached to serializers in a more standard way
+
+
 def validate_optional_value_groups(
     errors: dict[str, list[str]],
     data: dict[str, Any],
@@ -187,7 +191,7 @@ def validate_conditional_required(
     instance: type[models.Model] | None = None,
 ):
     """
-    Ensure all conditionally-required fields are provided.
+    Ensure all conditional-required fields are provided.
     """
 
     for field, requirements in conditional_required.items():
@@ -205,4 +209,35 @@ def validate_conditional_required(
                 if req in EMPTY_VALUES:
                     errors.setdefault(requirements[i], []).append(
                         f"This field is required if {field} is provided."
+                    )
+
+
+def validate_conditional_value_required(
+    errors: dict[str, list[str]],
+    data: dict[str, Any],
+    conditional_value_required: dict[tuple[str, Any, Any], list[str]],
+    instance: type[models.Model] | None = None,
+):
+    """
+    Ensure all conditional-value-required fields are provided.
+    """
+
+    for (field, value, default), requirements in conditional_value_required.items():
+        if instance:
+            required_values = [
+                data.get(req, getattr(instance, req)) for req in requirements
+            ]
+            field_value = data.get(field, getattr(instance, field))
+        else:
+            required_values = [data.get(req) for req in requirements]
+            field_value = data.get(field)
+
+        if field_value in EMPTY_VALUES and default not in EMPTY_VALUES:
+            field_value = default
+
+        if field_value == value:
+            for i, req in enumerate(required_values):
+                if req in EMPTY_VALUES:
+                    errors.setdefault(requirements[i], []).append(
+                        f"This field is required if {field} equals {value}."
                     )

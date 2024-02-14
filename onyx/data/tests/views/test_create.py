@@ -150,7 +150,7 @@ class TestCreateView(OnyxTestCase):
         """
 
         payload = copy.deepcopy(default_payload)
-        payload["suppressed"] = "helloooo"
+        payload["is_suppressed"] = "helloooo"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert TestModel.objects.count() == 0

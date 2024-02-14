@@ -7,6 +7,7 @@ from utils.constraints import (
     ordering,
     non_futures,
     conditional_required,
+    conditional_value_required,
 )
 
 
@@ -63,9 +64,10 @@ class BaseTestModel(ProjectRecord):
         indexes = [
             models.Index(fields=["created"]),
             models.Index(fields=["climb_id"]),
+            models.Index(fields=["is_published"]),
             models.Index(fields=["published_date"]),
-            models.Index(fields=["suppressed"]),
-            models.Index(fields=["site_restricted"]),
+            models.Index(fields=["is_suppressed"]),
+            models.Index(fields=["is_site_restricted"]),
             models.Index(fields=["sample_id", "run_name"]),
             models.Index(fields=["sample_id"]),
             models.Index(fields=["run_name"]),
@@ -101,6 +103,12 @@ class BaseTestModel(ProjectRecord):
                 model_name="basetestmodel",
                 field="region",
                 required=["country"],
+            ),
+            conditional_value_required(
+                model_name="mscape",
+                field="is_published",
+                value=True,
+                required=["published_date"],
             ),
         ]
 

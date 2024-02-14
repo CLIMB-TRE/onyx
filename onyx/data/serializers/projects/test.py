@@ -106,7 +106,7 @@ class TestModelSerializer(BaseTestModelSerializer):
     class Meta:
         model = TestModel
         fields = BaseTestModelSerializer.Meta.fields
-        # NOTE: Just like fields, validators must be inherited
+        # NOTE: Just like fields, validators must be inherited, IF they exist in the parent class.
         validators = BaseTestModelSerializer.Meta.validators
 
     class OnyxMeta(BaseTestModelSerializer.OnyxMeta):

@@ -19,7 +19,7 @@ class TestFilterView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse("data.project", kwargs={"code": "test"})
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
         for payload in generate_test_data():
             response = self.client.post(self.endpoint, data=payload)

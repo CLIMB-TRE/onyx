@@ -16,7 +16,7 @@ class TestUpdateView(OnyxTestCase):
             "data.project.climb_id", kwargs={"code": "test", "climb_id": climb_id}
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
         response = self.client.post(
             reverse("data.project", kwargs={"code": "test"}),

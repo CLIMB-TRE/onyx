@@ -15,7 +15,7 @@ class TestIdentifyView(OnyxTestCase):
             "data.project.identify", kwargs={"code": "test", "field": field}
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
         test_record = next(iter(generate_test_data(n=1)))
         self.input_sample_id = test_record["sample_id"]

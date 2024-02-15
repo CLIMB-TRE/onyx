@@ -30,6 +30,7 @@ default_payload = {
     "score": 42.832,
     "start": 1,
     "end": 2,
+    "required_when_published": "hello",
     "records": [
         {
             "test_id": 1,
@@ -37,6 +38,7 @@ default_payload = {
             "test_start": "2023-01",
             "test_end": "2023-02",
             "score_a": 42.101,
+            "test_result": "details",
         },
         {
             "test_id": 2,
@@ -58,7 +60,7 @@ class TestCreateView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse("data.project", kwargs={"code": "test"})
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
 
     def test_basic(self):
@@ -224,6 +226,56 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0]["score_a"] = 42.3
         payload["records"][0]["score_b"] = 42.3112
         payload["records"][0]["score_c"] = 42.4242
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert TestModel.objects.count() == 1
+        assert TestModelRecord.objects.count() == 2
+        instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        _test_record(self, payload, instance, created=True)
+
+    def test_conditional_value_required_fields(self):
+        """
+        Test that a payload with missing conditional-value required fields fails.
+        """
+
+        payload = copy.deepcopy(default_payload)
+
+        # required_when_published is required when the record is being published
+        payload.pop("required_when_published")
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert TestModel.objects.count() == 0
+        assert TestModelRecord.objects.count() == 0
+
+        # required_when_published is not required when the record is not published
+        payload["is_published"] = False
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert TestModel.objects.count() == 1
+        assert TestModelRecord.objects.count() == 2
+        instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        _test_record(self, payload, instance, created=True)
+
+    def test_nested_conditional_value_required_fields(self):
+        """
+        Test that a nested conditional-value required constraint works.
+        """
+
+        payload = copy.deepcopy(default_payload)
+
+        # test_result is required when its test_pass is True
+        payload["records"][0].pop("test_result")
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert TestModel.objects.count() == 0
+        assert TestModelRecord.objects.count() == 0
+
+        # test_result is not required when its test_pass is False
+        payload["records"][0]["test_pass"] = False
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert TestModel.objects.count() == 1

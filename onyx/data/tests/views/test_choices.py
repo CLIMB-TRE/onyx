@@ -14,7 +14,7 @@ class TestChoicesView(OnyxTestCase):
             "data.project.choices", kwargs={"code": "test", "field": field}
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
 
     def test_basic(self):

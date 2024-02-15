@@ -24,6 +24,7 @@ class TestModelRecordSerializer(BaseRecordSerializer):
             "score_a",
             "score_b",
             "score_c",
+            "test_result",
         ]
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):
@@ -37,6 +38,10 @@ class TestModelRecordSerializer(BaseRecordSerializer):
         conditional_required = BaseRecordSerializer.OnyxMeta.conditional_required | {
             "score_c": ["score_a", "score_b"]
         }
+        conditional_value_required = (
+            BaseRecordSerializer.OnyxMeta.conditional_value_required
+            | {("test_pass", True, None): ["test_result"]}
+        )
 
 
 class BaseTestModelSerializer(ProjectRecordSerializer):
@@ -65,6 +70,7 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
             "score",
             "start",
             "end",
+            "required_when_published",
         ]
         validators = [
             OnyxUniqueTogetherValidator(
@@ -96,6 +102,14 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         conditional_required = ProjectRecordSerializer.OnyxMeta.conditional_required | {
             "region": ["country"]
         }
+        conditional_value_required = (
+            ProjectRecordSerializer.OnyxMeta.conditional_value_required
+            | {
+                ("is_published", True, True): [
+                    "required_when_published",
+                ]
+            }
+        )
         action_success_fields = (
             ProjectRecordSerializer.OnyxMeta.action_success_fields
             + ["sample_id", "run_name"]

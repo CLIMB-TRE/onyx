@@ -34,7 +34,6 @@ class ProjectGroup(models.Model):
     class Meta:
         constraints = [
             unique_together(
-                model_name="projectgroup",
                 fields=["project", "scope"],
             ),
         ]
@@ -56,7 +55,6 @@ class Choice(models.Model):
         ]
         constraints = [
             unique_together(
-                model_name="choice",
                 fields=["project", "field", "choice"],
             ),
         ]

@@ -86,6 +86,7 @@ def generate_test_data(n: int = 100):
             "score": random.random() * 42,
             "start": random.randint(1, 5),
             "end": random.randint(6, 10),
+            "required_when_published": "hello",
         }
         if records:
             x["records"] = [
@@ -95,6 +96,7 @@ def generate_test_data(n: int = 100):
                     "test_start": f"2022-{random.randint(1, 12)}",
                     "test_end": f"2023-{random.randint(1, 6)}",
                     "score_a": random.random() * 42,
+                    "test_result": "details",
                 },
                 {
                     "test_id": 2,
@@ -102,6 +104,7 @@ def generate_test_data(n: int = 100):
                     "test_start": f"2022-{random.randint(1, 12)}",
                     "test_end": f"2023-{random.randint(1, 6)}",
                     "score_b": random.random() * 42,
+                    "test_result": "details",
                 },
             ]
         data.append(x)

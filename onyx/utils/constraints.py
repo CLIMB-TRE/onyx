@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import operator
 from typing import Any
 from django.db import models
@@ -8,80 +9,85 @@ from django.db.models import F, Q
 # TODO: Test constraints
 
 
-def unique_together(
-    model_name: str,
-    fields: list[str],
-    fields_name: str | None = None,
-):
+def generate_constraint_name(code: str, fields: list[str]) -> str:
+    """
+    Generates a unique name for a constraint based on the provided `code` and `fields`.
+
+    Args:
+        code: The constraint code.
+        fields: List of fields involved.
+
+    Returns:
+        The generated name.
+    """
+
+    fields_identifier = "_".join(fields)
+    constraint_identifier = "_".join(
+        ["%(app_label)s", "%(class)s", code, fields_identifier]
+    )
+    hasher = hashlib.sha256()
+    hasher.update(constraint_identifier.encode("utf-8"))
+    hash = hasher.hexdigest()
+
+    # The layout of the constraint name follows the structure of Django's index names
+    return f"%(app_label)s_%(class)s_{fields_identifier[:7]}_{hash[:6]}_{code}"
+
+
+def unique_together(fields: list[str]):
     """
     Creates a unique constraint over the provided `fields`.
 
     This means that the combination of these fields in a given instance must be unique across all other instances.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         fields: The fields to create the constraint over.
-        fields_name: The name of the group of fields (used in naming the constraint).
 
     Returns:
         The constraint.
     """
 
-    if not fields_name:
-        fields_name = "_".join(fields)
-
     return models.UniqueConstraint(
         fields=fields,
-        name=f"unique_together_{model_name}_{fields_name}",
+        name=generate_constraint_name(
+            code="ut",
+            fields=fields,
+        ),
     )
 
 
-def optional_value_group(
-    model_name: str,
-    fields: list[str],
-    fields_name: str | None = None,
-):
+def optional_value_group(fields: list[str]):
     """
     Creates a constraint that ensures at least one of the provided `fields` is not null.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         fields: The fields to create the constraint over.
-        fields_name: The name of the group of fields (used in naming the constraint).
 
     Returns:
         The constraint.
     """
 
-    # For each field, build a Q object that requires the field is not null
-    q_objects = [Q(**{f"{field}__isnull": False}) for field in fields]
-
-    # Reduce the Q objects into a single Q object that requires at least one of the fields is not null
+    # Build a Q object that says at least one of the fields is not null
     # This is done by OR-ing the Q objects together
-    check = functools.reduce(operator.or_, q_objects)
-
-    if not fields_name:
-        fields_name = "_".join(fields)
+    check = functools.reduce(
+        operator.or_, [Q(**{f"{field}__isnull": False}) for field in fields]
+    )
 
     return models.CheckConstraint(
         check=check,
-        name=f"optional_value_group_{model_name}_{fields_name}",
-        violation_error_message=f"At least one of the fields within the group {fields_name} is required.",
+        name=generate_constraint_name(
+            code="ovg",
+            fields=fields,
+        ),
+        violation_error_message=f"At least one of {', '.join(fields)} is required.",
     )
 
 
-def ordering(
-    model_name: str,
-    fields: tuple[str, str],
-    fields_name: str | None = None,
-):
+def ordering(fields: tuple[str, str]):
     """
     Creates a constraint that ensures the first field is less than or equal to the second field.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         fields: The fields to create the constraint over.
-        fields_name: The name of the group of fields (used in naming the constraint).
 
     Returns:
         The constraint.
@@ -99,28 +105,22 @@ def ordering(
         | models.Q(**{f"{lower}__lte": models.F(higher)})
     )
 
-    if not fields_name:
-        fields_name = f"{lower}_{higher}"
-
     return models.CheckConstraint(
         check=check,
-        name=f"ordering_{model_name}_{fields_name}",
-        violation_error_message=f"The '{lower}' must be less than or equal to '{higher}'.",
+        name=generate_constraint_name(
+            code="ord",
+            fields=list(fields),
+        ),
+        violation_error_message=f"The {lower} must be less than or equal to {higher}.",
     )
 
 
-def non_futures(
-    model_name: str,
-    fields: list[str],
-    fields_name: str | None = None,
-):
+def non_futures(fields: list[str]):
     """
     Creates a constraint that ensures that the provided `fields` are not from the future.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         fields: The fields to create the constraint over.
-        fields_name: The name of the group of fields (used in naming the constraint).
 
     Returns:
         The constraint.
@@ -137,30 +137,23 @@ def non_futures(
         ],
     )
 
-    if not fields_name:
-        fields_name = "_".join(fields)
-
     return models.CheckConstraint(
         check=check,
-        name=f"non_future_{model_name}_{fields_name}",
-        violation_error_message=f"At least one of the fields within the group {fields_name} is from the future.",
+        name=generate_constraint_name(
+            code="nf",
+            fields=fields,
+        ),
+        violation_error_message=f"At least one of {', '.join(fields)} is from the future.",
     )
 
 
-def conditional_required(
-    model_name: str,
-    field: str,
-    required: list[str],
-    required_name: str | None = None,
-):
+def conditional_required(field: str, required: list[str]):
     """
     Creates a constraint that ensures that the `field` can only be not null when all of the `required` fields are not null.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         field: The field to create the constraint over.
         required: The fields that are required in order to set the `field`.
-        required_name: The name of the group of required fields (used in naming the constraint).
 
     Returns:
         The constraint.
@@ -183,32 +176,24 @@ def conditional_required(
     # (NOT condition) OR requirements
     check = (~condition) | requirements
 
-    if not required_name:
-        required_name = "_".join(required)
-
     return models.CheckConstraint(
         check=check,
-        name=f"conditional_required_{model_name}_{field}_requires_{required_name}",
-        violation_error_message=f"All fields within the group {required_name} are required in order to set {field}.",
+        name=generate_constraint_name(
+            code="cr",
+            fields=[field] + required,
+        ),
+        violation_error_message=f"Each of {', '.join(required)} are required in order to set {field}.",
     )
 
 
-def conditional_value_required(
-    model_name: str,
-    field: str,
-    value: Any,
-    required: list[str],
-    required_name: str | None = None,
-):
+def conditional_value_required(field: str, value: Any, required: list[str]):
     """
     Creates a constraint that ensures that the `field` can only be set to the `value` when all of the `required` fields are not null.
 
     Args:
-        model_name: The name of the model (used in naming the constraint).
         field: The field to create the constraint over.
         value: The value that the `field` is required to be set to.
         required: The fields that are required in order to set the `field` to the `value`.
-        required_name: The name of the group of required fields (used in naming the constraint).
 
     Returns:
         The constraint.
@@ -231,11 +216,11 @@ def conditional_value_required(
     # (NOT condition) OR requirements
     check = (~condition) | requirements
 
-    if not required_name:
-        required_name = "_".join(required)
-
     return models.CheckConstraint(
         check=check,
-        name=f"conditional_value_required_{model_name}_{field}_value_requires_{required_name}",
-        violation_error_message=f"All fields within the group {required_name} are required in order to set {field} to the value.",
+        name=generate_constraint_name(
+            code="cvr",
+            fields=[field] + required,
+        ),
+        violation_error_message=f"Each of {', '.join(required)} are required in order to set {field} to the value.",
     )

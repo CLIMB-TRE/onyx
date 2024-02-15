@@ -13,7 +13,7 @@ class TestProjectsView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse("data.projects")
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.test"]
+            "testuser", roles=["is_staff"], groups=["test.admin"]
         )
 
     def test_basic(self):
@@ -28,7 +28,7 @@ class TestProjectsView(OnyxTestCase):
             [
                 {
                     "project": "test",
-                    "scope": "test",
+                    "scope": "admin",
                     "actions": [action.value for action in Actions],
                 }
             ],

@@ -5,11 +5,12 @@
     "content_type": "data.testmodel",
     "groups": [
         {
-            "scope": "test",
+            "scope": "admin",
             "permissions": [
                 {
                     "action": "add",
                     "fields": [
+                        "is_published",
                         "sample_id",
                         "run_name",
                         "collection_month",
@@ -25,6 +26,7 @@
                         "score",
                         "start",
                         "end",
+                        "required_when_published",
                         "records",
                         "records__test_id",
                         "records__test_pass",
@@ -32,7 +34,8 @@
                         "records__test_end",
                         "records__score_a",
                         "records__score_b",
-                        "records__score_c"
+                        "records__score_c",
+                        "records__test_result"
                     ]
                 },
                 {
@@ -43,6 +46,7 @@
                     ],
                     "fields": [
                         "climb_id",
+                        "is_published",
                         "published_date",
                         "sample_id",
                         "run_name",
@@ -59,6 +63,7 @@
                         "score",
                         "start",
                         "end",
+                        "required_when_published",
                         "records",
                         "records__test_id",
                         "records__test_pass",
@@ -66,7 +71,8 @@
                         "records__test_end",
                         "records__score_a",
                         "records__score_b",
-                        "records__score_c"
+                        "records__score_c",
+                        "records__test_result"
                     ]
                 },
                 {
@@ -79,6 +85,7 @@
                 {
                     "action": "change",
                     "fields": [
+                        "is_published",
                         "collection_month",
                         "received_month",
                         "char_max_length_20",
@@ -92,6 +99,7 @@
                         "score",
                         "start",
                         "end",
+                        "required_when_published",
                         "records",
                         "records__test_id",
                         "records__test_pass",
@@ -99,7 +107,8 @@
                         "records__test_end",
                         "records__score_a",
                         "records__score_b",
-                        "records__score_c"
+                        "records__score_c",
+                        "records__test_result"
                     ]
                 },
                 {

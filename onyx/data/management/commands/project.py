@@ -98,13 +98,13 @@ class Command(base.BaseCommand):
             self.set_choice_constraints(project_config.choice_constraints)
 
         if p_created:
-            self.print(f"Successfully created project: {self.project.code}")
+            self.print(f"Created project: {self.project.code}")
         else:
-            self.print(f"Successfully updated project: {self.project.code}")
+            self.print(f"Updated project: {self.project.code}")
 
-        self.print("Name:", self.project.name)
-        self.print("Description:", self.project.description)
-        self.print("Model:", self.project.content_type.model_class())
+        self.print("• Name:", self.project.name)
+        self.print("• Description:", self.project.description)
+        self.print("• Model:", self.project.content_type.model_class())
 
     def set_groups(self, group_configs: List[GroupConfig]):
         """
@@ -208,7 +208,7 @@ class Command(base.BaseCommand):
             if permissions:
                 self.print(f"Permissions for {name}:")
                 for perm in group.permissions.all():
-                    self.print(f"\t{perm}")
+                    self.print(f"• {perm}")
             else:
                 self.print(f"Group {name} has no permissions.")
 
@@ -227,13 +227,13 @@ class Command(base.BaseCommand):
             )
             if pg_created:
                 self.print(
-                    f"Created project group: {self.project.code} | {projectgroup.scope}"
+                    f"Created project group: {projectgroup.project.code} | {projectgroup.scope}"
                 )
             else:
                 self.print(
-                    f"Updated project group: {self.project.code} | {projectgroup.scope}"
+                    f"Updated project group: {projectgroup.project.code} | {projectgroup.scope}"
                 )
-            self.print(f"Actions: {' | '.join(group_actions)}")
+            self.print(f"• Actions: {' | '.join(group_actions)}")
 
     def set_choices(self, choice_configs: List[ChoiceConfig]):
         """

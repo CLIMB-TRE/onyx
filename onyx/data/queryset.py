@@ -21,21 +21,28 @@ def init_project_queryset(
         A QuerySet for the model with the appropriate filters applied.
     """
 
+    field_set = set(fields)
     qs = model.objects.select_related()
 
-    if "is_published" not in fields:
-        # If the user does not have access to the is_published field, hide unpublished data
-        qs = qs.filter(is_published=True)
+    if "is_published" not in field_set:
+        # If the user does not have access to the is_published field, exclude unpublished data
+        qs = qs.exclude(is_published=False)
 
-    if "is_suppressed" not in fields:
-        # If the user does not have access to the is_suppressed field, hide suppressed data
-        qs = qs.filter(is_suppressed=False)
+    if "is_suppressed" not in field_set:
+        # If the user does not have access to the is_suppressed field, exclude suppressed data
+        qs = qs.exclude(is_suppressed=True)
 
-    if "is_site_restricted" not in fields:
-        # If the user does not have access to the is_site_restricted field, hide site-restricted data from other sites
-        # TODO: For is_site_restricted to work properly, need to have site stored directly on project record
-        # Or have it check the project record's site
-        qs = qs.exclude(Q(is_site_restricted=True) & ~Q(user__site=user.site))
+    if "is_site_restricted" not in field_set:
+        if "site" in set(f.name for f in model._meta.get_fields()):
+            # If the user does not have access to the is_site_restricted field,
+            # exclude site-restricted data from other sites
+            qs = qs.exclude(
+                Q(is_site_restricted=True) & ~Q(site__iexact=user.site.code)
+            )
+        else:
+            # If the user does not have access to the is_site_restricted field and
+            # the model does not have a site field, exclude any site-restricted data
+            qs = qs.exclude(is_site_restricted=True)
 
     return qs
 

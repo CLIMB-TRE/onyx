@@ -1,5 +1,4 @@
 from django.contrib.auth.models import Group
-from django.db import transaction
 from rest_framework import exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -102,17 +101,19 @@ class SiteUsersView(ListAPIView):
         assert isinstance(self.request.user, User)
 
         # Filter and return all active, approved users for the site
-        qs = User.objects.filter(
+        # who have access to the same projects
+        projects = self.request.user.groups.values_list(
+            "projectgroup__project", flat=True
+        ).distinct()
+
+        users = User.objects.filter(
             is_active=True,
             is_approved=True,
             site=self.request.user.site,
-        )
+            groups__projectgroup__project__in=projects,
+        ).order_by("-date_joined")
 
-        # If the requesting user is a project user, filter by project
-        if self.request.user.is_projectuser:
-            qs = qs.filter(project=self.request.user.project)
-
-        return qs.order_by("-date_joined")
+        return users
 
 
 class AllUsersView(ListAPIView):
@@ -149,6 +150,9 @@ class ProjectUserView(KnoxLoginView):
         except Group.DoesNotExist:
             raise ProjectNotFound
 
+        # Get the project
+        project = analyst_group.projectgroup.project  #  type: ignore
+
         # Attempt to parse site code from username
         # TODO: Sort out CLIMB configuration so this is not needed
         try:
@@ -163,48 +167,36 @@ class ProjectUserView(KnoxLoginView):
         except Site.DoesNotExist:
             raise SiteNotFound
 
-        try:
-            # Get the projectuser
-            user = User.objects.get(username=username)
+        # The site must have access to the project
+        if project not in site.projects.all():
+            raise exceptions.PermissionDenied(
+                {"detail": "This site does not have access to this project."}
+            )
 
-            # The user cannot be the creator, or have a different creator
+        # Get the user, and check they have the correct creator and site
+        # If the user does not exist, create them
+        try:
+            user = User.objects.get(username=username)
             if user.creator != request.user or user == request.user:
                 raise exceptions.PermissionDenied(
                     {"detail": "You cannot modify this user."}
                 )
-
-            # The user cannot be from a different site than specified
             if user.site != site:
                 raise exceptions.ValidationError(
                     {"detail": "This user belongs to a different site."}
                 )
-
-            # The user must be a projectuser
-            if not user.is_projectuser:
-                raise exceptions.PermissionDenied(
-                    {"detail": "This user is not a projectuser."}
-                )
-
-            # The user cannot be from a different project than specified
-            if user.project != analyst_group.projectgroup.project:  #  type: ignore
-                raise exceptions.ValidationError(
-                    {"detail": "This user belongs to a different project."}
-                )
-
         except User.DoesNotExist:
-            # If the user does not exist, create them and add them to the analyst group
-            with transaction.atomic():
-                user = User.objects.create(
-                    username=username,
-                    site=site,
-                    is_approved=True,
-                    creator=request.user,
-                    is_projectuser=True,
-                    project=analyst_group.projectgroup.project,  #  type: ignore
-                )
-                user.set_unusable_password()
-                user.save()
-                user.groups.set([analyst_group])
+            user = User.objects.create(
+                username=username,
+                site=site,
+                is_approved=True,
+                creator=request.user,
+            )
+            user.set_unusable_password()
+            user.save()
+
+        # Add the user to the analyst group
+        user.groups.add(analyst_group)
 
         request.user = user
         return super().post(request)

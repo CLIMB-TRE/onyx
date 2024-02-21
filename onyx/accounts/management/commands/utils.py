@@ -80,9 +80,6 @@ def manage_instance_groups(
 
     qs = Group.objects.all()
 
-    if getattr(instance, "is_projectuser", False):
-        qs = qs.filter(projectgroup__project=instance.project)
-
     if granted:
         for g in granted:
             group = qs.get(name=g)

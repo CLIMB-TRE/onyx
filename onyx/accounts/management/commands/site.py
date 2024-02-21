@@ -1,5 +1,6 @@
 from typing import Optional
 from django.core.management import base
+from data.models import Project
 from ...models import Site
 from .utils import manage_instance_roles, list_instances
 
@@ -12,6 +13,7 @@ ROLES = [
 def create_site(
     code: str,
     description: Optional[str] = None,
+    projects: Optional[list[str]] = None,
 ) -> None:
     """
     Create/update a site with the given code and description.
@@ -19,6 +21,7 @@ def create_site(
     Args:
         code: The code of the site.
         description: The description of the site.
+        projects: A list of project codes for projects the site can access.
     """
 
     defaults = {}
@@ -31,12 +34,26 @@ def create_site(
         defaults=defaults,
     )
 
+    if projects:
+        project_instances = []
+
+        for project in projects:
+            try:
+                project_instance = Project.objects.get(code=project)
+            except Project.DoesNotExist:
+                print(f"Project with code '{project}' does not exist.")
+                exit()
+            project_instances.append(project_instance)
+
+        site.projects.set(project_instances)
+
     if created:
         print(f"Created site: {site.code}")
     else:
         print(f"Updated site: {site.code}")
 
     print(f"• Description: {site.description}")
+    print(f"• Projects: {', '.join(site.projects.values_list('name', flat=True))}")
 
 
 def list_sites():
@@ -48,8 +65,9 @@ def list_sites():
         [
             {
                 "code": site.code,
+                "description": f"'{site.description.replace(' ', '+')}'",
                 "is_active": site.is_active,
-                "description": f"'{site.description}'",
+                "projects": ",".join(site.projects.values_list("code", flat=True)),
             }
             for site in Site.objects.all()
         ]
@@ -68,6 +86,7 @@ class Command(base.BaseCommand):
         create_parser = command.add_parser("create", help="Create a site.")
         create_parser.add_argument("code")
         create_parser.add_argument("-d", "--description")
+        create_parser.add_argument("-p", "--projects", nargs="+")
 
         # MANAGE SITE ROLES
         roles_parser = command.add_parser("roles", help="Manage roles for a site.")
@@ -85,6 +104,7 @@ class Command(base.BaseCommand):
             create_site(
                 code=options["code"],
                 description=options["description"],
+                projects=options["projects"],
             )
 
         elif options["command"] == "list":

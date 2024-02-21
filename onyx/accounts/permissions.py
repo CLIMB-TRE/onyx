@@ -125,9 +125,11 @@ class IsProjectApproved(permissions.BasePermission):
         if not request.user.has_perm(project_access_permission):
             raise ProjectNotFound(project_suggestions())
 
-        # If the user is a projectuser, check that they are a projectuser of the project
-        if request.user.is_projectuser and request.user.project != project:
-            self.message = "You do not have access to this project."
+        # Check the user's site has access to the project
+        if project not in request.user.site.projects.all():
+            self.message = (
+                f"Your site does not have access to the {project.name} project."
+            )
             return False
 
         # Check the user's permission to perform action on the project

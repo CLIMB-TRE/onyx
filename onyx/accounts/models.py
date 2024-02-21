@@ -3,13 +3,13 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinLengthValidator
 from utils.fields import LowerCharField
-from utils.constraints import conditional_value_required
 
 
 class Site(models.Model):
     code = LowerCharField(max_length=10, unique=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    projects = models.ManyToManyField("data.Project", related_name="sites")
 
 
 class User(AbstractUser):
@@ -28,14 +28,3 @@ class User(AbstractUser):
     site = models.ForeignKey(Site, to_field="code", on_delete=models.CASCADE)
     is_approved = models.BooleanField(default=False)
     creator = models.ForeignKey("User", on_delete=models.PROTECT, null=True)
-    is_projectuser = models.BooleanField(default=False)
-    project = models.ForeignKey("data.Project", on_delete=models.CASCADE, null=True)
-
-    class Meta:
-        constraints = [
-            conditional_value_required(
-                "is_projectuser",
-                True,
-                required=["project"],
-            )
-        ]

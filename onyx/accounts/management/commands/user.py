@@ -65,13 +65,13 @@ def list_users() -> None:
             {
                 "username": user.username,
                 "site": user.site.code,
+                "site_projects" : ",".join(user.site.projects.values_list("code", flat=True)),
                 "creator": user.creator.username if user.creator else None,
                 "date_joined": user.date_joined.strftime("%Y-%m-%d"),
+                "last_login": user.last_login.strftime("%Y-%m-%d") if user.last_login else None,
                 "is_active": user.is_active,
                 "is_approved": user.is_approved,
                 "is_staff": user.is_staff,
-                "is_projectuser": user.is_projectuser,
-                "project": user.project.code if user.project else None,
                 "groups": ",".join(user.groups.values_list("name", flat=True)),
             }
             for user in User.objects.all().order_by("-is_staff", "date_joined")

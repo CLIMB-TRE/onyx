@@ -33,16 +33,9 @@ def init_project_queryset(
         qs = qs.exclude(is_suppressed=True)
 
     if "is_site_restricted" not in field_set:
-        if "site" in set(f.name for f in model._meta.get_fields()):
-            # If the user does not have access to the is_site_restricted field,
-            # exclude site-restricted data from other sites
-            qs = qs.exclude(
-                Q(is_site_restricted=True) & ~Q(site__iexact=user.site.code)
-            )
-        else:
-            # If the user does not have access to the is_site_restricted field and
-            # the model does not have a site field, exclude any site-restricted data
-            qs = qs.exclude(is_site_restricted=True)
+        # If the user does not have access to the is_site_restricted field,
+        # exclude site-restricted data from other sites
+        qs = qs.exclude(Q(is_site_restricted=True) & ~Q(site=user.site))
 
     return qs
 

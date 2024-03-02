@@ -68,6 +68,7 @@ class BaseTestModel(ProjectRecord):
             models.Index(fields=["is_published"]),
             models.Index(fields=["published_date"]),
             models.Index(fields=["is_suppressed"]),
+            models.Index(fields=["site"]),
             models.Index(fields=["is_site_restricted"]),
             models.Index(fields=["sample_id", "run_name"]),
             models.Index(fields=["sample_id"]),

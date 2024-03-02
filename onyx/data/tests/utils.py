@@ -28,7 +28,7 @@ class OnyxTestCase(APITestCase):
 
         # Set up test site
         self.site = Site.objects.create(
-            code="TEST",
+            code="test",
             description="Department of Testing",
         )
 
@@ -121,6 +121,9 @@ def _test_record(self, payload, instance, created: bool = False):
     """
     Test that a payload's values match an instance.
     """
+
+    # Assert the instance has the correct site
+    self.assertEqual(instance.site, self.site)
 
     # Assert that the instance has the correct values as the payload
     if not created:

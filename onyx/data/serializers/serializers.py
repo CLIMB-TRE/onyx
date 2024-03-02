@@ -53,9 +53,6 @@ class BaseRecordSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), default=serializers.CurrentUserDefault()
     )
-    # site = serializers.PrimaryKeyRelatedField(
-    #     queryset=Site.objects.all(), default=CurrentUserSiteDefault()
-    # )
 
     def __init__(self, *args, fields: dict[str, Any] | None = None, **kwargs):
         """
@@ -184,7 +181,6 @@ class BaseRecordSerializer(serializers.ModelSerializer):
             "created",
             "last_modified",
             "user",
-            # "site",
         ]
 
     class OnyxMeta:
@@ -205,6 +201,11 @@ class ProjectRecordSerializer(BaseRecordSerializer):
     """
 
     climb_id = serializers.CharField(required=False)
+    site = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Site.objects.all(),
+        default=CurrentUserSiteDefault(),
+    )
 
     class Meta:
         model: models.Model | None = None
@@ -213,6 +214,7 @@ class ProjectRecordSerializer(BaseRecordSerializer):
             "is_published",
             "published_date",
             "is_suppressed",
+            "site",
             "is_site_restricted",
         ]
 

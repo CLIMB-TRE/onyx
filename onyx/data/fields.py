@@ -7,6 +7,7 @@ from utils.fields import (
     UpperCharField,
     ChoiceField,
     YearMonthField,
+    SiteField,
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
@@ -59,7 +60,7 @@ class OnyxField:
         }:
             self.onyx_type = OnyxType.TEXT
 
-        elif self.field_type == ChoiceField:
+        elif self.field_type in {ChoiceField, SiteField}:
             self.onyx_type = OnyxType.CHOICE
             self.choices = Choice.objects.filter(
                 project=self.project,
@@ -376,6 +377,7 @@ def generate_fields_spec(
     fields_spec = {}
 
     # Handle serializer fields
+    serializer_fields = serializer().get_fields()
     for field in serializer.Meta.fields:
         # Skip fields that are not in the fields_dict
         if field not in fields_dict:
@@ -391,9 +393,14 @@ def generate_fields_spec(
         onyx_type = onyx_fields[field_path].onyx_type
         field_instance = onyx_fields[field_path].field_instance
 
+        # Override the field's description from the serializer if it exists
+        description = serializer_fields[field].help_text
+        if not description:
+            description = onyx_fields[field_path].description
+
         # Generate initial spec for the field
         field_spec = {
-            "description": onyx_fields[field_path].description,
+            "description": description,
             "type": onyx_type.label,
             "required": onyx_fields[field_path].required,
             "actions": [

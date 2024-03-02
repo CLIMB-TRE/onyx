@@ -48,6 +48,7 @@
                         "climb_id",
                         "is_published",
                         "published_date",
+                        "site",
                         "sample_id",
                         "run_name",
                         "collection_month",

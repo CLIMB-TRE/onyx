@@ -5,4 +5,5 @@ from .models import (
     BaseRecord,
     ProjectRecord,
     Anonymiser,
+    Anonymiser2,
 )

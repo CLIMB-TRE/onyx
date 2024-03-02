@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.fieldserializers import AnonymiserField
 from utils.functions import parse_permission
-from accounts.permissions import Approved, ProjectApproved, ProjectAdmin
+from accounts.permissions import Approved, ProjectApproved, IsObjectSite
 from .models import Project, Choice, ProjectRecord
 from .serializers import (
     ProjectSerializerMap,
@@ -291,37 +291,35 @@ class IdentifyView(ProjectAPIView):
 
 
 class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
-    def get_permissions(self):
-        match (self.request.method, self.action):
+    permission_classes = ProjectApproved + [IsObjectSite]
 
+    def initial(self, request: Request, *args, **kwargs):
+        match (self.request.method, self.action):
             case ("POST", "create"):
-                permission_classes = ProjectAdmin
                 self.project_action = "add"
 
             case ("POST", "list"):
-                permission_classes = ProjectApproved
                 self.project_action = "list"
 
-            case ("GET", "retrieve"):
-                permission_classes = ProjectApproved
+            case ("GET", "retrieve") | ("HEAD", "retrieve"):
                 self.project_action = "get"
 
-            case ("GET", "list"):
-                permission_classes = ProjectApproved
+            case ("GET", "list") | ("HEAD", "list"):
                 self.project_action = "list"
 
             case ("PATCH", "partial_update"):
-                permission_classes = ProjectAdmin
                 self.project_action = "change"
 
             case ("DELETE", "destroy"):
-                permission_classes = ProjectAdmin
                 self.project_action = "delete"
+
+            case ("OPTIONS", "metadata"):
+                self.project_action = "access"
 
             case _:
                 raise exceptions.MethodNotAllowed(self.request.method)
 
-        return [permission() for permission in permission_classes]
+        super().initial(request, *args, **kwargs)
 
     def create(self, request: Request, code: str, test: bool = False) -> Response:
         """
@@ -561,6 +559,9 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         except self.model.DoesNotExist:
             raise ClimbIDNotFound
 
+        # Check permissions to update the instance
+        self.check_object_permissions(request, instance)
+
         # Validate the data
         node = SerializerNode(
             self.serializer_cls,
@@ -597,23 +598,11 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         Use the `climb_id` to permanently delete an instance of the given project `code`.
         """
 
-        if not request.user.is_staff:
-            # TODO: # This logic is currently unused as only staff members can access this endpoint
-            # If its opened to non-staff, the IsObjectSite permission will need to be added
-
-            # If the user is not staff, they can only delete instances if:
-            # The instance is published
-            # The instance is not suppressed
-            # The instance is not site restricted to a different site
-            fields = []
-        else:
-            fields = ["is_published", "is_suppressed", "is_site_restricted"]
-
         # Initial queryset
         qs = init_project_queryset(
             model=self.model,
             user=request.user,
-            fields=fields,
+            fields=self.handler.get_fields(),
         )
 
         # Get the instance to be deleted
@@ -622,6 +611,9 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             instance = qs.get(climb_id=climb_id)
         except self.model.DoesNotExist:
             raise ClimbIDNotFound
+
+        # Check permissions to delete the instance
+        self.check_object_permissions(request, instance)
 
         # Delete the instance
         instance.delete()

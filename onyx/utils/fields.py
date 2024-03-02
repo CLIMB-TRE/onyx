@@ -44,3 +44,7 @@ class YearMonthField(models.DateField):
 
 class ChoiceField(models.TextField):
     pass
+
+
+class SiteField(models.ForeignKey):
+    pass

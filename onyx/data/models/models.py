@@ -8,7 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
-from utils.fields import StrippedCharField, LowerCharField, UpperCharField
+from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
 from utils.constraints import unique_together
 from simple_history.models import HistoricalRecords
 from ..types import ALL_LOOKUPS
@@ -88,8 +88,6 @@ class BaseRecord(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
-    # TODO: Display sites again
-    # site = models.ForeignKey(Site, to_field="code", on_delete=models.PROTECT)
 
     class Meta:
         abstract = True
@@ -131,6 +129,12 @@ class ProjectRecord(BaseRecord):
     is_suppressed = models.BooleanField(
         default=False,
         help_text="Indicator for whether a project record has been hidden from users.",
+    )
+    site = SiteField(
+        Site,
+        to_field="code",
+        on_delete=models.PROTECT,
+        help_text="Site that uploaded the record.",
     )
     is_site_restricted = models.BooleanField(
         default=False,
@@ -179,6 +183,58 @@ class Anonymiser(models.Model):
 
         if cls.objects.filter(identifier=identifier).exists():
             identifier = cls.generate_identifier()
+
+        return identifier
+
+    def save(self, *args, **kwargs):
+        if not self.identifier:
+            self.identifier = self.generate_identifier()
+
+        super().save(*args, **kwargs)
+
+
+class Anonymiser2(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT)
+    prefix = UpperCharField(max_length=5)
+    hash = models.TextField()
+    identifier = UpperCharField(unique=True, max_length=12)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=[
+                    "project",
+                    "site",
+                    "prefix",
+                    "hash",
+                ]
+            ),
+        ]
+        constraints = [
+            unique_together(
+                fields=[
+                    "project",
+                    "site",
+                    "prefix",
+                    "hash",
+                ],
+            ),
+        ]
+
+    def generate_identifier(self) -> str:
+        """
+        Generate a random unique identifier.
+
+        The identifier consists of the instance's `prefix`, followed by 10 random hexadecimal numbers.
+
+        This means there are `16^10 = 1,099,511,627,776` identifiers to choose from.
+        """
+
+        identifier = self.prefix + token_hex(5).upper()
+
+        if Anonymiser2.objects.filter(identifier=identifier).exists():
+            identifier = self.generate_identifier()
 
         return identifier
 

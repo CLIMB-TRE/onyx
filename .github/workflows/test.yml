@@ -49,6 +49,6 @@ jobs:
         ONYX_PROJECTS: testproject
       working-directory: ./onyx
       run: |
-        poetry run python manage.py makemigrations accounts data internal
+        poetry run python manage.py makemigrations accounts data internal testproject
         poetry run coverage run --source='.' manage.py test -v 2
         poetry run coverage report

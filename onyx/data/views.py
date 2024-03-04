@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+from collections import namedtuple
 from pydantic import RootModel, ValidationError as PydanticValidationError
 from django.db.models import Count
 from rest_framework import status, exceptions
@@ -9,7 +10,7 @@ from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission
-from accounts.permissions import Approved, ProjectApproved, IsObjectSite
+from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from .models import Project, Choice, ProjectRecord, Anonymiser
 from .serializers import SerializerNode, SummarySerializer, IdentifierSerializer
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
@@ -240,7 +241,7 @@ class ChoicesView(ProjectAPIView):
 
 
 class IdentifyView(ProjectAPIView):
-    permission_classes = ProjectApproved + [IsObjectSite]
+    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = "identify"
 
     def post(self, request: Request, code: str, field: str) -> Response:
@@ -265,6 +266,12 @@ class IdentifyView(ProjectAPIView):
         if not serializer.is_valid():
             raise exceptions.ValidationError(serializer.errors)
 
+        # Check permissions to identify the instance
+        site = serializer.validated_data["site"]  #  type: ignore
+        SiteObject = namedtuple("SiteObject", ["site"])
+        site_obj = SiteObject(site=site)
+        self.check_object_permissions(request, site_obj)
+
         # Hash the value
         value = serializer.validated_data["value"]  #  type: ignore
         hasher = hashlib.sha256()
@@ -275,15 +282,12 @@ class IdentifyView(ProjectAPIView):
         try:
             anonymised_field = Anonymiser.objects.get(
                 project=self.project,
-                site=serializer.validated_data["site"],  #  type: ignore
+                site=site,
                 field=field,
                 hash=hash,
             )
         except Anonymiser.DoesNotExist:
             raise IdentifierNotFound
-
-        # Check permissions to identify the instance
-        self.check_object_permissions(request, anonymised_field)
 
         # Return information regarding the identifier
         return Response(
@@ -298,7 +302,7 @@ class IdentifyView(ProjectAPIView):
 
 
 class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
-    permission_classes = ProjectApproved + [IsObjectSite]
+    permission_classes = ProjectApproved + [IsSiteMember]
 
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):

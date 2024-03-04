@@ -75,7 +75,7 @@ class IsApproved(permissions.BasePermission):
         )
 
 
-class IsObjectSite(permissions.BasePermission):
+class IsSiteMember(permissions.BasePermission):
     """
     Allows access only to users of the same site as the object they are accessing.
     """

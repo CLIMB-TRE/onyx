@@ -12,16 +12,17 @@ class TestIdentifyView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = lambda field: reverse(
-            "data.project.identify", kwargs={"code": "test", "field": field}
+            "project.testproject.identify",
+            kwargs={"code": "testproject", "field": field},
         )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.admin"]
+            "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
         test_record = next(iter(generate_test_data(n=1)))
         self.input_sample_id = test_record["sample_id"]
         self.input_run_name = test_record["run_name"]
         response = self.client.post(
-            reverse("data.project", kwargs={"code": "test"}),
+            reverse("project.testproject", kwargs={"code": "testproject"}),
             data=test_record,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -34,13 +35,21 @@ class TestIdentifyView(OnyxTestCase):
         """
 
         response = self.client.post(
-            self.endpoint("sample_id"), data={"value": self.input_sample_id}
+            self.endpoint("sample_id"),
+            data={
+                "site": "test",
+                "value": self.input_sample_id,
+            },
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["data"]["identifier"], self.output_sample_id)
 
         response = self.client.post(
-            self.endpoint("run_name"), data={"value": self.input_run_name}
+            self.endpoint("run_name"),
+            data={
+                "site": "test",
+                "value": self.input_run_name,
+            },
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["data"]["identifier"], self.output_run_name)

@@ -11,7 +11,7 @@ from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
 from utils.constraints import unique_together
 from simple_history.models import HistoricalRecords
-from ..types import ALL_LOOKUPS
+from .types import ALL_LOOKUPS
 
 
 class Project(models.Model):
@@ -156,46 +156,9 @@ class ProjectRecord(BaseRecord):
 
 
 class Anonymiser(models.Model):
-    hash = models.TextField(unique=True)
-    identifier = UpperCharField(unique=True, max_length=12)
-
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def get_identifier_prefix(cls) -> str:
-        """
-        Get the prefix for the identifier.
-        """
-        raise NotImplementedError("A prefix is required.")
-
-    @classmethod
-    def generate_identifier(cls) -> str:
-        """
-        Generate a random new identifier on the given `model`.
-
-        The identifier consists of the given `prefix`, followed by a `-`, followed by 10 random hexadecimal numbers.
-
-        This means there are `16^10 = 1,099,511,627,776` identifiers to choose from for a given `model` and `prefix`.
-        """
-
-        identifier = cls.get_identifier_prefix() + "-" + "".join(token_hex(5).upper())
-
-        if cls.objects.filter(identifier=identifier).exists():
-            identifier = cls.generate_identifier()
-
-        return identifier
-
-    def save(self, *args, **kwargs):
-        if not self.identifier:
-            self.identifier = self.generate_identifier()
-
-        super().save(*args, **kwargs)
-
-
-class Anonymiser2(models.Model):
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
     site = models.ForeignKey(Site, on_delete=models.PROTECT)
+    field = LowerCharField(max_length=100)
     prefix = UpperCharField(max_length=5)
     hash = models.TextField()
     identifier = UpperCharField(unique=True, max_length=12)
@@ -206,7 +169,7 @@ class Anonymiser2(models.Model):
                 fields=[
                     "project",
                     "site",
-                    "prefix",
+                    "field",
                     "hash",
                 ]
             ),
@@ -216,7 +179,7 @@ class Anonymiser2(models.Model):
                 fields=[
                     "project",
                     "site",
-                    "prefix",
+                    "field",
                     "hash",
                 ],
             ),
@@ -233,7 +196,7 @@ class Anonymiser2(models.Model):
 
         identifier = self.prefix + token_hex(5).upper()
 
-        if Anonymiser2.objects.filter(identifier=identifier).exists():
+        if Anonymiser.objects.filter(identifier=identifier).exists():
             identifier = self.generate_identifier()
 
         return identifier

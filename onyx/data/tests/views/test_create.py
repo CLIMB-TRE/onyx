@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.serializers import BooleanField
 from ..utils import OnyxTestCase, _test_record
-from ...models.projects.test import TestModel, TestModelRecord
+from projects.testproject.models import TestModel, TestModelRecord
 
 
 # TODO:
@@ -58,9 +58,9 @@ class TestCreateView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.project", kwargs={"code": "test"})
+        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.admin"]
+            "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
 
     def test_basic(self):
@@ -85,7 +85,8 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         response = self.client.post(
-            reverse("data.project.test", kwargs={"code": "test"}), data=payload
+            reverse("project.testproject.test", kwargs={"code": "testproject"}),
+            data=payload,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert TestModel.objects.count() == 0

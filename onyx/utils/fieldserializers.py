@@ -1,8 +1,7 @@
-import hashlib
 from datetime import date
 from rest_framework import serializers, exceptions
 from django.utils.translation import gettext_lazy as _
-from data.models import Choice, Anonymiser, Anonymiser2
+from data.models import Choice
 from accounts.models import Site
 from utils.functions import get_suggestions
 
@@ -32,8 +31,7 @@ class YearMonthField(serializers.Field):
 class ChoiceField(serializers.ChoiceField):
     default_error_messages = {"invalid_choice": _("{suggestions}")}
 
-    def __init__(self, project, field, **kwargs):
-        self.project = project
+    def __init__(self, field, **kwargs):
         self.field = field
         super().__init__([], **kwargs)
 
@@ -42,7 +40,7 @@ class ChoiceField(serializers.ChoiceField):
 
         self.choices = list(
             Choice.objects.filter(
-                project_id=self.project,
+                project_id=self.context["project"],
                 field=self.field,
                 is_active=True,
             ).values_list(
@@ -78,8 +76,8 @@ class SiteField(ChoiceField):
         "invalid": _("Invalid value."),
     }
 
-    def __init__(self, project, **kwargs):
-        super().__init__(project, "site", **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__("site", **kwargs)
 
     def to_internal_value(self, data):
         value = super().to_internal_value(data)
@@ -92,47 +90,3 @@ class SiteField(ChoiceField):
 
     def to_representation(self, site):
         return site.code
-
-
-class AnonymiserField(serializers.CharField):
-    def __init__(self, anonymiser_model: type[Anonymiser], **kwargs):
-        self.anonymiser_model = anonymiser_model
-        super().__init__(**kwargs)
-
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data).strip().lower()
-
-        hasher = hashlib.sha256()
-        hasher.update(value.encode("utf-8"))
-        value = hasher.hexdigest()
-
-        anonymiser, _ = self.anonymiser_model.objects.get_or_create(hash=value)
-        value = anonymiser.identifier
-
-        return value
-
-
-class AnonymiserField2(serializers.CharField):
-    def __init__(self, project, prefix, **kwargs):
-        self.project = project
-        self.prefix = prefix
-        super().__init__(**kwargs)
-
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data).strip().lower()
-
-        hasher = hashlib.sha256()
-        hasher.update(value.encode("utf-8"))
-        value = hasher.hexdigest()
-
-        # Should the identifier generation/retrieval happen in the object-level validate method ?
-        # Would that allow for max length / min length validators to work correctly ?
-        anonymiser, _ = Anonymiser2.objects.get_or_create(
-            project=self.project,
-            site=self.context["site"],
-            prefix=self.prefix,
-            hash=value,
-        )
-        value = anonymiser.identifier
-
-        return value

@@ -1,8 +1,8 @@
 {
-    "code": "test",
+    "code": "testproject",
     "name": "Test Project",
     "description": "This is a test project",
-    "content_type": "data.testmodel",
+    "content_type": "testproject.testmodel",
     "groups": [
         {
             "scope": "admin",
@@ -120,6 +120,12 @@
         }
     ],
     "choices": [
+        {
+            "field": "site",
+            "options": [
+                "test"
+            ]
+        },
         {
             "field": "country",
             "options": [

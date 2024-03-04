@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from ...models.projects.test import TestModel
+from projects.testproject.models import TestModel
 
 
 # TODO:
@@ -17,9 +17,9 @@ class TestFilterView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.project", kwargs={"code": "test"})
+        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.admin"]
+            "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
         for payload in generate_test_data():
             response = self.client.post(self.endpoint, data=payload)

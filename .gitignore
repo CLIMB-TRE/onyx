@@ -6,9 +6,6 @@
 **.log
 __pycache__
 migrations
-onyx/data/models/projects/*
-!onyx/data/models/projects/__init__.py
-!onyx/data/models/projects/test.py
-onyx/data/serializers/projects/*
-!onyx/data/serializers/projects/__init__.py
-!onyx/data/serializers/projects/test.py
+onyx/projects/*
+!onyx/projects/__init__.py
+!onyx/projects/testproject

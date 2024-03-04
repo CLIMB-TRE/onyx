@@ -11,9 +11,11 @@ class TestLookupsView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.project.lookups", kwargs={"code": "test"})
+        self.endpoint = reverse(
+            "project.testproject.lookups", kwargs={"code": "testproject"}
+        )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.admin"]
+            "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
 
     def test_basic(self):

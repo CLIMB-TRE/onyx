@@ -2,13 +2,11 @@ import os
 import random
 import logging
 from django.core.management import call_command
+from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
 from ..models import Project
-
-
-directory = os.path.dirname(os.path.abspath(__file__))
 
 
 class OnyxTestCase(APITestCase):
@@ -22,7 +20,7 @@ class OnyxTestCase(APITestCase):
         # Set up test project
         call_command(
             "project",
-            os.path.join(directory, "project.json"),
+            os.path.join(settings.BASE_DIR, "projects/testproject/project.json"),
             quiet=True,
         )
 
@@ -33,7 +31,7 @@ class OnyxTestCase(APITestCase):
         )
 
         # Add test project to site
-        self.site.projects.add(Project.objects.get(code="test"))
+        self.site.projects.add(Project.objects.get(code="testproject"))
 
     def setup_user(self, username, roles=None, groups=None):
         """

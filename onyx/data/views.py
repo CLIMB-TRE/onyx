@@ -8,16 +8,10 @@ from rest_framework.response import Response
 from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
-from utils.fieldserializers import AnonymiserField
 from utils.functions import parse_permission
 from accounts.permissions import Approved, ProjectApproved, IsObjectSite
-from .models import Project, Choice, ProjectRecord
-from .serializers import (
-    ProjectSerializerMap,
-    SerializerNode,
-    SummarySerializer,
-    IdentifierSerializer,
-)
+from .models import Project, Choice, ProjectRecord, Anonymiser
+from .serializers import SerializerNode, SummarySerializer, IdentifierSerializer
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
@@ -64,7 +58,8 @@ class ProjectAPIView(APIView):
         self.model = model
 
         # Get the model's serializer
-        self.serializer_cls = ProjectSerializerMap.get(self.model)
+        self.serializer_cls = self.kwargs["serializer_class"]
+        self.kwargs.pop("serializer_class")
 
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
@@ -245,7 +240,7 @@ class ChoicesView(ProjectAPIView):
 
 
 class IdentifyView(ProjectAPIView):
-    permission_classes = ProjectApproved
+    permission_classes = ProjectApproved + [IsObjectSite]
     project_action = "identify"
 
     def post(self, request: Request, code: str, field: str) -> Response:
@@ -259,30 +254,42 @@ class IdentifyView(ProjectAPIView):
         except exceptions.ValidationError as e:
             raise exceptions.ValidationError({"detail": e.args[0]})
 
-        # Determine the field serializer
-        field_serializer = self.serializer_cls().get_fields()[field]  # type: ignore
-        assert isinstance(field_serializer, AnonymiserField)
-
         # Validate request body
-        serializer = IdentifierSerializer(data=self.request_data)
+        serializer = IdentifierSerializer(
+            data=self.request_data,
+            context={
+                "project": self.project,
+                "request": self.request,
+            },
+        )
         if not serializer.is_valid():
             raise exceptions.ValidationError(serializer.errors)
 
         # Hash the value
-        value = serializer.data["value"]  #  type: ignore
+        value = serializer.validated_data["value"]  #  type: ignore
         hasher = hashlib.sha256()
         hasher.update(value.strip().lower().encode("utf-8"))
         hash = hasher.hexdigest()
 
         # Get the anonymised field data from the hash
         try:
-            anonymised_field = field_serializer.anonymiser_model.objects.get(hash=hash)
-        except field_serializer.anonymiser_model.DoesNotExist:
+            anonymised_field = Anonymiser.objects.get(
+                project=self.project,
+                site=serializer.validated_data["site"],  #  type: ignore
+                field=field,
+                hash=hash,
+            )
+        except Anonymiser.DoesNotExist:
             raise IdentifierNotFound
 
-        # Return field, value and identifier
+        # Check permissions to identify the instance
+        self.check_object_permissions(request, anonymised_field)
+
+        # Return information regarding the identifier
         return Response(
             {
+                "project": self.project.code,
+                "site": anonymised_field.site.code,
                 "field": field,
                 "value": value,
                 "identifier": anonymised_field.identifier,
@@ -334,7 +341,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             self.serializer_cls,
             data=self.request_data,
             context={
-                "project": self.project.code,
+                "project": self.project,
                 "request": self.request,
             },
         )
@@ -567,7 +574,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             self.serializer_cls,
             data=self.request_data,
             context={
-                "project": self.project.code,
+                "project": self.project,
                 "request": self.request,
             },
         )

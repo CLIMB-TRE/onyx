@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     "internal",
     "data",
     "accounts",
-]
+] + [f"projects.{project}" for project in os.environ["ONYX_PROJECTS"].split(",")]
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",

@@ -13,12 +13,15 @@ class TestQueryView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.project.query", kwargs={"code": "test"})
+        self.endpoint = reverse(
+            "project.testproject.query", kwargs={"code": "testproject"}
+        )
         self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["test.admin"]
+            "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
         for payload in generate_test_data():
             response = self.client.post(
-                reverse("data.project", kwargs={"code": "test"}), data=payload
+                reverse("project.testproject", kwargs={"code": "testproject"}),
+                data=payload,
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)

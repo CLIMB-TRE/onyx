@@ -1,7 +1,6 @@
-from rest_framework import permissions
+from rest_framework import permissions, exceptions
 from rest_framework.request import Request
-from .exceptions import ProjectNotFound
-from utils.functions import get_suggestions, get_permission
+from utils.functions import get_permission
 from data.models import Project
 
 
@@ -96,25 +95,11 @@ class IsProjectApproved(permissions.BasePermission):
     """
 
     def has_permission(self, request: Request, view):
-        # Function for getting project suggestions based on the project_action and input project code
-        project_suggestions = lambda: get_suggestions(
-            view.kwargs["code"],
-            options=(
-                request.user.groups.filter(
-                    projectgroup__actions__icontains=view.project_action
-                )
-                .values_list("projectgroup__project__code", flat=True)
-                .distinct()
-            ),
-            n=1,
-            message_prefix="Project not found.",
-        )
-
         # Get the project
         try:
             project = Project.objects.get(code__iexact=view.kwargs["code"])
         except Project.DoesNotExist:
-            raise ProjectNotFound(project_suggestions())
+            raise exceptions.NotFound
 
         # Check the user's permission to access the project
         project_access_permission = get_permission(
@@ -123,7 +108,7 @@ class IsProjectApproved(permissions.BasePermission):
             code=project.code,
         )
         if not request.user.has_perm(project_access_permission):
-            raise ProjectNotFound(project_suggestions())
+            raise exceptions.NotFound
 
         # Check the user's site has access to the project
         if project not in request.user.site.projects.all():

@@ -43,7 +43,7 @@ class IdentifierSerializer(serializers.Serializer):
     Serializer for input to the `data.project.identify` endpoint.
     """
 
-    site = SiteField()
+    site = SiteField(default=CurrentUserSiteDefault())
     value = serializers.CharField()
 
 

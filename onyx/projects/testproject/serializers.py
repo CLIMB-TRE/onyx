@@ -102,10 +102,6 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
                 ]
             }
         )
-        action_success_fields = (
-            ProjectRecordSerializer.OnyxMeta.action_success_fields
-            + ["sample_id", "run_name"]
-        )
         anonymised_fields = ProjectRecordSerializer.OnyxMeta.anonymised_fields | {
             "sample_id": "S-",
             "run_name": "R-",

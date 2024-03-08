@@ -357,12 +357,16 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             # Create the instance
             instance = node.save()
 
+            # Set of fields to return in response
+            # This includes the climb_id and any anonymised fields
+            identifier_fields = ["climb_id"] + list(
+                self.serializer_cls.OnyxMeta.anonymised_fields.keys()
+            )
+
             # Serialize the result
             serializer = self.serializer_cls(
                 instance,
-                fields=unflatten_fields(
-                    self.serializer_cls.OnyxMeta.action_success_fields,
-                ),
+                fields=unflatten_fields(identifier_fields),
             )
             data = serializer.data
         else:
@@ -590,12 +594,16 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             # Update the instance
             instance = node.save()
 
+            # Set of fields to return in response
+            # This includes the climb_id and any anonymised fields
+            identifier_fields = ["climb_id"] + list(
+                self.serializer_cls.OnyxMeta.anonymised_fields.keys()
+            )
+
             # Serialize the result
             serializer = self.serializer_cls(
                 instance,
-                fields=unflatten_fields(
-                    self.serializer_cls.OnyxMeta.action_success_fields,
-                ),
+                fields=unflatten_fields(identifier_fields),
             )
             data = serializer.data
         else:
@@ -629,12 +637,16 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Delete the instance
         instance.delete()
 
+        # Set of fields to return in response
+        # This includes the climb_id and any anonymised fields
+        identifier_fields = ["climb_id"] + list(
+            self.serializer_cls.OnyxMeta.anonymised_fields.keys()
+        )
+
         # Serialize the result
         serializer = self.serializer_cls(
             instance,
-            fields=unflatten_fields(
-                self.serializer_cls.OnyxMeta.action_success_fields,
-            ),
+            fields=unflatten_fields(identifier_fields),
         )
         data = serializer.data
 

@@ -435,6 +435,7 @@ def generate_fields_spec(
 
         # Add additional restrictions
         restrictions = []
+
         if onyx_type == OnyxType.TEXT and field_instance.max_length:
             restrictions.append(f"Max length: {field_instance.max_length}")
 
@@ -443,6 +444,14 @@ def generate_fields_spec(
                 restrictions.append(
                     f"At least one required: {', '.join(optional_value_group)}"
                 )
+
+        for f, reqs in serializer.OnyxMeta.conditional_required.items():
+            if field == f:
+                restrictions.append(f"Requires: {', '.join(reqs)}")
+
+        for (f, v, d), reqs in serializer.OnyxMeta.conditional_value_required.items():
+            if f != "is_published" and field in reqs:
+                restrictions.append(f"Required when {f} is: {v}")
 
         if restrictions:
             field_spec["restrictions"] = restrictions

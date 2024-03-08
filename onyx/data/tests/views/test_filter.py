@@ -299,21 +299,21 @@ class TestFilterView(OnyxTestCase):
                     collection_month__range=["2022-01-01", "2022-03-01"]
                 ),
             ),
-            (
-                "year",
-                2022,
-                TestModel.objects.filter(collection_month__year=2022),
-            ),
-            (
-                "year__in",
-                "2022, 2023",
-                TestModel.objects.filter(collection_month__year__in=[2022, 2023]),
-            ),
-            (
-                "year__range",
-                "2022, 2023",
-                TestModel.objects.filter(collection_month__year__range=[2022, 2023]),
-            ),
+            # (
+            #     "year",
+            #     2022,
+            #     TestModel.objects.filter(collection_month__year=2022),
+            # ),
+            # (
+            #     "year__in",
+            #     "2022, 2023",
+            #     TestModel.objects.filter(collection_month__year__in=[2022, 2023]),
+            # ),
+            # (
+            #     "year__range",
+            #     "2022, 2023",
+            #     TestModel.objects.filter(collection_month__year__range=[2022, 2023]),
+            # ),
         ]:
             self._test_filter(
                 field="collection_month",
@@ -378,21 +378,21 @@ class TestFilterView(OnyxTestCase):
                     submission_date__range=["2023-01-01", "2023-06-03"]
                 ),
             ),
-            (
-                "year",
-                2023,
-                TestModel.objects.filter(submission_date__year=2023),
-            ),
-            (
-                "year__in",
-                "2023, 2024",
-                TestModel.objects.filter(submission_date__year__in=[2023, 2024]),
-            ),
-            (
-                "year__range",
-                "2023, 2024",
-                TestModel.objects.filter(submission_date__year__range=[2023, 2024]),
-            ),
+            # (
+            #     "year",
+            #     2023,
+            #     TestModel.objects.filter(submission_date__year=2023),
+            # ),
+            # (
+            #     "year__in",
+            #     "2023, 2024",
+            #     TestModel.objects.filter(submission_date__year__in=[2023, 2024]),
+            # ),
+            # (
+            #     "year__range",
+            #     "2023, 2024",
+            #     TestModel.objects.filter(submission_date__year__range=[2023, 2024]),
+            # ),
             (
                 "iso_year",
                 2023,

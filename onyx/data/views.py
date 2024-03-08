@@ -223,7 +223,7 @@ class ChoicesView(ProjectAPIView):
 
         if onyx_field.onyx_type != OnyxType.CHOICE:
             raise exceptions.ValidationError(
-                {"detail": [f"This field is not a {OnyxType.CHOICE.label} field."]}
+                {"detail": f"This field is not a {OnyxType.CHOICE.label} field."}
             )
 
         # Obtain choices for the field

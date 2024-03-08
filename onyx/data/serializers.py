@@ -218,15 +218,15 @@ class ProjectRecordSerializer(BaseRecordSerializer):
         ]
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):
-        action_success_fields: list[str] = ["climb_id"]
         anonymised_fields: dict[str, str] = {}
 
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
 
+        # Anonymise fields
         if not self.instance:
-            # Anonymise fields
             # NOTE: This runs before unique_together checks, but AFTER unique checks
+            # TODO: This currently only allows anonymisation on create. Should it be this way?
             for anonymised_field, prefix in self.OnyxMeta.anonymised_fields.items():
                 if data.get(anonymised_field):
                     hasher = hashlib.sha256()

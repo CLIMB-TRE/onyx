@@ -398,11 +398,19 @@ def generate_fields_spec(
         if not description:
             description = onyx_fields[field_path].description
 
+        # If the field is required when is_published = True, override required status
+        for (f, v, d), reqs in serializer.OnyxMeta.conditional_value_required.items():
+            if f == "is_published" and v == True and field in reqs:
+                required = True
+                break
+        else:
+            required = onyx_fields[field_path].required
+
         # Generate initial spec for the field
         field_spec = {
             "description": description,
             "type": onyx_type.label,
-            "required": onyx_fields[field_path].required,
+            "required": required,
             "actions": [
                 action.value
                 for action in Actions

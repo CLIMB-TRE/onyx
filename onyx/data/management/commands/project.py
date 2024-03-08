@@ -240,33 +240,46 @@ class Command(base.BaseCommand):
         Create/update the choices for the project.
         """
 
-        # TODO: Issue with reactivate/deactivate choices if you provide them in uppercase in the json
-        # Upgrade Choices management command to DELETE inactive choices if a new one comes in with the same characters but a different case
-        # E.g. if a new choice Swab comes in, DELETE the old choice swab
-        # TL:DR we need case insensitivity in handling
-
         for choice_config in choice_configs:
             # Create new choices if required
             for option in choice_config.options:
-                instance, created = Choice.objects.get_or_create(
-                    project_id=self.project.code,
-                    field=choice_config.field,
-                    choice=option,
-                )
+                try:
+                    instance = Choice.objects.get(
+                        project_id=self.project.code,
+                        field=choice_config.field,
+                        choice__iexact=option,
+                    )
 
-                if created:
+                    if not instance.is_active:
+                        # The choice was previously deactivated
+                        instance.is_active = True
+                        instance.save()
+                        self.print(
+                            f"Reactivated choice: {self.project.code} | {instance.field} | {instance.choice}",
+                        )
+                    else:
+                        self.print(
+                            f"Active choice: {self.project.code} | {instance.field} | {instance.choice}",
+                        )
+
+                    if instance.choice != option:
+                        # The case of the choice has changed
+                        # e.g. lowercase -> uppercase
+                        old = instance.choice
+                        instance.choice = option
+                        instance.save()
+                        self.print(
+                            f"Renamed choice: {self.project.code} | {instance.field} | {old} -> {instance.choice}"
+                        )
+
+                except Choice.DoesNotExist:
+                    instance = Choice.objects.create(
+                        project_id=self.project.code,
+                        field=choice_config.field,
+                        choice=option,
+                    )
                     self.print(
                         f"Created choice: {self.project.code} | {instance.field} | {instance.choice}",
-                    )
-                elif not instance.is_active:
-                    instance.is_active = True
-                    instance.save()
-                    self.print(
-                        f"Reactivated choice: {self.project.code} | {instance.field} | {instance.choice}",
-                    )
-                else:
-                    self.print(
-                        f"Active choice: {self.project.code} | {instance.field} | {instance.choice}",
                     )
 
             # Deactivate choices no longer in the set
@@ -291,8 +304,6 @@ class Command(base.BaseCommand):
         Create/update the choice constraints for the project.
         """
 
-        # TODO: Case insensitivity in constraint handling
-
         # Empty constraints for the project
         for choice in Choice.objects.filter(project_id=self.project.code):
             choice.constraints.clear()
@@ -301,7 +312,7 @@ class Command(base.BaseCommand):
             choice_instance = Choice.objects.get(
                 project_id=self.project.code,
                 field=choice_constraint_config.field,
-                choice=choice_constraint_config.option,
+                choice__iexact=choice_constraint_config.option,
             )
 
             for constraint in choice_constraint_config.constraints:
@@ -310,7 +321,7 @@ class Command(base.BaseCommand):
                     Choice.objects.get(
                         project_id=self.project.code,
                         field=constraint.field,
-                        choice=constraint_option,
+                        choice__iexact=constraint_option,
                     )
                     for constraint_option in constraint.options
                 ]

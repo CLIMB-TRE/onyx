@@ -161,7 +161,7 @@ class Anonymiser(models.Model):
     field = LowerCharField(max_length=100)
     prefix = UpperCharField(max_length=5)
     hash = models.TextField()
-    identifier = UpperCharField(unique=True, max_length=12)
+    identifier = UpperCharField(unique=True, max_length=20)
 
     class Meta:
         indexes = [

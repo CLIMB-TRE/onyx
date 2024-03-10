@@ -446,27 +446,48 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         )
 
         # Validate filter fields and determine OnyxField objects
-        # Lookups are allowed for these
+        # If a summary is being carried out on one or more fields
+        # then any field involved in filtering will also be included
         for atom in atoms:
             try:
-                filter_fields[atom.key] = filter_handler.resolve_field(
+                # Lookups are allowed for filter fields
+                resolved_field = filter_handler.resolve_field(
                     atom.key, allow_lookup=True
                 )
+
+                # The key used in filter_fields includes the field_path + lookup
+                filter_fields[atom.key] = resolved_field
+
+                # The key used in summary_fields is just the field_path
+                summary_fields[resolved_field.field_path] = resolved_field
+
             except exceptions.ValidationError as e:
                 field_errors.setdefault(atom.key, []).append(e.args[0])
 
         # Validate summarise fields and determine OnyxField objects
-        for field in self.summarise:
-            try:
-                summary_fields[field] = filter_handler.resolve_field(field)
-            except exceptions.ValidationError as e:
-                field_errors.setdefault(field, []).append(e.args[0])
+        if self.summarise:
+            for field in self.summarise:
+                try:
+                    # Lookups are not allowed for summarise fields
+                    summary_fields[field] = filter_handler.resolve_field(field)
+
+                except exceptions.ValidationError as e:
+                    field_errors.setdefault(field, []).append(e.args[0])
+
+            # Reject any relational fields in a summary
+            for field, onyx_field in summary_fields.items():
+                if onyx_field.onyx_type == OnyxType.RELATION:
+                    field_errors.setdefault(field, []).append(
+                        "Cannot summarise over a relational field."
+                    )
 
         # Validate include/exclude fields
         include_exclude = self.include + self.exclude
         for field in include_exclude:
             try:
+                # Lookups are not allowed for include/exclude fields
                 self.handler.resolve_field(field)
+
             except exceptions.ValidationError as e:
                 field_errors.setdefault(field, []).append(e.args[0])
 
@@ -509,17 +530,10 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             qs = qs.filter(q_object).distinct()
 
         if self.summarise:
-            summary_errors = {}
-            for field_name, onyx_field in summary_fields.items():
-                if onyx_field.onyx_type == OnyxType.RELATION:
-                    summary_errors.setdefault(field_name, []).append(
-                        "Cannot summarise over a relational field."
-                    )
-            if summary_errors:
-                raise exceptions.ValidationError(summary_errors)
+            summary_values = qs.values(*summary_fields)
 
-            qs_summary_values = qs.values(*self.summarise)
-            if qs_summary_values.distinct().count() > 100000:
+            # Reject summary if it would return too many distinct values
+            if summary_values.distinct().count() > 100000:
                 raise exceptions.ValidationError(
                     {
                         "detail": "The current summary would return too many distinct values."
@@ -528,7 +542,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             # Serialize the results
             serializer = SummarySerializer(
-                qs_summary_values.annotate(count=Count("*")).order_by(*self.summarise),
+                summary_values.annotate(count=Count("*")).order_by(*summary_fields),
                 onyx_fields=summary_fields,
                 many=True,
             )

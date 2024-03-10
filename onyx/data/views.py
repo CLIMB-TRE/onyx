@@ -530,7 +530,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             qs = qs.filter(q_object).distinct()
 
         if self.summarise:
-            summary_values = qs.values(*summary_fields)
+            summary_values = qs.values(*summary_fields.keys())
 
             # Reject summary if it would return too many distinct values
             if summary_values.distinct().count() > 100000:
@@ -542,7 +542,9 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             # Serialize the results
             serializer = SummarySerializer(
-                summary_values.annotate(count=Count("*")).order_by(*summary_fields),
+                summary_values.annotate(count=Count("*")).order_by(
+                    *summary_fields.keys()
+                ),
                 onyx_fields=summary_fields,
                 many=True,
             )

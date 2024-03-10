@@ -11,6 +11,7 @@
                     "action": "add",
                     "fields": [
                         "is_published",
+                        "site",
                         "sample_id",
                         "run_name",
                         "collection_month",
@@ -123,7 +124,8 @@
         {
             "field": "site",
             "options": [
-                "test"
+                "testsite_1",
+                "testsite_2"
             ]
         },
         {

@@ -24,14 +24,20 @@ class OnyxTestCase(APITestCase):
             quiet=True,
         )
 
-        # Set up test site
+        # Set up test sites
         self.site = Site.objects.create(
-            code="test",
-            description="Department of Testing",
+            code="testsite_1",
+            description="Department of Testing 1",
         )
 
-        # Add test project to site
+        self.extra_site = Site.objects.create(
+            code="testsite_2",
+            description="Department of Testing 2",
+        )
+
+        # Add test project to sites
         self.site.projects.add(Project.objects.get(code="testproject"))
+        self.extra_site.projects.add(Project.objects.get(code="testproject"))
 
     def setup_user(self, username, roles=None, groups=None):
         """

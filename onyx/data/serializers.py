@@ -239,8 +239,8 @@ class ProjectRecordSerializer(BaseRecordSerializer):
                         project=self.context["project"],
                         site=data["site"],
                         field=anonymised_field,
-                        prefix=prefix,
                         hash=hash,
+                        defaults={"prefix": prefix},
                     )
                     data[anonymised_field] = anonymiser.identifier
 

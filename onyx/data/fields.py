@@ -178,23 +178,28 @@ class FieldHandler:
 
         return self.fields
 
-    def unknown_field_suggestions(self, field) -> str:
+    def field_suggestions(self, field, message_prefix=None) -> str:
         """
-        Get a suggestions message for an unknown field.
+        Get a suggestions message for an unknown/invalid field.
 
         The suggestions are based on the fields that the user can action on.
 
         Args:
-            field: The unknown field.
+            field: The unknown/invalid field to get suggestions for.
+            message_prefix: The message prefix to use. Defaults to "This field is unknown."
 
         Returns:
             The suggestions message.
         """
 
+        if not message_prefix:
+            message_prefix = "This field is unknown."
+
         suggestions = get_suggestions(
             field,
             options=self.get_fields(),
-            message_prefix="This field is unknown.",
+            n=1,
+            message_prefix=message_prefix,
         )
 
         return suggestions
@@ -220,7 +225,7 @@ class FieldHandler:
 
         if not self.user.has_perm(field_access_permission):
             raise exceptions.ValidationError(
-                self.unknown_field_suggestions(onyx_field.field_path)
+                self.field_suggestions(onyx_field.field_path)
             )
 
         # Check the user's permission to perform action on the field
@@ -233,7 +238,12 @@ class FieldHandler:
         )
 
         if not self.user.has_perm(field_action_permission):
-            raise exceptions.ValidationError(f"You cannot {self.action} this field.")
+            raise exceptions.ValidationError(
+                self.field_suggestions(
+                    onyx_field.field_path,
+                    f"You cannot {self.action} this field.",
+                )
+            )
 
     def resolve_field(
         self,
@@ -257,7 +267,7 @@ class FieldHandler:
         # This is required because if a field ends in "__"
         # Splitting will result in some funky stuff
         if field.endswith("_"):
-            raise exceptions.ValidationError(self.unknown_field_suggestions(field))
+            raise exceptions.ValidationError(self.field_suggestions(field))
 
         # Base model for the project
         current_model = self.model
@@ -271,7 +281,7 @@ class FieldHandler:
             # If the current component is not known on the current model
             # Then add to unknown fields
             if component not in model_fields:
-                raise exceptions.ValidationError(self.unknown_field_suggestions(field))
+                raise exceptions.ValidationError(self.field_suggestions(field))
 
             # Corresponding field instance for the component
             component_instance = model_fields[component]
@@ -309,7 +319,7 @@ class FieldHandler:
                 # Otherwise, it is unknown
                 break
 
-        raise exceptions.ValidationError(self.unknown_field_suggestions(field))
+        raise exceptions.ValidationError(self.field_suggestions(field))
 
     def resolve_fields(
         self,

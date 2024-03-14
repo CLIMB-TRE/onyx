@@ -24,6 +24,9 @@ class OnyxTestCase(APITestCase):
             quiet=True,
         )
 
+        # Get test project
+        self.project = Project.objects.get(code="testproject")
+
         # Set up test sites
         self.site = Site.objects.create(
             code="testsite_1",

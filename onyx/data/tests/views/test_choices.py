@@ -12,7 +12,7 @@ class TestChoicesView(OnyxTestCase):
         super().setUp()
         self.endpoint = lambda field: reverse(
             "project.testproject.choices",
-            kwargs={"code": "testproject", "field": field},
+            kwargs={"code": self.project.code, "field": field},
         )
         self.user = self.setup_user(
             "testuser", roles=["is_staff"], groups=["testproject.admin"]

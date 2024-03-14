@@ -17,7 +17,9 @@ class TestFilterView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
+        self.endpoint = reverse(
+            "project.testproject", kwargs={"code": self.project.code}
+        )
         self.user = self.setup_user(
             "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )

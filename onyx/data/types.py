@@ -64,8 +64,8 @@ class OnyxType(Enum):
             "isnull",
         ],
     )
-    DATE_YYYY_MM = (
-        "date (YYYY-MM)",
+    DATE = (
+        "date",
         [
             "",
             "exact",
@@ -76,27 +76,6 @@ class OnyxType(Enum):
             "gt",
             "gte",
             "range",
-            # "year",
-            # "year__in",
-            # "year__range",
-            "isnull",
-        ],
-    )
-    DATE_YYYY_MM_DD = (
-        "date (YYYY-MM-DD)",
-        [
-            "",
-            "exact",
-            "ne",
-            "in",
-            "lt",
-            "lte",
-            "gt",
-            "gte",
-            "range",
-            # "year",
-            # "year__in",
-            # "year__range",
             "iso_year",
             "iso_year__in",
             "iso_year__range",
@@ -107,7 +86,7 @@ class OnyxType(Enum):
         ],
     )
     DATETIME = (
-        "date (YYYY-MM-DD HH:MM:SS)",
+        "datetime",
         [
             "",
             "exact",
@@ -118,9 +97,6 @@ class OnyxType(Enum):
             "gt",
             "gte",
             "range",
-            # "year",
-            # "year__in",
-            # "year__range",
             "iso_year",
             "iso_year__in",
             "iso_year__range",

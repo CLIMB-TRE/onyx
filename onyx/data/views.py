@@ -18,9 +18,9 @@ from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType
 from .actions import Actions
+from .spec import generate_fields_spec
 from .fields import (
     FieldHandler,
-    generate_fields_spec,
     flatten_fields,
     unflatten_fields,
     include_exclude_fields,
@@ -545,6 +545,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 summary_values.annotate(count=Count("*")).order_by(
                     *summary_fields.keys()
                 ),
+                serializer_cls=self.serializer_cls,
                 onyx_fields=summary_fields,
                 many=True,
             )

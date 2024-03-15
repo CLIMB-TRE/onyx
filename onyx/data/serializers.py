@@ -6,6 +6,7 @@ from rest_framework import serializers, exceptions
 from accounts.models import User
 from utils.defaults import CurrentUserSiteDefault
 from utils.fieldserializers import DateField, SiteField
+from utils.functions import get_date_output_format
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
@@ -18,9 +19,8 @@ FIELDS = {
     OnyxType.CHOICE: serializers.CharField,
     OnyxType.INTEGER: serializers.IntegerField,
     OnyxType.DECIMAL: serializers.FloatField,
-    OnyxType.DATE_YYYY_MM: lambda: DateField("%Y-%m", input_formats=["%Y-%m"]),
-    OnyxType.DATE_YYYY_MM_DD: lambda: DateField("%Y-%m-%d", input_formats=["%Y-%m-%d"]),
-    OnyxType.DATETIME: serializers.DateTimeField,
+    OnyxType.DATE: lambda format: DateField(format=format),
+    OnyxType.DATETIME: lambda format: serializers.DateTimeField(format=format),
     OnyxType.BOOLEAN: serializers.BooleanField,
 }
 
@@ -30,9 +30,24 @@ class SummarySerializer(serializers.Serializer):
     Serializer for multi-field count aggregates.
     """
 
-    def __init__(self, *args, onyx_fields: dict[str, OnyxField], **kwargs):
+    def __init__(
+        self,
+        *args,
+        serializer_cls: type[ProjectRecordSerializer],
+        onyx_fields: dict[str, OnyxField],
+        **kwargs,
+    ):
+        serlializer_instance = serializer_cls()
+        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        serializer_fields = serlializer_instance.get_fields()
+
         for field_name, onyx_field in onyx_fields.items():
-            self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
+            if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type](
+                    format=get_date_output_format(serializer_fields[field_name])
+                )
+            else:
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
 
         self.fields["count"] = serializers.IntegerField()
         super().__init__(*args, **kwargs)

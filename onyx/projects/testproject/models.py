@@ -1,5 +1,5 @@
 from django.db import models
-from utils.fields import YearMonthField, UpperCharField, ChoiceField
+from utils.fields import UpperCharField, ChoiceField
 from utils.constraints import (
     unique_together,
     optional_value_group,
@@ -21,8 +21,8 @@ class BaseTestModel(ProjectRecord):
 
     sample_id = UpperCharField()
     run_name = UpperCharField()
-    collection_month = YearMonthField(null=True)
-    received_month = YearMonthField(null=True)
+    collection_month = models.DateField(null=True)
+    received_month = models.DateField(null=True)
     char_max_length_20 = models.CharField(max_length=20)
     text_option_1 = models.TextField(blank=True)
     text_option_2 = models.TextField(blank=True)
@@ -99,8 +99,8 @@ class TestModelRecord(BaseRecord):
     )
     test_id = models.IntegerField()
     test_pass = models.BooleanField()
-    test_start = YearMonthField()
-    test_end = YearMonthField()
+    test_start = models.DateField()
+    test_end = models.DateField()
     score_a = models.FloatField(null=True)
     score_b = models.FloatField(null=True)
     score_c = models.FloatField(null=True)

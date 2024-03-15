@@ -150,6 +150,11 @@ def validate_atoms(
             # Update the QueryAtom objects with their cleaned values
             for k, atom in layer.items():
                 atom.value = fs.form.cleaned_data[k]
+
+                # Convert {field_path}__ne=None to {field_path}__isnull=False
+                if onyx_fields[k].lookup == "ne" and atom.value is None:
+                    atom.key = f"{onyx_fields[k].field_path}__isnull"
+                    atom.value = False
         else:
             # If not valid, record the errors
             for field_name, field_errors in fs.errors.items():

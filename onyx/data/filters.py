@@ -4,10 +4,31 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework.serializers import BooleanField
-from django_filters import rest_framework as filters
+from django_filters import rest_framework as filters, fields as filter_fields
 from utils.functions import get_suggestions, strtobool
 from .types import OnyxType
 from .fields import OnyxField
+
+
+# TODO: Reject None values within 'in' filter
+
+
+class BaseRangeField(filter_fields.BaseRangeField):
+    def clean(self, value):
+        value = super(filter_fields.BaseRangeField, self).clean(value)
+
+        assert value is None or isinstance(value, list)
+
+        if not value or len(value) != 2 or any(v is None for v in value):
+            raise forms.ValidationError(
+                self.error_messages["invalid_values"], code="invalid_values"
+            )
+
+        return value
+
+
+class BaseRangeFilter(filters.BaseRangeFilter):
+    base_field_class = BaseRangeField
 
 
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
@@ -74,7 +95,7 @@ class NumberInFilter(filters.BaseInFilter, filters.NumberFilter):
     pass
 
 
-class NumberRangeFilter(filters.BaseRangeFilter, filters.NumberFilter):
+class NumberRangeFilter(BaseRangeFilter, filters.NumberFilter):
     pass
 
 
@@ -92,7 +113,7 @@ class YearMonthInFilter(filters.BaseInFilter, YearMonthFilter):
     pass
 
 
-class YearMonthRangeFilter(filters.BaseRangeFilter, YearMonthFilter):
+class YearMonthRangeFilter(BaseRangeFilter, YearMonthFilter):
     pass
 
 
@@ -116,7 +137,7 @@ class DateInFilter(filters.BaseInFilter, DateFilter):
     pass
 
 
-class DateRangeFilter(filters.BaseRangeFilter, DateFilter):
+class DateRangeFilter(BaseRangeFilter, DateFilter):
     pass
 
 
@@ -145,7 +166,7 @@ class DateTimeInFilter(filters.BaseInFilter, DateTimeFilter):
     pass
 
 
-class DateTimeRangeFilter(filters.BaseRangeFilter, DateTimeFilter):
+class DateTimeRangeFilter(BaseRangeFilter, DateTimeFilter):
     pass
 
 
@@ -163,6 +184,7 @@ class BooleanFieldForm(ChoiceFieldMixin, forms.TypedChoiceField):
     def __init__(self, **kwargs):
         kwargs["choices"] = BOOLEAN_CHOICES
         kwargs["coerce"] = lambda x: strtobool(x)
+        kwargs["empty_value"] = None
         super().__init__(**kwargs)
 
 

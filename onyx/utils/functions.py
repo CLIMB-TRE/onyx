@@ -1,4 +1,6 @@
 import difflib
+from rest_framework import serializers
+from rest_framework.settings import api_settings
 
 
 def get_suggestions(
@@ -94,3 +96,41 @@ def strtobool(val):
         return False
     else:
         raise ValueError(f"Invalid truth value: {val}")
+
+
+def get_date_input_formats(
+    field: serializers.DateField | serializers.DateTimeField,
+) -> list[str]:
+    """
+    Returns the input formats for a given date serializer field.
+    """
+
+    if isinstance(field, serializers.DateField):
+        input_formats = getattr(field, "input_formats", api_settings.DATE_INPUT_FORMATS)
+    elif isinstance(field, serializers.DateTimeField):
+        input_formats = getattr(
+            field, "input_formats", api_settings.DATETIME_INPUT_FORMATS
+        )
+    else:
+        raise ValueError(f"Invalid serializer field type: {type(field)}")
+
+    assert isinstance(input_formats, list)
+    return input_formats
+
+
+def get_date_output_format(
+    field: serializers.DateField | serializers.DateTimeField,
+) -> str:
+    """
+    Returns the output format for a given date serializer field.
+    """
+
+    if isinstance(field, serializers.DateField):
+        output_format = getattr(field, "format", api_settings.DATE_FORMAT)
+    elif isinstance(field, serializers.DateTimeField):
+        output_format = getattr(field, "format", api_settings.DATETIME_FORMAT)
+    else:
+        raise ValueError(f"Invalid serializer field type: {type(field)}")
+
+    assert isinstance(output_format, str)
+    return output_format

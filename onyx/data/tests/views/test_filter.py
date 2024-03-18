@@ -6,7 +6,6 @@ from projects.testproject.models import TestModel
 
 # TODO:
 # - Test summarise function
-# - Test all OnyxTypes
 # - Test effect of suppressing data
 
 
@@ -17,7 +16,9 @@ class TestFilterView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
+        self.endpoint = reverse(
+            "project.testproject", kwargs={"code": self.project.code}
+        )
         self.user = self.setup_user(
             "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
@@ -208,13 +209,23 @@ class TestFilterView(OnyxTestCase):
             ("gt", 2, TestModel.objects.filter(start__gt=2)),
             ("gte", 2, TestModel.objects.filter(start__gte=2)),
             ("range", "1, 3", TestModel.objects.filter(start__range=[1, 3])),
+            ("", "", TestModel.objects.filter(start__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(start__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(start__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(start__isnull=True)),
         ]:
             self._test_filter(
                 field="start",
                 value=value,
                 qs=qs,
                 lookup=lookup,
+                allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"start__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_decimal(self):
         """
@@ -235,6 +246,10 @@ class TestFilterView(OnyxTestCase):
             ("gt", 4.4, TestModel.objects.filter(score__gt=4.4)),
             ("gte", 4.4, TestModel.objects.filter(score__gte=4.4)),
             ("range", "1.1, 9.9", TestModel.objects.filter(score__range=[1.1, 9.9])),
+            ("", "", TestModel.objects.filter(score__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(score__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(score__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(score__isnull=True)),
         ]:
             self._test_filter(
                 field="score",
@@ -243,6 +258,11 @@ class TestFilterView(OnyxTestCase):
                 lookup=lookup,
                 allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"score__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_yearmonth(self):
         """
@@ -314,6 +334,10 @@ class TestFilterView(OnyxTestCase):
             #     "2022, 2023",
             #     TestModel.objects.filter(collection_month__year__range=[2022, 2023]),
             # ),
+            ("", "", TestModel.objects.filter(collection_month__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(collection_month__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(collection_month__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(collection_month__isnull=True)),
         ]:
             self._test_filter(
                 field="collection_month",
@@ -322,6 +346,13 @@ class TestFilterView(OnyxTestCase):
                 qs=qs,
                 allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(
+                self.endpoint, data={"collection_month__isnull": value}
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_date(self):
         """
@@ -423,6 +454,10 @@ class TestFilterView(OnyxTestCase):
                 "10, 33",
                 TestModel.objects.filter(submission_date__week__range=[10, 33]),
             ),
+            ("", "", TestModel.objects.filter(submission_date__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(submission_date__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(submission_date__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(submission_date__isnull=True)),
         ]:
             self._test_filter(
                 field="submission_date",
@@ -431,6 +466,13 @@ class TestFilterView(OnyxTestCase):
                 lookup=lookup,
                 allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(
+                self.endpoint, data={"submission_date__isnull": value}
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_bool(self):
         """
@@ -455,6 +497,18 @@ class TestFilterView(OnyxTestCase):
             + [("ne", x, TestModel.objects.filter(concern=True)) for x in false_values]
             + [
                 ("in", "True, False", TestModel.objects.all()),
+                ("", "", TestModel.objects.filter(concern__isnull=True)),
+                ("ne", "", TestModel.objects.exclude(concern__isnull=True)),
+                (
+                    "isnull",
+                    True,
+                    TestModel.objects.filter(concern__isnull=True),
+                ),
+                (
+                    "isnull",
+                    False,
+                    TestModel.objects.exclude(concern__isnull=True),
+                ),
             ]
         ):
             self._test_filter(
@@ -462,31 +516,44 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
+                allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"concern__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_relation(self):
         """
         Test filtering a relation field.
         """
 
-        response = self.client.get(self.endpoint, data={"records__isnull": True})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(
-            response.json()["data"],
-            TestModel.objects.filter(records__isnull=True),
-        )
+        for lookup, value, qs in [
+            (
+                "isnull",
+                True,
+                TestModel.objects.filter(records__isnull=True),
+            ),
+            (
+                "isnull",
+                False,
+                TestModel.objects.filter(records__isnull=False),
+            ),
+        ]:
+            self._test_filter(
+                field="records",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+                allow_empty=True,
+            )
 
-        response = self.client.get(self.endpoint, data={"records__isnull": False})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(
-            response.json()["data"],
-            TestModel.objects.filter(records__isnull=False),
-        )
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"records__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_relation_invalid_lookup(self):
-        """
-        Test filtering a relation field with an invalid lookup.
-        """
-
+        # Test filtering the relation field with an invalid lookup
         response = self.client.get(self.endpoint, data={"records": 1})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

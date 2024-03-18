@@ -4,10 +4,31 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework.serializers import BooleanField
-from django_filters import rest_framework as filters
+from django_filters import rest_framework as filters, fields as filter_fields
 from utils.functions import get_suggestions, strtobool
 from .types import OnyxType
 from .fields import OnyxField
+
+
+# TODO: Reject None values within 'in' filter
+
+
+class BaseRangeField(filter_fields.BaseRangeField):
+    def clean(self, value):
+        value = super(filter_fields.BaseRangeField, self).clean(value)
+
+        assert value is None or isinstance(value, list)
+
+        if not value or len(value) != 2 or any(v is None for v in value):
+            raise forms.ValidationError(
+                self.error_messages["invalid_values"], code="invalid_values"
+            )
+
+        return value
+
+
+class BaseRangeFilter(filters.BaseRangeFilter):
+    base_field_class = BaseRangeField
 
 
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
@@ -74,31 +95,16 @@ class NumberInFilter(filters.BaseInFilter, filters.NumberFilter):
     pass
 
 
-class NumberRangeFilter(filters.BaseRangeFilter, filters.NumberFilter):
-    pass
-
-
-class YearMonthForm(forms.DateField):
-    def __init__(self, **kwargs):
-        kwargs["input_formats"] = ["%Y-%m"]
-        super().__init__(**kwargs)
-
-
-class YearMonthFilter(filters.Filter):
-    field_class = YearMonthForm
-
-
-class YearMonthInFilter(filters.BaseInFilter, YearMonthFilter):
-    pass
-
-
-class YearMonthRangeFilter(filters.BaseRangeFilter, YearMonthFilter):
+class NumberRangeFilter(BaseRangeFilter, filters.NumberFilter):
     pass
 
 
 class DateFieldForm(forms.DateField):
     def __init__(self, **kwargs):
-        kwargs["input_formats"] = ["%Y-%m-%d"]
+        kwargs["input_formats"] = [
+            "%Y-%m",
+            "%Y-%m-%d",
+        ]
         super().__init__(**kwargs)
 
     def clean(self, value):
@@ -116,13 +122,14 @@ class DateInFilter(filters.BaseInFilter, DateFilter):
     pass
 
 
-class DateRangeFilter(filters.BaseRangeFilter, DateFilter):
+class DateRangeFilter(BaseRangeFilter, DateFilter):
     pass
 
 
 class DateTimeFieldForm(forms.DateTimeField):
     def __init__(self, **kwargs):
         kwargs["input_formats"] = [
+            "%Y-%m",
             "%Y-%m-%d",
             "%Y-%m-%d %H:%M",
             "%Y-%m-%d %H:%M:%S",
@@ -145,7 +152,7 @@ class DateTimeInFilter(filters.BaseInFilter, DateTimeFilter):
     pass
 
 
-class DateTimeRangeFilter(filters.BaseRangeFilter, DateTimeFilter):
+class DateTimeRangeFilter(BaseRangeFilter, DateTimeFilter):
     pass
 
 
@@ -163,6 +170,7 @@ class BooleanFieldForm(ChoiceFieldMixin, forms.TypedChoiceField):
     def __init__(self, **kwargs):
         kwargs["choices"] = BOOLEAN_CHOICES
         kwargs["coerce"] = lambda x: strtobool(x)
+        kwargs["empty_value"] = None
         super().__init__(**kwargs)
 
 
@@ -220,32 +228,10 @@ FILTERS = {
         "range": NumberRangeFilter,
         "isnull": IsNullFilter,
     },
-    OnyxType.DATE_YYYY_MM: {
-        lookup: YearMonthFilter for lookup in OnyxType.DATE_YYYY_MM.lookups
-    }
-    | {
-        "in": YearMonthInFilter,
-        "range": YearMonthRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
-        "iso_year": filters.NumberFilter,
-        "iso_year__in": NumberInFilter,
-        "iso_year__range": NumberRangeFilter,
-        "week": filters.NumberFilter,
-        "week__in": NumberInFilter,
-        "week__range": NumberRangeFilter,
-        "isnull": IsNullFilter,
-    },
-    OnyxType.DATE_YYYY_MM_DD: {
-        lookup: DateFilter for lookup in OnyxType.DATE_YYYY_MM_DD.lookups
-    }
+    OnyxType.DATE: {lookup: DateFilter for lookup in OnyxType.DATE.lookups}
     | {
         "in": DateInFilter,
         "range": DateRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
         "iso_year": filters.NumberFilter,
         "iso_year__in": NumberInFilter,
         "iso_year__range": NumberRangeFilter,
@@ -258,9 +244,6 @@ FILTERS = {
     | {
         "in": DateTimeInFilter,
         "range": DateTimeRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
         "iso_year": filters.NumberFilter,
         "iso_year__in": NumberInFilter,
         "iso_year__range": NumberRangeFilter,

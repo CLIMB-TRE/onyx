@@ -58,7 +58,9 @@ class TestCreateView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
+        self.endpoint = reverse(
+            "project.testproject", kwargs={"code": self.project.code}
+        )
         self.user = self.setup_user(
             "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
@@ -85,7 +87,7 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         response = self.client.post(
-            reverse("project.testproject.test", kwargs={"code": "testproject"}),
+            reverse("project.testproject.test", kwargs={"code": self.project.code}),
             data=payload,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

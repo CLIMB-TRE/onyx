@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestModel, TestModelRecord
 
 
 # TODO:
@@ -319,21 +319,6 @@ class TestFilterView(OnyxTestCase):
                     collection_month__range=["2022-01-01", "2022-03-01"]
                 ),
             ),
-            # (
-            #     "year",
-            #     2022,
-            #     TestModel.objects.filter(collection_month__year=2022),
-            # ),
-            # (
-            #     "year__in",
-            #     "2022, 2023",
-            #     TestModel.objects.filter(collection_month__year__in=[2022, 2023]),
-            # ),
-            # (
-            #     "year__range",
-            #     "2022, 2023",
-            #     TestModel.objects.filter(collection_month__year__range=[2022, 2023]),
-            # ),
             ("", "", TestModel.objects.filter(collection_month__isnull=True)),
             ("ne", "", TestModel.objects.exclude(collection_month__isnull=True)),
             ("isnull", True, TestModel.objects.filter(collection_month__isnull=True)),
@@ -409,21 +394,6 @@ class TestFilterView(OnyxTestCase):
                     submission_date__range=["2023-01-01", "2023-06-03"]
                 ),
             ),
-            # (
-            #     "year",
-            #     2023,
-            #     TestModel.objects.filter(submission_date__year=2023),
-            # ),
-            # (
-            #     "year__in",
-            #     "2023, 2024",
-            #     TestModel.objects.filter(submission_date__year__in=[2023, 2024]),
-            # ),
-            # (
-            #     "year__range",
-            #     "2023, 2024",
-            #     TestModel.objects.filter(submission_date__year__range=[2023, 2024]),
-            # ),
             (
                 "iso_year",
                 2023,
@@ -557,3 +527,143 @@ class TestFilterView(OnyxTestCase):
         # Test filtering the relation field with an invalid lookup
         response = self.client.get(self.endpoint, data={"records": 1})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_summarise(self):
+        """
+        Test summarising a column.
+        """
+
+        for field in ["country", "run_name", "start", "score", "submission_date"]:
+            response = self.client.get(self.endpoint, data={"summarise": field})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(TestModel.objects.values(field).distinct()),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(**{field: row[field]}).count(),
+                )
+
+    def test_multi_summarise(self):
+        """
+        Test summarising multiple columns.
+        """
+
+        for fields in [
+            ("submission_date", "score", "start"),
+            ("country", "run_name"),
+            ("country", "run_name", "start"),
+        ]:
+            response = self.client.get(self.endpoint, data={"summarise": fields})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(TestModel.objects.values(*fields).distinct()),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(
+                        **{field: row[field] for field in fields}
+                    ).count(),
+                )
+
+    def test_nested_summarise(self):
+        """
+        Test summarising a nested column.
+        """
+
+        for nested_field in [
+            "test_id",
+            "test_pass",
+            # TODO: Nested date fields cannot be summarised.
+            # No current prod instances thankfully, but needs fixing ASAP
+            # "test_start",
+            "test_result",
+            "score_a",
+        ]:
+            response = self.client.get(
+                self.endpoint, data={"summarise": f"records__{nested_field}"}
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .values(f"records__{nested_field}")
+                    .distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModelRecord.objects.filter(
+                        **{nested_field: row[f"records__{nested_field}"]}
+                    ).count(),
+                )
+
+    def test_nested_multi_summarise(self):
+        """
+        Test summarising multiple nested columns.
+        """
+
+        pass
+
+    def test_mixed_summarise(self):
+        """
+        Test summarising a mix of columns and nested columns.
+        """
+
+        pass
+
+    def test_filter_summarise(self):
+        """
+        Test filtering and summarising a column.
+        """
+
+        pass
+
+    def test_filter_multi_summarise(self):
+        """
+        Test filtering and summarising multiple columns.
+        """
+
+        pass
+
+    def test_filter_nested_summarise(self):
+        """
+        Test filtering and summarising a nested column.
+        """
+
+        pass
+
+    def test_filter_nested_multi_summarise(self):
+        """
+        Test filtering and summarising multiple nested columns.
+        """
+
+        pass
+
+    def test_filter_mixed_summarise(self):
+        """
+        Test filtering and summarising a mix of columns and nested columns.
+        """
+
+        pass

@@ -530,6 +530,33 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             qs = qs.filter(q_object).distinct()
 
         if self.summarise:
+            relations = 0
+            for summary_field, onyx_field in summary_fields.items():
+                # This is a bit of a hack for making sense of null values in summary over relational fields.
+                # Suppose we have model A and model B, with model B having field x, accessed via b__x.
+                # In a summary, we can have two distinct quantities:
+                # 1. COUNT(b__isnull = TRUE) : The number of A records that have no B records.
+                # 2. COUNT(b__x__isnull = TRUE) : The number of B records that have no x value.
+                # If we do a summary over b__x, any null value should correspond to quantity 2.
+                # After some tests, it seems that for some fields, unless b__isnull = false is pre-applied,
+                # then b__x null value counts can (confusingly) be equal to quantity 1.
+                # Therefore, we explicitly exclude A records that have no B records whenever
+                # we do a summary involving B fields.
+                if onyx_field.field_model != self.model:
+                    relations += 1
+
+                    # Summarising over more than one related table is disallowed.
+                    # Mainly because the resulting counts are unintuitive, and grow large very quickly.
+                    if relations > 1:
+                        raise exceptions.ValidationError(
+                            {
+                                "detail": "Cannot summarise over more than one related table."
+                            }
+                        )
+
+                    relation = "__".join(summary_field.split("__")[:-1])
+                    qs = qs.filter(**{f"{relation}__isnull": False})
+
             summary_values = qs.values(*summary_fields.keys())
 
             # Reject summary if it would return too many distinct values

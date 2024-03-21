@@ -19,8 +19,8 @@ class BaseTestModel(ProjectRecord):
     def version(cls):
         return __version__
 
-    sample_id = UpperCharField()
-    run_name = UpperCharField()
+    sample_id = UpperCharField(max_length=50)
+    run_name = UpperCharField(max_length=100)
     collection_month = models.DateField(null=True)
     received_month = models.DateField(null=True)
     char_max_length_20 = models.CharField(max_length=20)

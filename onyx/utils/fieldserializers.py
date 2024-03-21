@@ -5,6 +5,27 @@ from accounts.models import Site
 from utils.functions import get_suggestions
 
 
+class CharField(serializers.CharField):
+    def to_internal_value(self, data):
+        data = super().to_internal_value(data)
+
+        if data.upper().strip() in {
+            "NA",
+            "N/A",
+            "N.A.",
+            "N.A",
+            "EMPTY",
+            "NULL",
+            "NONE",
+            "NADA",
+        }:
+            raise serializers.ValidationError(
+                "Cannot provide text representing empty data."
+            )
+
+        return data
+
+
 class DateField(serializers.DateField):
     def __init__(self, format: str, input_formats=None, **kwargs):
         super().__init__(

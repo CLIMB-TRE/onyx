@@ -1,5 +1,5 @@
 from utils.validators import OnyxUniqueTogetherValidator
-from utils.fieldserializers import DateField, ChoiceField
+from utils.fieldserializers import CharField, DateField, ChoiceField
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
 from .models import BaseTestModel, TestModel, TestModelRecord
 
@@ -7,6 +7,7 @@ from .models import BaseTestModel, TestModel, TestModelRecord
 class TestModelRecordSerializer(BaseRecordSerializer):
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
+    test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
         model = TestModelRecord
@@ -39,6 +40,8 @@ class TestModelRecordSerializer(BaseRecordSerializer):
 
 
 class BaseTestModelSerializer(ProjectRecordSerializer):
+    sample_id = CharField(max_length=50)
+    run_name = CharField(max_length=100)
     collection_month = DateField(
         "%Y-%m",
         input_formats=["%Y-%m"],
@@ -51,6 +54,9 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         required=False,
         allow_null=True,
     )
+    char_max_length_20 = CharField(max_length=20, required=False, allow_blank=True)
+    text_option_1 = CharField(required=False, allow_blank=True)
+    text_option_2 = CharField(required=False, allow_blank=True)
     submission_date = DateField(
         "%Y-%m-%d",
         input_formats=["%Y-%m-%d"],
@@ -59,6 +65,7 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
     )
     country = ChoiceField("country", required=False, allow_blank=True)
     region = ChoiceField("region", required=False, allow_blank=True)
+    required_when_published = CharField(required=False, allow_blank=True)
 
     class Meta:
         model = BaseTestModel

@@ -220,7 +220,7 @@ def conditional_value_required(field: str, value: Any, required: list[str]):
         check=check,
         name=generate_constraint_name(
             code="cvr",
-            fields=[field] + required,
+            fields=[field] + required + [str(value).strip().lower()],
         ),
         violation_error_message=f"Each of {', '.join(required)} are required in order to set {field} to the value.",
     )

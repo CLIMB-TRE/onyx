@@ -530,7 +530,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             qs = qs.filter(q_object).distinct()
 
         if self.summarise:
-            relations = 0
+            relations = []
             for summary_field, onyx_field in summary_fields.items():
                 # This is a bit of a hack for making sense of null values in summary over relational fields.
                 # Suppose we have model A and model B, with model B having field x, accessed via b__x.
@@ -542,20 +542,22 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 # then b__x null value counts can (confusingly) be equal to quantity 1.
                 # Therefore, we explicitly exclude A records that have no B records whenever
                 # we do a summary involving B fields.
-                if onyx_field.field_model != self.model:
-                    relations += 1
+                if (
+                    onyx_field.field_model != self.model
+                    and onyx_field.field_model not in relations
+                ):
+                    relations.append(onyx_field.field_model)
 
-                    # Summarising over more than one related table is disallowed.
-                    # Mainly because the resulting counts are unintuitive, and grow large very quickly.
-                    if relations > 1:
-                        raise exceptions.ValidationError(
-                            {
-                                "detail": "Cannot summarise over more than one related table."
-                            }
-                        )
+                    # TODO: Actually seems we cannot do this without introducing some serious weirdness.
+                    # relation = "__".join(summary_field.split("__")[:-1])
+                    # qs = qs.filter(**{f"{relation}__isnull": False})
 
-                    relation = "__".join(summary_field.split("__")[:-1])
-                    qs = qs.filter(**{f"{relation}__isnull": False})
+            # Summarising over more than one related table is disallowed.
+            # Mainly because the resulting counts are unintuitive, and grow large very quickly.
+            if len(set(relations)) > 1:
+                raise exceptions.ValidationError(
+                    {"detail": "Cannot summarise over more than one related table."}
+                )
 
             summary_values = qs.values(*summary_fields.keys())
 

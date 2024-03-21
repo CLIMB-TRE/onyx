@@ -624,7 +624,43 @@ class TestFilterView(OnyxTestCase):
         Test summarising multiple nested columns.
         """
 
-        pass
+        for nested_fields in [
+            ("test_id", "test_pass", "test_result"),
+            ("test_id", "test_pass", "test_result", "score_a"),
+        ]:
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": [
+                        f"records__{nested_field}" for nested_field in nested_fields
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.values(
+                        *(f"records__{nested_field}" for nested_field in nested_fields)
+                    ).distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field: row[f"records__{nested_field}"]
+                            for nested_field in nested_fields
+                        }
+                    ).count(),
+                )
 
     def test_mixed_summarise(self):
         """

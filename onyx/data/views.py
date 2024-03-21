@@ -237,7 +237,7 @@ class ChoicesView(ProjectAPIView):
         )
 
         # Return choices for the field
-        return Response(choices)
+        return Response(sorted(choices))
 
 
 class IdentifyView(ProjectAPIView):

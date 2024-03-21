@@ -96,7 +96,7 @@ def generate_fields_spec(
 
         # Add choices if the field is a choice field
         if onyx_type == OnyxType.CHOICE and onyx_fields[field_path].choices:
-            field_spec["values"] = onyx_fields[field_path].choices
+            field_spec["values"] = sorted(onyx_fields[field_path].choices)
 
         # Add additional restrictions
         restrictions = []

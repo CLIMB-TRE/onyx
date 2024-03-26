@@ -1,10 +1,49 @@
+from __future__ import annotations
 import operator
 import functools
 from typing import Dict, List, Any
 from django.db.models import Q, Model
 from rest_framework import exceptions
+from pydantic import RootModel, BaseModel, Field, ValidationError, ConfigDict
 from .filters import OnyxFilter
 from .fields import OnyxField
+
+
+from typing_extensions import Annotated
+
+from pydantic import BaseModel, ValidationError
+from pydantic.functional_validators import AfterValidator
+
+
+def check_length(v: dict) -> dict:
+    if len(v) != 1:
+        raise ValueError(f"atom is not a single key-value pair")
+    return v
+
+
+class Atom(RootModel):
+    root: Annotated[dict[str, str], AfterValidator(check_length)]
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class AND(BaseModel):
+    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="&")
+
+
+class OR(BaseModel):
+    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="|")
+
+
+class XOR(BaseModel):
+    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="^")
+
+
+class NOT(BaseModel):
+    op: Atom | AND | OR | NOT | XOR = Field(alias="~")
+
+
+class Query(RootModel):
+    root: Atom | AND | OR | NOT | XOR
 
 
 class QueryAtom:
@@ -53,12 +92,30 @@ def validate_data(func):
     return wrapped
 
 
-@validate_data
+# @validate_data
 def make_atoms(data: Dict[str, Any]) -> List[QueryAtom]:
     """
     Traverses the provided `data` and replaces request values with `QueryAtom` objects.
     Returns a list of these `QueryAtom` objects.
     """
+
+    try:
+        Query.model_validate(data)
+    except ValidationError as e:
+        errors = {}
+
+        for error in e.errors(
+            include_url=False, include_context=False, include_input=False
+        ):
+            if not error["loc"]:
+                errors.setdefault("non_field_errors", []).append(error["msg"])
+            else:
+                errors.setdefault(error["loc"][0], []).append(error["msg"])
+
+        for name, errs in errors.items():
+            errors[name] = list(set(errs))
+
+        raise exceptions.ValidationError(errors)
 
     key, value = next(iter(data.items()))
 
@@ -86,7 +143,7 @@ def make_atoms(data: Dict[str, Any]) -> List[QueryAtom]:
         return [atom]
 
 
-@validate_data
+# @validate_data
 def make_query(data: Dict[str, Any]) -> Q:
     """
     Traverses the provided `data` and forms the corresponding Q object.

@@ -2,7 +2,7 @@ from __future__ import annotations
 import hashlib
 from collections import namedtuple
 from pydantic import RootModel, ValidationError as PydanticValidationError
-from django.db.models import Count
+from django.db.models import Count, Subquery
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -530,6 +530,37 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             qs = qs.filter(q_object).distinct()
 
         if self.summarise:
+            relations = {
+                onyx_field.field_model: summary_field
+                for summary_field, onyx_field in summary_fields.items()
+                if onyx_field.field_model != self.model
+            }
+
+            if relations:
+                # Summarising over more than one related table is disallowed.
+                # Mainly because the resulting counts are unintuitive, and grow large very quickly.
+                if len(relations) > 1:
+                    raise exceptions.ValidationError(
+                        {"detail": "Cannot summarise over more than one related table."}
+                    )
+
+                # Get the relation name
+                relation = "__".join(next(iter(relations.values())).split("__")[:-1])
+
+                # When doing a summary involving a related table, we first exclude records that have no relations on that table.
+                # This is because otherwise, the counts involving None values for related fields can mean multiple things.
+                # The count would either be the number of related rows that have no value for the related field,
+                # or the number of rows in the main table that have no related rows.
+                qs = qs.filter(
+                    id__in=Subquery(
+                        qs.filter(**{f"{relation}__isnull": False}).values("id")
+                    )
+                )
+                count_name = f"{relation}__count"
+            else:
+                count_name = "count"
+
+            # Get the summary values
             summary_values = qs.values(*summary_fields.keys())
 
             # Reject summary if it would return too many distinct values
@@ -542,11 +573,12 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             # Serialize the results
             serializer = SummarySerializer(
-                summary_values.annotate(count=Count("*")).order_by(
+                summary_values.annotate(**{count_name: Count("*")}).order_by(
                     *summary_fields.keys()
                 ),
                 serializer_cls=self.serializer_cls,
                 onyx_fields=summary_fields,
+                count_name=count_name,
                 many=True,
             )
         else:

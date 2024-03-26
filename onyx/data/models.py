@@ -105,6 +105,14 @@ class BaseRecord(models.Model):
                     )
                 )
 
+            elif field.name == "count":
+                errors.append(
+                    checks.Error(
+                        f"Field name cannot be 'count' as this is reserved.",
+                        obj=field,
+                    )
+                )
+
         return errors
 
 

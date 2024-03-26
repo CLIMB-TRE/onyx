@@ -109,7 +109,14 @@ def generate_test_data(n: int = 100, nested: bool = False):
                     "test_start": f"2022-{random.randint(1, 12)}",
                     "test_end": f"2023-{random.randint(1, 6)}",
                     "score_a": random.random() * 42,
-                    "test_result": "details",
+                    "test_result": random.choice(
+                        [
+                            "details",
+                            "more details",
+                            "other details",
+                            "random details",
+                        ]
+                    ),
                 },
                 {
                     "test_id": 2,
@@ -117,7 +124,14 @@ def generate_test_data(n: int = 100, nested: bool = False):
                     "test_start": f"2022-{random.randint(1, 12)}",
                     "test_end": f"2023-{random.randint(1, 6)}",
                     "score_b": random.random() * 42,
-                    "test_result": "details",
+                    "test_result": random.choice(
+                        [
+                            "details",
+                            "more details",
+                            "other details",
+                            "random details",
+                        ]
+                    ),
                 },
             ]
         data.append(x)

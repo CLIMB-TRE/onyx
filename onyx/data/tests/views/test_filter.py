@@ -5,7 +5,6 @@ from projects.testproject.models import TestModel, TestModelRecord
 
 
 # TODO:
-# - Test summarise function
 # - Test effect of suppressing data
 
 
@@ -593,6 +592,8 @@ class TestFilterView(OnyxTestCase):
             # "test_start",
             "test_result",
             "score_a",
+            "score_b",
+            "score_c",
         ]:
             response = self.client.get(
                 self.endpoint, data={"summarise": f"records__{nested_field}"}
@@ -613,7 +614,7 @@ class TestFilterView(OnyxTestCase):
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(
-                    row["count"],
+                    row["records__count"],
                     TestModelRecord.objects.filter(
                         **{nested_field: row[f"records__{nested_field}"]}
                     ).count(),
@@ -627,6 +628,8 @@ class TestFilterView(OnyxTestCase):
         for nested_fields in [
             ("test_id", "test_pass", "test_result"),
             ("test_id", "test_pass", "test_result", "score_a"),
+            ("test_id", "test_pass", "test_result", "score_a", "score_b"),
+            ("test_id", "test_pass", "test_result", "score_a", "score_b", "score_c"),
         ]:
             response = self.client.get(
                 self.endpoint,
@@ -644,16 +647,18 @@ class TestFilterView(OnyxTestCase):
             self.assertEqual(
                 len(response.json()["data"]),
                 len(
-                    TestModel.objects.values(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .values(
                         *(f"records__{nested_field}" for nested_field in nested_fields)
-                    ).distinct()
+                    )
+                    .distinct()
                 ),
             )
 
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(
-                    row["count"],
+                    row["records__count"],
                     TestModelRecord.objects.filter(
                         **{
                             nested_field: row[f"records__{nested_field}"]
@@ -667,39 +672,263 @@ class TestFilterView(OnyxTestCase):
         Test summarising a mix of columns and nested columns.
         """
 
-        pass
+        for fields, nested_fields in [
+            (
+                ("submission_date", "score", "start"),
+                ("test_id", "test_pass", "test_result", "score_a"),
+            ),
+            (
+                ("country", "region"),
+                ("test_id", "test_pass", "test_result", "score_b"),
+            ),
+            (
+                ("concern", "text_option_1"),
+                ("test_id", "test_pass", "test_result", "score_c"),
+            ),
+        ]:
+            nested_field_paths = [
+                f"records__{nested_field}" for nested_field in nested_fields
+            ]
+            response = self.client.get(
+                self.endpoint,
+                data={"summarise": list(fields) + nested_field_paths},
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .values(*(list(fields) + nested_field_paths))
+                    .distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field: row[f"records__{nested_field}"]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    ).count(),
+                )
 
     def test_filter_summarise(self):
         """
         Test filtering and summarising a column.
         """
 
-        pass
+        for field in ["country", "concern", "region", "run_name", "submission_date"]:
+            response = self.client.get(
+                self.endpoint, data={"summarise": field, "country": "eng"}
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(TestModel.objects.filter(country="eng").values(field).distinct()),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(country="eng")
+                    .filter(**{field: row[field]})
+                    .count(),
+                )
 
     def test_filter_multi_summarise(self):
         """
         Test filtering and summarising multiple columns.
         """
 
-        pass
+        for fields in [
+            ("submission_date", "score", "start"),
+            ("submission_date", "run_name"),
+            ("region", "concern"),
+            ("country", "concern", "region", "run_name"),
+        ]:
+            response = self.client.get(
+                self.endpoint, data={"summarise": fields, "country": "eng"}
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(TestModel.objects.filter(country="eng").values(*fields).distinct()),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(country="eng")
+                    .filter(**{field: row[field] for field in fields})
+                    .count(),
+                )
 
     def test_filter_nested_summarise(self):
         """
         Test filtering and summarising a nested column.
         """
 
-        pass
+        for nested_field in [
+            "test_id",
+            "test_pass",
+            "test_result",
+            "score_a",
+            "score_b",
+            "score_c",
+        ]:
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": f"records__{nested_field}",
+                    "records__test_result": "details",
+                },
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .filter(records__test_result="details")
+                    .values(f"records__{nested_field}")
+                    .distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(test_result="details")
+                    .filter(**{nested_field: row[f"records__{nested_field}"]})
+                    .count(),
+                )
 
     def test_filter_nested_multi_summarise(self):
         """
         Test filtering and summarising multiple nested columns.
         """
 
-        pass
+        for nested_fields in [
+            ("test_id", "test_pass", "test_result"),
+            ("test_id", "test_pass", "test_result", "score_a"),
+            ("test_id", "test_pass", "test_result", "score_b"),
+            ("test_id", "test_pass", "test_result"),
+        ]:
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": [
+                        f"records__{nested_field}" for nested_field in nested_fields
+                    ],
+                    "records__test_result": "details",
+                },
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .filter(records__test_result="details")
+                    .values(
+                        *(f"records__{nested_field}" for nested_field in nested_fields)
+                    )
+                    .distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(test_result="details")
+                    .filter(
+                        **{
+                            nested_field: row[f"records__{nested_field}"]
+                            for nested_field in nested_fields
+                        }
+                    )
+                    .count(),
+                )
 
     def test_filter_mixed_summarise(self):
         """
         Test filtering and summarising a mix of columns and nested columns.
         """
 
-        pass
+        for fields, nested_fields in [
+            (
+                ("submission_date", "score", "start"),
+                ("test_id", "test_pass", "test_result", "score_a"),
+            ),
+            (
+                ("country", "region"),
+                ("test_id", "test_result"),
+            ),
+            (
+                ("concern", "tests"),
+                ("test_pass", "test_result"),
+            ),
+        ]:
+            nested_field_paths = [
+                f"records__{nested_field}" for nested_field in nested_fields
+            ]
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": list(fields) + nested_field_paths,
+                    "country": "eng",
+                    "records__test_result": "details",
+                },
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                len(
+                    TestModel.objects.filter(**{f"records__isnull": False})
+                    .filter(country="eng")
+                    .filter(records__test_result="details")
+                    .values(*(list(fields) + nested_field_paths))
+                    .distinct()
+                ),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(link__country="eng")
+                    .filter(test_result="details")
+                    .filter(
+                        **{
+                            nested_field: row[f"records__{nested_field}"]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    )
+                    .count(),
+                )

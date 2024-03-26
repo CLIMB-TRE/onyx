@@ -35,6 +35,7 @@ class SummarySerializer(serializers.Serializer):
         *args,
         serializer_cls: type[ProjectRecordSerializer],
         onyx_fields: dict[str, OnyxField],
+        count_name: str,
         **kwargs,
     ):
         serlializer_instance = serializer_cls()
@@ -49,7 +50,7 @@ class SummarySerializer(serializers.Serializer):
             else:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
 
-        self.fields["count"] = serializers.IntegerField()
+        self.fields[count_name] = serializers.IntegerField()
         super().__init__(*args, **kwargs)
 
 

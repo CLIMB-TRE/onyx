@@ -111,6 +111,14 @@ class TestModelRecord(BaseRecord):
         indexes = [
             models.Index(fields=["created"]),
             models.Index(fields=["link", "test_id"]),
+            models.Index(fields=["test_id"]),
+            models.Index(fields=["test_pass"]),
+            models.Index(fields=["test_start"]),
+            models.Index(fields=["test_end"]),
+            models.Index(fields=["score_a"]),
+            models.Index(fields=["score_b"]),
+            models.Index(fields=["score_c"]),
+            models.Index(fields=["test_result"]),
         ]
         constraints = [
             unique_together(

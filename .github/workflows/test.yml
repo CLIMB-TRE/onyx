@@ -49,5 +49,5 @@ jobs:
         ONYX_PROJECTS: testproject
       working-directory: ./onyx
       run: |
-        poetry run coverage run --source='.' manage.py test -v 2 --parallel 4
+        poetry run coverage run --source='.' manage.py test -v 2
         poetry run coverage report

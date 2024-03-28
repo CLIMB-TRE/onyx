@@ -745,6 +745,9 @@ class TestFilterView(OnyxTestCase):
                 ),
             )
 
+            # Curious to see difference - should be the same
+            print(len(response.json()["data"]))
+
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(

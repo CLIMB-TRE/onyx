@@ -665,10 +665,9 @@ class TestFilterView(OnyxTestCase):
         """
 
         for nested_fields in [
-            ("test_id", "test_pass", "test_result"),
-            ("test_id", "test_pass", "test_result", "score_a"),
-            ("test_id", "test_pass", "test_result", "score_a", "score_b"),
-            ("test_id", "test_pass", "test_result", "score_a", "score_b", "score_c"),
+            ("test_pass", "test_result"),
+            ("test_result", "score_a"),
+            ("score_b", "score_c", "test_pass"),
         ]:
             response = self.client.get(
                 self.endpoint,
@@ -714,16 +713,16 @@ class TestFilterView(OnyxTestCase):
 
         for fields, nested_fields in [
             (
-                ("submission_date", "score", "start"),
-                ("test_id", "test_pass", "test_result", "score_a"),
+                ("run_name",),
+                ("test_pass", "test_result"),
             ),
             (
                 ("country", "region"),
-                ("test_id", "test_pass", "test_result", "score_b"),
+                ("score_b",),
             ),
             (
                 ("concern", "text_option_1"),
-                ("test_id", "test_pass", "test_result", "score_c"),
+                ("test_result", "score_a"),
             ),
         ]:
             nested_field_paths = [

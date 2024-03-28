@@ -1,3 +1,4 @@
+from hashlib import md5
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
@@ -21,22 +22,22 @@ class TestFilterView(OnyxTestCase):
         self.user = self.setup_user(
             "testuser", roles=["is_staff"], groups=["testproject.admin"]
         )
+        total_payload = ""
         for payload in generate_test_data():
+            total_payload += str(payload)
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        print("\nTest data MD5:", md5(total_payload.encode("utf-8")).hexdigest())
 
-    def assertEqualClimbIDs(self, records, qs, allow_empty=False):
+    def assertEqualClimbIDs(self, records, qs):
         """
         Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
         """
 
         record_values = sorted(record["climb_id"] for record in records)
-        qs_values = sorted(qs.distinct().values_list("climb_id", flat=True))
-
-        if not allow_empty:
-            self.assertTrue(record_values)
-            self.assertTrue(qs_values)
-
+        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
         self.assertEqual(
             record_values,
             qs_values,
@@ -51,7 +52,7 @@ class TestFilterView(OnyxTestCase):
             self.endpoint, data={f"{field}__{lookup}" if lookup else field: value}
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(response.json()["data"], qs, allow_empty=allow_empty)
+        self.assertEqualClimbIDs(response.json()["data"], qs)
 
     def test_basic(self):
         """
@@ -79,56 +80,87 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", "run-1", TestModel.objects.filter(run_name="run-1")),
-            ("exact", "run-1", TestModel.objects.filter(run_name__exact="run-1")),
-            ("ne", "run-1", TestModel.objects.filter(run_name__ne="run-1")),
+            ("", "world", TestModel.objects.filter(text_option_1="world")),
+            ("exact", "world", TestModel.objects.filter(text_option_1__exact="world")),
+            ("ne", "world", TestModel.objects.filter(text_option_1__ne="world")),
             (
                 "in",
-                "run-1, run-2, run-3",
-                TestModel.objects.filter(run_name__in=["run-1", "run-2", "run-3"]),
+                "hello, world, hey, world world",
+                TestModel.objects.filter(
+                    text_option_1__in=["hello", "world", "hey", "world world"]
+                ),
             ),
-            ("contains", "run", TestModel.objects.filter(run_name__contains="run")),
-            ("startswith", "run", TestModel.objects.filter(run_name__startswith="run")),
-            ("endswith", "n-1", TestModel.objects.filter(run_name__endswith="n-1")),
-            ("iexact", "RUN-1", TestModel.objects.filter(run_name__iexact="RUN-1")),
-            ("icontains", "RUN", TestModel.objects.filter(run_name__icontains="RUN")),
+            (
+                "contains",
+                "orl",
+                TestModel.objects.filter(text_option_1__contains="orl"),
+            ),
+            (
+                "startswith",
+                "wor",
+                TestModel.objects.filter(text_option_1__startswith="wor"),
+            ),
+            (
+                "endswith",
+                "rld",
+                TestModel.objects.filter(text_option_1__endswith="rld"),
+            ),
+            (
+                "iexact",
+                "HELLO",
+                TestModel.objects.filter(text_option_1__iexact="HELLO"),
+            ),
+            (
+                "icontains",
+                "ELL",
+                TestModel.objects.filter(text_option_1__icontains="ELL"),
+            ),
             (
                 "istartswith",
-                "RUN",
-                TestModel.objects.filter(run_name__istartswith="RUN"),
+                "HEL",
+                TestModel.objects.filter(text_option_1__istartswith="HEL"),
             ),
-            ("iendswith", "N-1", TestModel.objects.filter(run_name__iendswith="N-1")),
-            ("regex", "run-1", TestModel.objects.filter(run_name__regex="run-1")),
-            ("iregex", "RUN-1", TestModel.objects.filter(run_name__iregex="RUN-1")),
-            ("length", 5, TestModel.objects.filter(run_name__length=5)),
+            (
+                "iendswith",
+                "LLO",
+                TestModel.objects.filter(text_option_1__iendswith="LLO"),
+            ),
+            ("regex", "world", TestModel.objects.filter(text_option_1__regex="world")),
+            (
+                "iregex",
+                "WORLD",
+                TestModel.objects.filter(text_option_1__iregex="WORLD"),
+            ),
+            ("length", 5, TestModel.objects.filter(text_option_1__length=5)),
             (
                 "length__in",
                 "1, 3, 5",
-                TestModel.objects.filter(run_name__length__in=[1, 3, 5]),
+                TestModel.objects.filter(text_option_1__length__in=[1, 3, 5]),
             ),
             (
                 "length__range",
                 "3, 5",
-                TestModel.objects.filter(run_name__length__range=[3, 5]),
+                TestModel.objects.filter(text_option_1__length__range=[3, 5]),
             ),
-            ("", "", TestModel.objects.filter(run_name__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name="")),
-            ("isnull", False, TestModel.objects.exclude(run_name="")),
+            ("", "", TestModel.objects.filter(text_option_1__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1="")),
+            ("isnull", False, TestModel.objects.exclude(text_option_1="")),
         ]:
             self._test_filter(
-                field="run_name",
+                field="text_option_1",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
         for value in ["", " ", "invalid"]:
-            response = self.client.get(self.endpoint, data={"run_name__isnull": value})
+            response = self.client.get(
+                self.endpoint, data={"text_option_1__isnull": value}
+            )
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_choice(self):
@@ -199,31 +231,30 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1, TestModel.objects.filter(start=1)),
-            ("exact", 1, TestModel.objects.filter(start__exact=1)),
-            ("ne", 1, TestModel.objects.exclude(start=1)),
-            ("in", "1, 2, 3", TestModel.objects.filter(start__in=[1, 2, 3])),
-            ("lt", 3, TestModel.objects.filter(start__lt=3)),
-            ("lte", 3, TestModel.objects.filter(start__lte=3)),
-            ("gt", 2, TestModel.objects.filter(start__gt=2)),
-            ("gte", 2, TestModel.objects.filter(start__gte=2)),
-            ("range", "1, 3", TestModel.objects.filter(start__range=[1, 3])),
-            ("", "", TestModel.objects.filter(start__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(start__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(start__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(start__isnull=True)),
+            ("", 1, TestModel.objects.filter(tests=1)),
+            ("exact", 1, TestModel.objects.filter(tests__exact=1)),
+            ("ne", 1, TestModel.objects.exclude(tests=1)),
+            ("in", "1, 2, 3", TestModel.objects.filter(tests__in=[1, 2, 3])),
+            ("lt", 3, TestModel.objects.filter(tests__lt=3)),
+            ("lte", 3, TestModel.objects.filter(tests__lte=3)),
+            ("gt", 2, TestModel.objects.filter(tests__gt=2)),
+            ("gte", 2, TestModel.objects.filter(tests__gte=2)),
+            ("range", "1, 3", TestModel.objects.filter(tests__range=[1, 3])),
+            ("", "", TestModel.objects.filter(tests__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(tests__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(tests__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(tests__isnull=True)),
         ]:
             self._test_filter(
-                field="start",
+                field="tests",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
         for value in ["", " ", "invalid"]:
-            response = self.client.get(self.endpoint, data={"start__isnull": value})
+            response = self.client.get(self.endpoint, data={"tests__isnull": value})
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_decimal(self):
@@ -232,19 +263,23 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1.1, TestModel.objects.filter(score=1.1)),
-            ("exact", 1.1, TestModel.objects.filter(score__exact=1.1)),
-            ("ne", 1.1, TestModel.objects.exclude(score=1.1)),
+            ("", 1.12345, TestModel.objects.filter(score=1.12345)),
+            ("exact", 1.12345, TestModel.objects.filter(score__exact=1.12345)),
+            ("ne", 1.12345, TestModel.objects.exclude(score=1.12345)),
             (
                 "in",
-                "1.1, 2.2, 3.3",
-                TestModel.objects.filter(score__in=[1.1, 2.2, 3.3]),
+                "1.12345, 2.12345, 3.12345",
+                TestModel.objects.filter(score__in=[1.12345, 2.12345, 3.12345]),
             ),
-            ("lt", 3.3, TestModel.objects.filter(score__lt=3.3)),
-            ("lte", 3.3, TestModel.objects.filter(score__lte=3.3)),
-            ("gt", 4.4, TestModel.objects.filter(score__gt=4.4)),
-            ("gte", 4.4, TestModel.objects.filter(score__gte=4.4)),
-            ("range", "1.1, 9.9", TestModel.objects.filter(score__range=[1.1, 9.9])),
+            ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
+            ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
+            ("gt", 4.12345, TestModel.objects.filter(score__gt=4.12345)),
+            ("gte", 4.12345, TestModel.objects.filter(score__gte=4.12345)),
+            (
+                "range",
+                "1.12345, 9.12345",
+                TestModel.objects.filter(score__range=[1.12345, 9.12345]),
+            ),
             ("", "", TestModel.objects.filter(score__isnull=True)),
             ("ne", "", TestModel.objects.exclude(score__isnull=True)),
             ("isnull", True, TestModel.objects.filter(score__isnull=True)),
@@ -255,7 +290,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -328,7 +362,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 lookup=lookup,
                 qs=qs,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -433,7 +466,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -462,10 +494,17 @@ class TestFilterView(OnyxTestCase):
                 for l in ["", "exact"]
                 for x in false_values
             ]
-            + [("ne", x, TestModel.objects.filter(concern=False)) for x in true_values]
-            + [("ne", x, TestModel.objects.filter(concern=True)) for x in false_values]
+            + [("ne", x, TestModel.objects.exclude(concern=True)) for x in true_values]
             + [
-                ("in", "True, False", TestModel.objects.all()),
+                ("ne", x, TestModel.objects.exclude(concern=False))
+                for x in false_values
+            ]
+            + [
+                (
+                    "in",
+                    "True, False",
+                    TestModel.objects.filter(concern__in=[True, False]),
+                ),
                 ("", "", TestModel.objects.filter(concern__isnull=True)),
                 ("ne", "", TestModel.objects.exclude(concern__isnull=True)),
                 (
@@ -485,7 +524,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -515,7 +553,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -579,6 +616,7 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
+    # TODO: sus
     def test_nested_summarise(self):
         """
         Test summarising a nested column.
@@ -620,6 +658,7 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
+    # TODO: sus
     def test_nested_multi_summarise(self):
         """
         Test summarising multiple nested columns.
@@ -667,6 +706,7 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
+    # TODO: sus
     def test_mixed_summarise(self):
         """
         Test summarising a mix of columns and nested columns.

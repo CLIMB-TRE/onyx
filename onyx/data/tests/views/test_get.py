@@ -20,7 +20,7 @@ class TestGetView(OnyxTestCase):
         )
         response = self.client.post(
             reverse("project.testproject", kwargs={"code": self.project.code}),
-            data=next(iter(generate_test_data(n=1, nested=True))),
+            data=next(iter(generate_test_data(n=1))),
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.climb_id = response.json()["data"]["climb_id"]

@@ -1,6 +1,6 @@
 import os
-import random
 import logging
+import itertools
 from django.core.management import call_command
 from django.conf import settings
 from django.contrib.auth.models import Group
@@ -64,76 +64,153 @@ class OnyxTestCase(APITestCase):
         return user
 
 
-def generate_test_data(n: int = 100, nested: bool = False):
+def generate_test_data(n: int = 100):
     """
     Generate test data.
     """
 
-    # TODO: Better generation of test data
-    # - Empty values for testing isnull without requiring allow_empty = True
-    # - More distinct float, dates etc for testing exact filter matches without requiring allow_empty = True
+    sample_ids = [f"sample-{i}" for i in range(n)]
+    run_names = ["run-1", "run-2", "run-3"]
+    collection_months = [f"2022-{i}" for i in range(1, 4)] + [None]
+    received_months = [f"2023-{i}" for i in range(1, 13)]
+    char_max_length_20 = ["X" * 20, "Y" * 15, "Z" * 10]
+    text_option_1 = ["hello", "world", "hey", "world world", "y", ""]
+    text_option_2 = ["hello", "bye"]
+    submission_dates = [
+        f"2023-{i}-{j}" for i in [1, 4, 8, 12] for j in [1, 5, 10, 15]
+    ] + [None]
+    countries = ["eng", "scot", "wales", "ni", ""]
+    regions = {
+        "eng": lambda i: ["ne", "nw", "se", "sw"][i % 4],
+        "scot": lambda: "other",
+        "wales": lambda: "other",
+        "ni": lambda: "other",
+        "": lambda: "",
+    }
+    concerns = [True, False, None]
+    tests = [1, 2, 3, None]
+    scores = [x + 0.12345 for x in range(10)] + [None]
+    starts = [1, 2, 3, 4, 5]
+    ends = [6, 7, 8, 9, 10]
+    required_when_publisheds = ["hello", "world"]
+    has_nesteds = [True, False]
+    nested_ranges = [
+        (1, 10),
+        (400, 404),
+        (2, 5),
+        (7, 12),
+        (4, 17),
+        (20, 25),
+        (3, 11),
+        (800, 808),
+    ]
 
     data = []
-    for i in range(n):
-        country_region_group = random.randint(0, 4)
-        records = random.randint(0, 1)
+    for i, (
+        sample_id,
+        run_name,
+        collection_month,
+        received_month,
+        char_max_length_20,
+        text_option_1,
+        text_option_2,
+        submission_date,
+        country,
+        concern,
+        tests,
+        score,
+        start,
+        end,
+        required_when_published,
+        has_nested,
+        nested_range,
+    ) in enumerate(
+        zip(
+            sample_ids,
+            itertools.cycle(run_names),
+            itertools.cycle(collection_months),
+            itertools.cycle(received_months),
+            itertools.cycle(char_max_length_20),
+            itertools.cycle(text_option_1),
+            itertools.cycle(text_option_2),
+            itertools.cycle(submission_dates),
+            itertools.cycle(countries),
+            itertools.cycle(concerns),
+            itertools.cycle(tests),
+            itertools.cycle(scores),
+            itertools.cycle(starts),
+            itertools.cycle(ends),
+            itertools.cycle(required_when_publisheds),
+            itertools.cycle(has_nesteds),
+            itertools.cycle(nested_ranges),
+        )
+    ):
         x = {
-            "sample_id": f"sample-{i}",
-            "run_name": f"run-{random.randint(1, 3)}",
-            "collection_month": f"2022-{random.randint(1, 12)}",
-            "received_month": f"2023-{random.randint(1, 6)}",
-            "char_max_length_20": "X" * 20,
-            "text_option_1": random.choice(["hi", ""]),
-            "text_option_2": "bye",
-            "submission_date": f"2023-{random.randint(1, 6)}-{random.randint(1, 25)}",
-            "country": ["eng", "scot", "wales", "ni", ""][country_region_group],
-            "region": [
-                random.choice(["ne", "se", "nw", "sw", ""]),
-                "other",
-                "other",
-                "other",
-                "",
-            ][country_region_group],
-            "concern": random.choice([True, False]),
-            "tests": 2,
-            "score": random.random() * 42,
-            "start": random.randint(1, 5),
-            "end": random.randint(6, 10),
-            "required_when_published": "hello",
+            "sample_id": sample_id,
+            "run_name": run_name,
+            "collection_month": collection_month,
+            "received_month": received_month,
+            "char_max_length_20": char_max_length_20,
+            "text_option_1": text_option_1,
+            "text_option_2": text_option_2,
+            "submission_date": submission_date,
+            "country": country,
+            "region": regions[country]() if country != "eng" else regions[country](i),
+            "concern": concern,
+            "tests": tests,
+            "score": score,
+            "start": start,
+            "end": end,
+            "required_when_published": required_when_published,
         }
-        if records or nested:
-            x["records"] = [
-                {
-                    "test_id": 1,
-                    "test_pass": random.choice([True, False]),
-                    "test_start": f"2022-{random.randint(1, 12)}",
-                    "test_end": f"2023-{random.randint(1, 6)}",
-                    "score_a": random.random() * 42,
-                    "test_result": random.choice(
-                        [
-                            "details",
-                            "more details",
-                            "other details",
-                            "random details",
-                        ]
-                    ),
-                },
-                {
-                    "test_id": 2,
-                    "test_pass": random.choice([True, False]),
-                    "test_start": f"2022-{random.randint(1, 12)}",
-                    "test_end": f"2023-{random.randint(1, 6)}",
-                    "score_b": random.random() * 42,
-                    "test_result": random.choice(
-                        [
-                            "details",
-                            "more details",
-                            "other details",
-                            "random details",
-                        ]
-                    ),
-                },
+
+        if has_nested:
+            test_ids = [x for x in range(*nested_range)]
+            test_passes = [True, False]
+            test_starts = [f"2022-{i}" for i in range(1, 6)]
+            test_ends = [f"2023-{i}" for i in range(1, 6)]
+            score_as = [
+                x + 0.678910 if not (x % 2 == 0) else None for x in range(1, 10)
             ]
+            score_bs = [
+                x + 0.678910 if not ((x + 1) % 2 == 0) else None for x in range(1, 10)
+            ]
+            test_results = [
+                "details",
+                "more details",
+                "other details",
+                "random details",
+            ]
+            for (
+                test_id,
+                test_pass,
+                test_start,
+                test_end,
+                score_a,
+                score_b,
+                test_result,
+            ) in zip(
+                test_ids,
+                itertools.cycle(test_passes),
+                itertools.cycle(test_starts),
+                itertools.cycle(test_ends),
+                itertools.cycle(score_as),
+                itertools.cycle(score_bs),
+                itertools.cycle(test_results),
+            ):
+
+                x.setdefault("records", []).append(
+                    {
+                        "test_id": test_id,
+                        "test_pass": test_pass,
+                        "test_start": test_start,
+                        "test_end": test_end,
+                        "score_a": score_a,
+                        "score_b": score_b,
+                        "test_result": test_result,
+                    }
+                )
+
         data.append(x)
     return data
 

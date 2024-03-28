@@ -12,11 +12,12 @@ class QueryAtom:
     Class for representing the most basic component of a query; a single key-value pair.
     """
 
-    __slots__ = "key", "value"
+    __slots__ = "key", "value", "exclude"
 
-    def __init__(self, key, value):
+    def __init__(self, key, value, exclude=False):
         self.key = key
         self.value = value
+        self.exclude = exclude
 
 
 # TODO: Improve validation or find better ways e.g. JSON Schema?
@@ -106,7 +107,10 @@ def make_query(data: Dict[str, Any]) -> Q:
         # Base case: a QueryAtom to filter on
         # 'value' here is a QueryAtom object
         # That by this point, should have been cleaned and corrected to work in a query
-        q = Q(**{value.key: value.value})
+        if value.exclude:
+            q = ~Q(**{value.key: value.value})
+        else:
+            q = Q(**{value.key: value.value})
         return q
 
 
@@ -152,9 +156,13 @@ def validate_atoms(
                 atom.value = fs.form.cleaned_data[k]
 
                 # Convert {field_path}__ne=None to {field_path}__isnull=False
-                if onyx_fields[k].lookup == "ne" and atom.value is None:
-                    atom.key = f"{onyx_fields[k].field_path}__isnull"
-                    atom.value = False
+                if onyx_fields[k].lookup == "ne":
+                    if atom.value is None:
+                        atom.key = f"{onyx_fields[k].field_path}__isnull"
+                        atom.value = False
+                    else:
+                        atom.key = onyx_fields[k].field_path
+                        atom.exclude = True
         else:
             # If not valid, record the errors
             for field_name, field_errors in fs.errors.items():

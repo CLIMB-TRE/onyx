@@ -1,7 +1,7 @@
 from utils.validators import OnyxUniqueTogetherValidator
 from utils.fieldserializers import CharField, DateField, ChoiceField
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
-from .models import BaseTestModel, TestModel, TestModelRecord
+from .models import TestModel, TestModelRecord
 
 
 class TestModelRecordSerializer(BaseRecordSerializer):
@@ -39,7 +39,7 @@ class TestModelRecordSerializer(BaseRecordSerializer):
         )
 
 
-class BaseTestModelSerializer(ProjectRecordSerializer):
+class TestModelSerializer(ProjectRecordSerializer):
     sample_id = CharField(max_length=50)
     run_name = CharField(max_length=100)
     collection_month = DateField(
@@ -68,7 +68,7 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
     required_when_published = CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = BaseTestModel
+        model = TestModel
         fields = ProjectRecordSerializer.Meta.fields + [
             "sample_id",
             "run_name",
@@ -89,12 +89,21 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         ]
         validators = [
             OnyxUniqueTogetherValidator(
-                queryset=BaseTestModel.objects.all(),
+                queryset=TestModel.objects.all(),
                 fields=["sample_id", "run_name"],
             )
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):
+        relations = ProjectRecordSerializer.OnyxMeta.relations | {
+            "records": TestModelRecordSerializer,
+        }
+        relation_options = ProjectRecordSerializer.OnyxMeta.relation_options | {
+            "records": {
+                "many": True,
+                "required": False,
+            },
+        }
         optional_value_groups = (
             ProjectRecordSerializer.OnyxMeta.optional_value_groups
             + [
@@ -128,23 +137,4 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         anonymised_fields = ProjectRecordSerializer.OnyxMeta.anonymised_fields | {
             "sample_id": "S-",
             "run_name": "R-",
-        }
-
-
-class TestModelSerializer(BaseTestModelSerializer):
-    class Meta:
-        model = TestModel
-        fields = BaseTestModelSerializer.Meta.fields
-        # NOTE: Just like fields, validators must be inherited, IF they exist in the parent class.
-        validators = BaseTestModelSerializer.Meta.validators
-
-    class OnyxMeta(BaseTestModelSerializer.OnyxMeta):
-        relations = BaseTestModelSerializer.OnyxMeta.relations | {
-            "records": TestModelRecordSerializer,
-        }
-        relation_options = BaseTestModelSerializer.OnyxMeta.relation_options | {
-            "records": {
-                "many": True,
-                "required": False,
-            },
         }

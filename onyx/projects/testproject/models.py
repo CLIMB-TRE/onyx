@@ -14,7 +14,7 @@ from data.models import BaseRecord, ProjectRecord
 __version__ = "0.1.0"
 
 
-class BaseTestModel(ProjectRecord):
+class TestModel(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
@@ -86,11 +86,6 @@ class BaseTestModel(ProjectRecord):
                 required=["required_when_published"],
             ),
         ]
-
-
-class TestModel(BaseTestModel):
-    class Meta:
-        default_permissions = []
 
 
 class TestModelRecord(BaseRecord):

@@ -13,9 +13,6 @@ class TestFieldsView(OnyxTestCase):
         self.endpoint = reverse(
             "project.testproject.fields", kwargs={"code": self.project.code}
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
 
     def test_basic(self):
         """

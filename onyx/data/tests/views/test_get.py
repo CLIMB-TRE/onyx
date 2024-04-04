@@ -15,9 +15,6 @@ class TestGetView(OnyxTestCase):
             "project.testproject.climb_id",
             kwargs={"code": self.project.code, "climb_id": climb_id},
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
         response = self.client.post(
             reverse("project.testproject", kwargs={"code": self.project.code}),
             data=next(iter(generate_test_data(n=1))),

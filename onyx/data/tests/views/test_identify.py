@@ -17,9 +17,6 @@ class TestIdentifyView(OnyxTestCase):
             "project.testproject.identify",
             kwargs={"code": self.project.code, "field": field},
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
 
     def test_basic(self):
         """

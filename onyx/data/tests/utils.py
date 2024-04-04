@@ -10,11 +10,8 @@ from ..models import Project
 
 
 class OnyxTestCase(APITestCase):
-    def setUp(self):
-        """
-        Set up test case.
-        """
-
+    @classmethod
+    def setUpTestData(cls):
         logging.disable(logging.CRITICAL)
 
         # Set up test project
@@ -24,32 +21,40 @@ class OnyxTestCase(APITestCase):
             quiet=True,
         )
 
-        # Get test project
-        self.project = Project.objects.get(code="testproject")
+        cls.project = Project.objects.get(code="testproject")
 
         # Set up test sites
-        self.site = Site.objects.create(
-            code="testsite_1",
-            description="Department of Testing 1",
+        call_command(
+            "sites",
+            os.path.join(settings.BASE_DIR, "projects/testproject/sites.json"),
+            quiet=True,
         )
 
-        self.extra_site = Site.objects.create(
-            code="testsite_2",
-            description="Department of Testing 2",
+        cls.site = Site.objects.get(code="testsite_1")
+        cls.extra_site = Site.objects.get(code="testsite_2")
+
+        # Set up test user
+        cls.user = cls.setup_user(
+            "testuser",
+            site=cls.site,
+            roles=["is_staff"],
+            groups=["testproject.admin"],
         )
 
-        # Add test project to sites
-        self.site.projects.add(Project.objects.get(code="testproject"))
-        self.extra_site.projects.add(Project.objects.get(code="testproject"))
+    def setUp(self):
+        """
+        Set up test case.
+        """
 
-    def setup_user(self, username, roles=None, groups=None):
+        self.client.force_authenticate(self.user)  # type: ignore
+
+    @classmethod
+    def setup_user(cls, username, site, roles=None, groups=None):
         """
         Create a user with the given username and roles/groups.
         """
 
-        user, _ = User.objects.get_or_create(
-            username=f"onyx-{username}", site=self.site
-        )
+        user, _ = User.objects.get_or_create(username=f"onyx-{username}", site=site)
 
         if roles:
             for role in roles:
@@ -60,11 +65,10 @@ class OnyxTestCase(APITestCase):
                 g = Group.objects.get(name=group)
                 user.groups.add(g)
 
-        self.client.force_authenticate(user)  # type: ignore
         return user
 
 
-def generate_test_data(n: int = 100):
+def generate_test_data(n: int):
     """
     Generate test data.
     """
@@ -76,9 +80,9 @@ def generate_test_data(n: int = 100):
     char_max_length_20 = ["X" * 20, "Y" * 15, "Z" * 10]
     text_option_1 = ["hello", "world", "hey", "world world", "y", ""]
     text_option_2 = ["hello", "bye"]
-    submission_dates = [
-        f"2023-{i}-{j}" for i in [1, 4, 8, 12] for j in [1, 5, 10, 15]
-    ] + [None]
+    submission_dates = [f"2023-{i}-{j}" for i in [1, 8, 12] for j in [1, 10, 15]] + [
+        None
+    ]
     countries = ["eng", "scot", "wales", "ni", ""]
     regions = {
         "eng": lambda i: ["ne", "nw", "se", "sw"][i % 4],

@@ -1,0 +1,18 @@
+{
+    "sites": [
+        {
+            "code": "testsite_1",
+            "description": "Department of Testing 1",
+            "projects": [
+                "testproject"
+            ]
+        },
+        {
+            "code": "testsite_2",
+            "description": "Department of Testing 2",
+            "projects": [
+                "testproject"
+            ]
+        }
+    ]
+}

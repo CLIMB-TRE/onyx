@@ -12,9 +12,6 @@ class TestProjectsView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = reverse("data.projects")
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
 
     def test_basic(self):
         """

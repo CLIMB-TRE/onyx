@@ -61,9 +61,6 @@ class TestCreateView(OnyxTestCase):
         self.endpoint = reverse(
             "project.testproject", kwargs={"code": self.project.code}
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
 
     def test_basic(self):
         """

@@ -14,7 +14,7 @@ from data.models import BaseRecord, ProjectRecord
 __version__ = "0.1.0"
 
 
-class BaseTestModel(ProjectRecord):
+class TestModel(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
@@ -88,11 +88,6 @@ class BaseTestModel(ProjectRecord):
         ]
 
 
-class TestModel(BaseTestModel):
-    class Meta:
-        default_permissions = []
-
-
 class TestModelRecord(BaseRecord):
     link = models.ForeignKey(
         TestModel, on_delete=models.CASCADE, related_name="records"
@@ -111,6 +106,14 @@ class TestModelRecord(BaseRecord):
         indexes = [
             models.Index(fields=["created"]),
             models.Index(fields=["link", "test_id"]),
+            models.Index(fields=["test_id"]),
+            models.Index(fields=["test_pass"]),
+            models.Index(fields=["test_start"]),
+            models.Index(fields=["test_end"]),
+            models.Index(fields=["score_a"]),
+            models.Index(fields=["score_b"]),
+            models.Index(fields=["score_c"]),
+            models.Index(fields=["test_result"]),
         ]
         constraints = [
             unique_together(

@@ -18,25 +18,43 @@ class TestFilterView(OnyxTestCase):
         self.endpoint = reverse(
             "project.testproject", kwargs={"code": self.project.code}
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
-        for payload in generate_test_data():
-            response = self.client.post(self.endpoint, data=payload)
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def assertEqualClimbIDs(self, records, qs, allow_empty=False):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=100):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.user
+
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
+
+            if data.get("received_month"):
+                data["received_month"] += "-01"
+
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.user
+
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)
+
+    def assertEqualClimbIDs(self, records, qs):
         """
         Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
         """
 
         record_values = sorted(record["climb_id"] for record in records)
-        qs_values = sorted(qs.distinct().values_list("climb_id", flat=True))
-
-        if not allow_empty:
-            self.assertTrue(record_values)
-            self.assertTrue(qs_values)
-
+        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
         self.assertEqual(
             record_values,
             qs_values,
@@ -51,7 +69,7 @@ class TestFilterView(OnyxTestCase):
             self.endpoint, data={f"{field}__{lookup}" if lookup else field: value}
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(response.json()["data"], qs, allow_empty=allow_empty)
+        self.assertEqualClimbIDs(response.json()["data"], qs)
 
     def test_basic(self):
         """
@@ -79,56 +97,87 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", "run-1", TestModel.objects.filter(run_name="run-1")),
-            ("exact", "run-1", TestModel.objects.filter(run_name__exact="run-1")),
-            ("ne", "run-1", TestModel.objects.filter(run_name__ne="run-1")),
+            ("", "world", TestModel.objects.filter(text_option_1="world")),
+            ("exact", "world", TestModel.objects.filter(text_option_1__exact="world")),
+            ("ne", "world", TestModel.objects.exclude(text_option_1="world")),
             (
                 "in",
-                "run-1, run-2, run-3",
-                TestModel.objects.filter(run_name__in=["run-1", "run-2", "run-3"]),
+                "hello, world, hey, world world",
+                TestModel.objects.filter(
+                    text_option_1__in=["hello", "world", "hey", "world world"]
+                ),
             ),
-            ("contains", "run", TestModel.objects.filter(run_name__contains="run")),
-            ("startswith", "run", TestModel.objects.filter(run_name__startswith="run")),
-            ("endswith", "n-1", TestModel.objects.filter(run_name__endswith="n-1")),
-            ("iexact", "RUN-1", TestModel.objects.filter(run_name__iexact="RUN-1")),
-            ("icontains", "RUN", TestModel.objects.filter(run_name__icontains="RUN")),
+            (
+                "contains",
+                "orl",
+                TestModel.objects.filter(text_option_1__contains="orl"),
+            ),
+            (
+                "startswith",
+                "wor",
+                TestModel.objects.filter(text_option_1__startswith="wor"),
+            ),
+            (
+                "endswith",
+                "rld",
+                TestModel.objects.filter(text_option_1__endswith="rld"),
+            ),
+            (
+                "iexact",
+                "HELLO",
+                TestModel.objects.filter(text_option_1__iexact="HELLO"),
+            ),
+            (
+                "icontains",
+                "ELL",
+                TestModel.objects.filter(text_option_1__icontains="ELL"),
+            ),
             (
                 "istartswith",
-                "RUN",
-                TestModel.objects.filter(run_name__istartswith="RUN"),
+                "HEL",
+                TestModel.objects.filter(text_option_1__istartswith="HEL"),
             ),
-            ("iendswith", "N-1", TestModel.objects.filter(run_name__iendswith="N-1")),
-            ("regex", "run-1", TestModel.objects.filter(run_name__regex="run-1")),
-            ("iregex", "RUN-1", TestModel.objects.filter(run_name__iregex="RUN-1")),
-            ("length", 5, TestModel.objects.filter(run_name__length=5)),
+            (
+                "iendswith",
+                "LLO",
+                TestModel.objects.filter(text_option_1__iendswith="LLO"),
+            ),
+            ("regex", "world", TestModel.objects.filter(text_option_1__regex="world")),
+            (
+                "iregex",
+                "WORLD",
+                TestModel.objects.filter(text_option_1__iregex="WORLD"),
+            ),
+            ("length", 5, TestModel.objects.filter(text_option_1__length=5)),
             (
                 "length__in",
                 "1, 3, 5",
-                TestModel.objects.filter(run_name__length__in=[1, 3, 5]),
+                TestModel.objects.filter(text_option_1__length__in=[1, 3, 5]),
             ),
             (
                 "length__range",
                 "3, 5",
-                TestModel.objects.filter(run_name__length__range=[3, 5]),
+                TestModel.objects.filter(text_option_1__length__range=[3, 5]),
             ),
-            ("", "", TestModel.objects.filter(run_name__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name="")),
-            ("isnull", False, TestModel.objects.exclude(run_name="")),
+            ("", "", TestModel.objects.filter(text_option_1__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1="")),
+            ("isnull", False, TestModel.objects.exclude(text_option_1="")),
         ]:
             self._test_filter(
-                field="run_name",
+                field="text_option_1",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
         for value in ["", " ", "invalid"]:
-            response = self.client.get(self.endpoint, data={"run_name__isnull": value})
+            response = self.client.get(
+                self.endpoint, data={"text_option_1__isnull": value}
+            )
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_choice(self):
@@ -199,31 +248,30 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1, TestModel.objects.filter(start=1)),
-            ("exact", 1, TestModel.objects.filter(start__exact=1)),
-            ("ne", 1, TestModel.objects.exclude(start=1)),
-            ("in", "1, 2, 3", TestModel.objects.filter(start__in=[1, 2, 3])),
-            ("lt", 3, TestModel.objects.filter(start__lt=3)),
-            ("lte", 3, TestModel.objects.filter(start__lte=3)),
-            ("gt", 2, TestModel.objects.filter(start__gt=2)),
-            ("gte", 2, TestModel.objects.filter(start__gte=2)),
-            ("range", "1, 3", TestModel.objects.filter(start__range=[1, 3])),
-            ("", "", TestModel.objects.filter(start__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(start__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(start__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(start__isnull=True)),
+            ("", 1, TestModel.objects.filter(tests=1)),
+            ("exact", 1, TestModel.objects.filter(tests__exact=1)),
+            ("ne", 1, TestModel.objects.exclude(tests=1)),
+            ("in", "1, 2, 3", TestModel.objects.filter(tests__in=[1, 2, 3])),
+            ("lt", 3, TestModel.objects.filter(tests__lt=3)),
+            ("lte", 3, TestModel.objects.filter(tests__lte=3)),
+            ("gt", 2, TestModel.objects.filter(tests__gt=2)),
+            ("gte", 2, TestModel.objects.filter(tests__gte=2)),
+            ("range", "1, 3", TestModel.objects.filter(tests__range=[1, 3])),
+            ("", "", TestModel.objects.filter(tests__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(tests__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(tests__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(tests__isnull=True)),
         ]:
             self._test_filter(
-                field="start",
+                field="tests",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
         for value in ["", " ", "invalid"]:
-            response = self.client.get(self.endpoint, data={"start__isnull": value})
+            response = self.client.get(self.endpoint, data={"tests__isnull": value})
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_decimal(self):
@@ -232,19 +280,23 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1.1, TestModel.objects.filter(score=1.1)),
-            ("exact", 1.1, TestModel.objects.filter(score__exact=1.1)),
-            ("ne", 1.1, TestModel.objects.exclude(score=1.1)),
+            ("", 1.12345, TestModel.objects.filter(score=1.12345)),
+            ("exact", 1.12345, TestModel.objects.filter(score__exact=1.12345)),
+            ("ne", 1.12345, TestModel.objects.exclude(score=1.12345)),
             (
                 "in",
-                "1.1, 2.2, 3.3",
-                TestModel.objects.filter(score__in=[1.1, 2.2, 3.3]),
+                "1.12345, 2.12345, 3.12345",
+                TestModel.objects.filter(score__in=[1.12345, 2.12345, 3.12345]),
             ),
-            ("lt", 3.3, TestModel.objects.filter(score__lt=3.3)),
-            ("lte", 3.3, TestModel.objects.filter(score__lte=3.3)),
-            ("gt", 4.4, TestModel.objects.filter(score__gt=4.4)),
-            ("gte", 4.4, TestModel.objects.filter(score__gte=4.4)),
-            ("range", "1.1, 9.9", TestModel.objects.filter(score__range=[1.1, 9.9])),
+            ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
+            ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
+            ("gt", 4.12345, TestModel.objects.filter(score__gt=4.12345)),
+            ("gte", 4.12345, TestModel.objects.filter(score__gte=4.12345)),
+            (
+                "range",
+                "1.12345, 9.12345",
+                TestModel.objects.filter(score__range=[1.12345, 9.12345]),
+            ),
             ("", "", TestModel.objects.filter(score__isnull=True)),
             ("ne", "", TestModel.objects.exclude(score__isnull=True)),
             ("isnull", True, TestModel.objects.filter(score__isnull=True)),
@@ -255,7 +307,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -328,7 +379,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 lookup=lookup,
                 qs=qs,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -433,7 +483,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -462,10 +511,17 @@ class TestFilterView(OnyxTestCase):
                 for l in ["", "exact"]
                 for x in false_values
             ]
-            + [("ne", x, TestModel.objects.filter(concern=False)) for x in true_values]
-            + [("ne", x, TestModel.objects.filter(concern=True)) for x in false_values]
+            + [("ne", x, TestModel.objects.exclude(concern=True)) for x in true_values]
             + [
-                ("in", "True, False", TestModel.objects.all()),
+                ("ne", x, TestModel.objects.exclude(concern=False))
+                for x in false_values
+            ]
+            + [
+                (
+                    "in",
+                    "True, False",
+                    TestModel.objects.filter(concern__in=[True, False]),
+                ),
                 ("", "", TestModel.objects.filter(concern__isnull=True)),
                 ("ne", "", TestModel.objects.exclude(concern__isnull=True)),
                 (
@@ -485,7 +541,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -515,7 +570,6 @@ class TestFilterView(OnyxTestCase):
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
@@ -529,37 +583,21 @@ class TestFilterView(OnyxTestCase):
 
     def test_summarise(self):
         """
-        Test summarising a column.
+        Test filtering and summarising columns.
         """
 
-        for field in ["country", "run_name", "start", "score", "submission_date"]:
-            response = self.client.get(self.endpoint, data={"summarise": field})
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        field_groups = [
+            ("country",),
+            ("run_name",),
+            ("start",),
+            ("score",),
+            ("submission_date",),
+            ("score", "required_when_published"),
+            ("region", "run_name"),
+            ("country", "concern"),
+        ]
 
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(TestModel.objects.values(field).distinct()),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["count"],
-                    TestModel.objects.filter(**{field: row[field]}).count(),
-                )
-
-    def test_multi_summarise(self):
-        """
-        Test summarising multiple columns.
-        """
-
-        for fields in [
-            ("submission_date", "score", "start"),
-            ("country", "run_name"),
-            ("country", "run_name", "start"),
-        ]:
+        for fields in field_groups:
             response = self.client.get(self.endpoint, data={"summarise": fields})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -567,7 +605,7 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(TestModel.objects.values(*fields).distinct()),
+                TestModel.objects.values(*fields).distinct().count(),
             )
 
             # Check that the counts match
@@ -579,184 +617,7 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
-    def test_nested_summarise(self):
-        """
-        Test summarising a nested column.
-        """
-
-        for nested_field in [
-            "test_id",
-            "test_pass",
-            # TODO: Nested date fields cannot be summarised.
-            # No current prod instances thankfully, but needs fixing ASAP
-            # "test_start",
-            "test_result",
-            "score_a",
-            "score_b",
-            "score_c",
-        ]:
-            response = self.client.get(
-                self.endpoint, data={"summarise": f"records__{nested_field}"}
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(f"records__{nested_field}")
-                    .distinct()
-                ),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{nested_field: row[f"records__{nested_field}"]}
-                    ).count(),
-                )
-
-    def test_nested_multi_summarise(self):
-        """
-        Test summarising multiple nested columns.
-        """
-
-        for nested_fields in [
-            ("test_id", "test_pass", "test_result"),
-            ("test_id", "test_pass", "test_result", "score_a"),
-            ("test_id", "test_pass", "test_result", "score_a", "score_b"),
-            ("test_id", "test_pass", "test_result", "score_a", "score_b", "score_c"),
-        ]:
-            response = self.client.get(
-                self.endpoint,
-                data={
-                    "summarise": [
-                        f"records__{nested_field}" for nested_field in nested_fields
-                    ]
-                },
-            )
-
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(
-                        *(f"records__{nested_field}" for nested_field in nested_fields)
-                    )
-                    .distinct()
-                ),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{
-                            nested_field: row[f"records__{nested_field}"]
-                            for nested_field in nested_fields
-                        }
-                    ).count(),
-                )
-
-    def test_mixed_summarise(self):
-        """
-        Test summarising a mix of columns and nested columns.
-        """
-
-        for fields, nested_fields in [
-            (
-                ("submission_date", "score", "start"),
-                ("test_id", "test_pass", "test_result", "score_a"),
-            ),
-            (
-                ("country", "region"),
-                ("test_id", "test_pass", "test_result", "score_b"),
-            ),
-            (
-                ("concern", "text_option_1"),
-                ("test_id", "test_pass", "test_result", "score_c"),
-            ),
-        ]:
-            nested_field_paths = [
-                f"records__{nested_field}" for nested_field in nested_fields
-            ]
-            response = self.client.get(
-                self.endpoint,
-                data={"summarise": list(fields) + nested_field_paths},
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(*(list(fields) + nested_field_paths))
-                    .distinct()
-                ),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{
-                            nested_field: row[f"records__{nested_field}"]
-                            for nested_field in nested_fields
-                        }
-                        | {f"link__{field}": row[field] for field in fields}
-                    ).count(),
-                )
-
-    def test_filter_summarise(self):
-        """
-        Test filtering and summarising a column.
-        """
-
-        for field in ["country", "concern", "region", "run_name", "submission_date"]:
-            response = self.client.get(
-                self.endpoint, data={"summarise": field, "country": "eng"}
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(TestModel.objects.filter(country="eng").values(field).distinct()),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["count"],
-                    TestModel.objects.filter(country="eng")
-                    .filter(**{field: row[field]})
-                    .count(),
-                )
-
-    def test_filter_multi_summarise(self):
-        """
-        Test filtering and summarising multiple columns.
-        """
-
-        for fields in [
-            ("submission_date", "score", "start"),
-            ("submission_date", "run_name"),
-            ("region", "concern"),
-            ("country", "concern", "region", "run_name"),
-        ]:
+        for fields in field_groups:
             response = self.client.get(
                 self.endpoint, data={"summarise": fields, "country": "eng"}
             )
@@ -766,7 +627,10 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(TestModel.objects.filter(country="eng").values(*fields).distinct()),
+                TestModel.objects.filter(country="eng")
+                .values(*fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -778,66 +642,58 @@ class TestFilterView(OnyxTestCase):
                     .count(),
                 )
 
-    def test_filter_nested_summarise(self):
+    def test_nested_summarise(self):
         """
-        Test filtering and summarising a nested column.
+        Test filtering and summarising nested columns.
         """
 
-        for nested_field in [
-            "test_id",
-            "test_pass",
-            "test_result",
-            "score_a",
-            "score_b",
-            "score_c",
-        ]:
+        nested_field_groups = [
+            ("records__test_pass",),
+            # TODO: Nested date fields cannot be summarised.
+            # No current prod instances thankfully, but needs fixing ASAP
+            # "records__test_start",
+            ("records__test_result",),
+            ("records__score_a",),
+            ("records__score_c",),
+            ("records__test_pass", "records__test_result"),
+            ("records__score_b", "records__score_c", "records__test_pass"),
+        ]
+
+        for nested_fields in nested_field_groups:
             response = self.client.get(
                 self.endpoint,
-                data={
-                    "summarise": f"records__{nested_field}",
-                    "records__test_result": "details",
-                },
+                data={"summarise": nested_fields},
             )
+
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
             # Check that the number of distinct values in the response
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(records__test_result="details")
-                    .values(f"records__{nested_field}")
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*nested_fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(test_result="details")
-                    .filter(**{nested_field: row[f"records__{nested_field}"]})
-                    .count(),
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                    ).count(),
                 )
 
-    def test_filter_nested_multi_summarise(self):
-        """
-        Test filtering and summarising multiple nested columns.
-        """
-
-        for nested_fields in [
-            ("test_id", "test_pass", "test_result"),
-            ("test_id", "test_pass", "test_result", "score_a"),
-            ("test_id", "test_pass", "test_result", "score_b"),
-            ("test_id", "test_pass", "test_result"),
-        ]:
+        for nested_fields in nested_field_groups:
             response = self.client.get(
                 self.endpoint,
                 data={
-                    "summarise": [
-                        f"records__{nested_field}" for nested_field in nested_fields
-                    ],
+                    "summarise": nested_fields,
                     "records__test_result": "details",
                 },
             )
@@ -848,14 +704,11 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(records__test_result="details")
-                    .values(
-                        *(f"records__{nested_field}" for nested_field in nested_fields)
-                    )
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(records__test_result="details")
+                .values(*nested_fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -865,39 +718,64 @@ class TestFilterView(OnyxTestCase):
                     TestModelRecord.objects.filter(test_result="details")
                     .filter(
                         **{
-                            nested_field: row[f"records__{nested_field}"]
+                            nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
                         }
                     )
                     .count(),
                 )
 
-    def test_filter_mixed_summarise(self):
+    def test_mixed_summarise(self):
         """
         Test filtering and summarising a mix of columns and nested columns.
         """
 
-        for fields, nested_fields in [
+        mixed_field_groups = [
             (
-                ("submission_date", "score", "start"),
-                ("test_id", "test_pass", "test_result", "score_a"),
+                ("run_name",),
+                ("records__test_pass", "records__test_result"),
             ),
             (
-                ("country", "region"),
-                ("test_id", "test_result"),
+                ("concern", "text_option_1"),
+                ("records__score_a",),
             ),
-            (
-                ("concern", "tests"),
-                ("test_pass", "test_result"),
-            ),
-        ]:
-            nested_field_paths = [
-                f"records__{nested_field}" for nested_field in nested_fields
-            ]
+        ]
+
+        for fields, nested_fields in mixed_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={"summarise": fields + nested_fields},
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    ).count(),
+                )
+
+        for fields, nested_fields in mixed_field_groups:
             response = self.client.get(
                 self.endpoint,
                 data={
-                    "summarise": list(fields) + nested_field_paths,
+                    "summarise": fields + nested_fields,
                     "country": "eng",
                     "records__test_result": "details",
                 },
@@ -908,13 +786,12 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(country="eng")
-                    .filter(records__test_result="details")
-                    .values(*(list(fields) + nested_field_paths))
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(country="eng")
+                .filter(records__test_result="details")
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -925,7 +802,7 @@ class TestFilterView(OnyxTestCase):
                     .filter(test_result="details")
                     .filter(
                         **{
-                            nested_field: row[f"records__{nested_field}"]
+                            nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
                         }
                         | {f"link__{field}": row[field] for field in fields}

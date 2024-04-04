@@ -200,6 +200,7 @@ FILTERS = {
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
     | {
         "in": CharInFilter,
+        "notin": CharInFilter,
         "regex": RegexFilter,
         "iregex": RegexFilter,
         "length": filters.NumberFilter,
@@ -210,6 +211,7 @@ FILTERS = {
     OnyxType.CHOICE: {lookup: ChoiceFilter for lookup in OnyxType.CHOICE.lookups}
     | {
         "in": ChoiceInFilter,
+        "notin": ChoiceInFilter,
         "isnull": IsNullFilter,
     },
     OnyxType.INTEGER: {
@@ -217,6 +219,7 @@ FILTERS = {
     }
     | {
         "in": NumberInFilter,
+        "notin": NumberInFilter,
         "range": NumberRangeFilter,
         "isnull": IsNullFilter,
     },
@@ -225,12 +228,14 @@ FILTERS = {
     }
     | {
         "in": NumberInFilter,
+        "notin": NumberInFilter,
         "range": NumberRangeFilter,
         "isnull": IsNullFilter,
     },
     OnyxType.DATE: {lookup: DateFilter for lookup in OnyxType.DATE.lookups}
     | {
         "in": DateInFilter,
+        "notin": DateInFilter,
         "range": DateRangeFilter,
         "iso_year": filters.NumberFilter,
         "iso_year__in": NumberInFilter,
@@ -243,6 +248,7 @@ FILTERS = {
     OnyxType.DATETIME: {lookup: DateTimeFilter for lookup in OnyxType.DATETIME.lookups}
     | {
         "in": DateTimeInFilter,
+        "notin": DateTimeInFilter,
         "range": DateTimeRangeFilter,
         "iso_year": filters.NumberFilter,
         "iso_year__in": NumberInFilter,
@@ -255,6 +261,7 @@ FILTERS = {
     OnyxType.BOOLEAN: {lookup: BooleanFilter for lookup in OnyxType.BOOLEAN.lookups}
     | {
         "in": BooleanInFilter,
+        "notin": BooleanInFilter,
         "isnull": IsNullFilter,
     },
     OnyxType.RELATION: {

@@ -108,6 +108,13 @@ class TestFilterView(OnyxTestCase):
                 ),
             ),
             (
+                "notin",
+                "hello, world, hey, world world",
+                TestModel.objects.exclude(
+                    text_option_1__in=["hello", "world", "hey", "world world"]
+                ),
+            ),
+            (
                 "contains",
                 "orl",
                 TestModel.objects.filter(text_option_1__contains="orl"),
@@ -218,6 +225,16 @@ class TestFilterView(OnyxTestCase):
                 for x in zip(choice_1_values, choice_2_values)
             ]
             + [
+                (
+                    "notin",
+                    ", ".join(x),
+                    TestModel.objects.exclude(
+                        country__in=[y.strip().lower() for y in x]
+                    ),
+                )
+                for x in zip(choice_1_values, choice_2_values)
+            ]
+            + [
                 ("", "", TestModel.objects.filter(country__isnull=True)),
                 ("ne", "", TestModel.objects.exclude(country__isnull=True)),
                 ("isnull", True, TestModel.objects.filter(country__isnull=True)),
@@ -252,6 +269,7 @@ class TestFilterView(OnyxTestCase):
             ("exact", 1, TestModel.objects.filter(tests__exact=1)),
             ("ne", 1, TestModel.objects.exclude(tests=1)),
             ("in", "1, 2, 3", TestModel.objects.filter(tests__in=[1, 2, 3])),
+            ("notin", "1, 2, 3", TestModel.objects.exclude(tests__in=[1, 2, 3])),
             ("lt", 3, TestModel.objects.filter(tests__lt=3)),
             ("lte", 3, TestModel.objects.filter(tests__lte=3)),
             ("gt", 2, TestModel.objects.filter(tests__gt=2)),
@@ -287,6 +305,11 @@ class TestFilterView(OnyxTestCase):
                 "in",
                 "1.12345, 2.12345, 3.12345",
                 TestModel.objects.filter(score__in=[1.12345, 2.12345, 3.12345]),
+            ),
+            (
+                "notin",
+                "1.12345, 2.12345, 3.12345",
+                TestModel.objects.exclude(score__in=[1.12345, 2.12345, 3.12345]),
             ),
             ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
             ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
@@ -339,6 +362,13 @@ class TestFilterView(OnyxTestCase):
                 "in",
                 "2022-01, 2022-02, 2022-03",
                 TestModel.objects.filter(
+                    collection_month__in=["2022-01-01", "2022-02-01", "2022-03-01"]
+                ),
+            ),
+            (
+                "notin",
+                "2022-01, 2022-02, 2022-03",
+                TestModel.objects.exclude(
                     collection_month__in=["2022-01-01", "2022-02-01", "2022-03-01"]
                 ),
             ),
@@ -413,6 +443,13 @@ class TestFilterView(OnyxTestCase):
                 "in",
                 "2023-01-01, 2023-01-02, 2023-01-03",
                 TestModel.objects.filter(
+                    submission_date__in=["2023-01-01", "2023-01-02", "2023-01-03"]
+                ),
+            ),
+            (
+                "notin",
+                "2023-01-01, 2023-01-02, 2023-01-03",
+                TestModel.objects.exclude(
                     submission_date__in=["2023-01-01", "2023-01-02", "2023-01-03"]
                 ),
             ),
@@ -521,6 +558,11 @@ class TestFilterView(OnyxTestCase):
                     "in",
                     "True, False",
                     TestModel.objects.filter(concern__in=[True, False]),
+                ),
+                (
+                    "notin",
+                    "True, False",
+                    TestModel.objects.exclude(concern__in=[True, False]),
                 ),
                 ("", "", TestModel.objects.filter(concern__isnull=True)),
                 ("ne", "", TestModel.objects.exclude(concern__isnull=True)),

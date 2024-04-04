@@ -583,37 +583,21 @@ class TestFilterView(OnyxTestCase):
 
     def test_summarise(self):
         """
-        Test summarising a column.
+        Test filtering and summarising columns.
         """
 
-        for field in ["country", "run_name", "start", "score", "submission_date"]:
-            response = self.client.get(self.endpoint, data={"summarise": field})
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(TestModel.objects.values(field).distinct()),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["count"],
-                    TestModel.objects.filter(**{field: row[field]}).count(),
-                )
-
-    def test_multi_summarise(self):
-        """
-        Test summarising multiple columns.
-        """
-
-        for fields in [
+        field_groups = [
+            ("country",),
+            ("run_name",),
+            ("start",),
+            ("score",),
+            ("submission_date",),
             ("score", "required_when_published"),
             ("region", "run_name"),
             ("country", "concern"),
-        ]:
+        ]
+
+        for fields in field_groups:
             response = self.client.get(self.endpoint, data={"summarise": fields})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -621,7 +605,7 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(TestModel.objects.values(*fields).distinct()),
+                TestModel.objects.values(*fields).distinct().count(),
             )
 
             # Check that the counts match
@@ -633,195 +617,7 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
-    def test_nested_summarise(self):
-        """
-        Test summarising a nested column.
-        """
-
-        for nested_field in [
-            "test_pass",
-            # TODO: Nested date fields cannot be summarised.
-            # No current prod instances thankfully, but needs fixing ASAP
-            # "test_start",
-            "test_result",
-            "score_a",
-            "score_b",
-            "score_c",
-        ]:
-            response = self.client.get(
-                self.endpoint, data={"summarise": f"records__{nested_field}"}
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(f"records__{nested_field}")
-                    .distinct()
-                ),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{nested_field: row[f"records__{nested_field}"]}
-                    ).count(),
-                )
-
-    def test_nested_multi_summarise(self):
-        """
-        Test summarising multiple nested columns.
-        """
-
-        for nested_fields in [
-            ("test_pass", "test_result"),
-            ("test_result", "score_a"),
-            ("score_b", "score_c", "test_pass"),
-        ]:
-            response = self.client.get(
-                self.endpoint,
-                data={
-                    "summarise": [
-                        f"records__{nested_field}" for nested_field in nested_fields
-                    ]
-                },
-            )
-
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(
-                        *(f"records__{nested_field}" for nested_field in nested_fields)
-                    )
-                    .distinct()
-                ),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{
-                            nested_field: row[f"records__{nested_field}"]
-                            for nested_field in nested_fields
-                        }
-                    ).count(),
-                )
-
-    def test_mixed_summarise(self):
-        """
-        Test summarising a mix of columns and nested columns.
-        """
-
-        import cProfile, pstats, io, time
-        from pstats import SortKey
-
-        pr = cProfile.Profile()
-        pr.enable()
-        # ... do something ...
-
-        for fields, nested_fields in [
-            (
-                ("run_name",),
-                ("test_pass", "test_result"),
-            ),
-            (
-                ("concern", "text_option_1"),
-                ("score_a",),
-            ),
-        ]:
-            nested_field_paths = [
-                f"records__{nested_field}" for nested_field in nested_fields
-            ]
-            get_start = time.time()
-            response = self.client.get(
-                self.endpoint,
-                data={"summarise": list(fields) + nested_field_paths},
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-            get_end = time.time()
-            print("get:", get_end - get_start)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            count_start = time.time()
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .values(*(list(fields) + nested_field_paths))
-                    .distinct()
-                ),
-            )
-            count_end = time.time()
-            print("count:", count_end - count_start)
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                kwargs = {
-                    nested_field: row[f"records__{nested_field}"]
-                    for nested_field in nested_fields
-                } | {f"link__{field}": row[field] for field in fields}
-                self.assertEqual(
-                    row["records__count"],
-                    TestModelRecord.objects.filter(**kwargs).count(),
-                )
-
-        pr.disable()
-        s = io.StringIO()
-        sortby = SortKey.CUMULATIVE
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats(30)
-        print(s.getvalue())
-
-    def test_filter_summarise(self):
-        """
-        Test filtering and summarising a column.
-        """
-
-        for field in ["country", "concern", "region", "run_name", "submission_date"]:
-            response = self.client.get(
-                self.endpoint, data={"summarise": field, "country": "eng"}
-            )
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-            # Check that the number of distinct values in the response
-            # matches the number of distinct values in the database
-            self.assertEqual(
-                len(response.json()["data"]),
-                len(TestModel.objects.filter(country="eng").values(field).distinct()),
-            )
-
-            # Check that the counts match
-            for row in response.json()["data"]:
-                self.assertEqual(
-                    row["count"],
-                    TestModel.objects.filter(country="eng")
-                    .filter(**{field: row[field]})
-                    .count(),
-                )
-
-    def test_filter_multi_summarise(self):
-        """
-        Test filtering and summarising multiple columns.
-        """
-
-        for fields in [
-            ("score", "start"),
-            ("submission_date", "run_name"),
-            ("country", "concern", "region", "run_name"),
-        ]:
+        for fields in field_groups:
             response = self.client.get(
                 self.endpoint, data={"summarise": fields, "country": "eng"}
             )
@@ -831,7 +627,10 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(TestModel.objects.filter(country="eng").values(*fields).distinct()),
+                TestModel.objects.filter(country="eng")
+                .values(*fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -843,64 +642,58 @@ class TestFilterView(OnyxTestCase):
                     .count(),
                 )
 
-    def test_filter_nested_summarise(self):
+    def test_nested_summarise(self):
         """
-        Test filtering and summarising a nested column.
+        Test filtering and summarising nested columns.
         """
 
-        for nested_field in [
-            "test_id",
-            "test_pass",
-            "test_result",
-            "score_a",
-            "score_b",
-            "score_c",
-        ]:
+        nested_field_groups = [
+            ("records__test_pass",),
+            # TODO: Nested date fields cannot be summarised.
+            # No current prod instances thankfully, but needs fixing ASAP
+            # "records__test_start",
+            ("records__test_result",),
+            ("records__score_a",),
+            ("records__score_c",),
+            ("records__test_pass", "records__test_result"),
+            ("records__score_b", "records__score_c", "records__test_pass"),
+        ]
+
+        for nested_fields in nested_field_groups:
             response = self.client.get(
                 self.endpoint,
-                data={
-                    "summarise": f"records__{nested_field}",
-                    "records__test_result": "details",
-                },
+                data={"summarise": nested_fields},
             )
+
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
             # Check that the number of distinct values in the response
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(records__test_result="details")
-                    .values(f"records__{nested_field}")
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*nested_fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(test_result="details")
-                    .filter(**{nested_field: row[f"records__{nested_field}"]})
-                    .count(),
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                    ).count(),
                 )
 
-    def test_filter_nested_multi_summarise(self):
-        """
-        Test filtering and summarising multiple nested columns.
-        """
-
-        for nested_fields in [
-            ("test_id", "test_pass", "test_result", "score_a"),
-            ("test_id", "test_pass", "test_result"),
-        ]:
+        for nested_fields in nested_field_groups:
             response = self.client.get(
                 self.endpoint,
                 data={
-                    "summarise": [
-                        f"records__{nested_field}" for nested_field in nested_fields
-                    ],
+                    "summarise": nested_fields,
                     "records__test_result": "details",
                 },
             )
@@ -911,14 +704,11 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(records__test_result="details")
-                    .values(
-                        *(f"records__{nested_field}" for nested_field in nested_fields)
-                    )
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(records__test_result="details")
+                .values(*nested_fields)
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -928,39 +718,64 @@ class TestFilterView(OnyxTestCase):
                     TestModelRecord.objects.filter(test_result="details")
                     .filter(
                         **{
-                            nested_field: row[f"records__{nested_field}"]
+                            nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
                         }
                     )
                     .count(),
                 )
 
-    def test_filter_mixed_summarise(self):
+    def test_mixed_summarise(self):
         """
         Test filtering and summarising a mix of columns and nested columns.
         """
 
-        for fields, nested_fields in [
+        mixed_field_groups = [
             (
-                ("submission_date", "score"),
-                ("test_id", "test_pass", "score_a"),
+                ("run_name",),
+                ("records__test_pass", "records__test_result"),
             ),
             (
-                ("country", "region"),
-                ("test_id", "test_result"),
+                ("concern", "text_option_1"),
+                ("records__score_a",),
             ),
-            (
-                ("concern", "tests"),
-                ("test_pass", "test_result"),
-            ),
-        ]:
-            nested_field_paths = [
-                f"records__{nested_field}" for nested_field in nested_fields
-            ]
+        ]
+
+        for fields, nested_fields in mixed_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={"summarise": fields + nested_fields},
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    ).count(),
+                )
+
+        for fields, nested_fields in mixed_field_groups:
             response = self.client.get(
                 self.endpoint,
                 data={
-                    "summarise": list(fields) + nested_field_paths,
+                    "summarise": fields + nested_fields,
                     "country": "eng",
                     "records__test_result": "details",
                 },
@@ -971,13 +786,12 @@ class TestFilterView(OnyxTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                len(
-                    TestModel.objects.filter(**{f"records__isnull": False})
-                    .filter(country="eng")
-                    .filter(records__test_result="details")
-                    .values(*(list(fields) + nested_field_paths))
-                    .distinct()
-                ),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(country="eng")
+                .filter(records__test_result="details")
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
             )
 
             # Check that the counts match
@@ -988,7 +802,7 @@ class TestFilterView(OnyxTestCase):
                     .filter(test_result="details")
                     .filter(
                         **{
-                            nested_field: row[f"records__{nested_field}"]
+                            nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
                         }
                         | {f"link__{field}": row[field] for field in fields}

@@ -1,23 +1,5 @@
 from django.db import models
-from django.db.models.fields.related_lookups import RelatedLookupMixin
-from django.db.models.fields.related import ForeignObject
 from accounts.models import User
-
-
-@models.Field.register_lookup
-class NotEqual(models.Lookup):
-    lookup_name = "ne"
-
-    def as_sql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-        return "%s <> %s" % (lhs, rhs), params
-
-
-@ForeignObject.register_lookup
-class RelatedNotEqual(RelatedLookupMixin, NotEqual):
-    pass
 
 
 # Credit to tuatara for this lookup

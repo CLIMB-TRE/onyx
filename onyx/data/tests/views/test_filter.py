@@ -99,7 +99,7 @@ class TestFilterView(OnyxTestCase):
         for lookup, value, qs in [
             ("", "world", TestModel.objects.filter(text_option_1="world")),
             ("exact", "world", TestModel.objects.filter(text_option_1__exact="world")),
-            ("ne", "world", TestModel.objects.filter(text_option_1__ne="world")),
+            ("ne", "world", TestModel.objects.exclude(text_option_1="world")),
             (
                 "in",
                 "hello, world, hey, world world",

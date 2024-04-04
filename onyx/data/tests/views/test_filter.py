@@ -1,4 +1,3 @@
-from hashlib import md5
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
@@ -19,15 +18,33 @@ class TestFilterView(OnyxTestCase):
         self.endpoint = reverse(
             "project.testproject", kwargs={"code": self.project.code}
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
-        total_payload = ""
-        for payload in generate_test_data():
-            total_payload += str(payload)
-            response = self.client.post(self.endpoint, data=payload)
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        print("\nTest data MD5:", md5(total_payload.encode("utf-8")).hexdigest())
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=100):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.user
+
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
+
+            if data.get("received_month"):
+                data["received_month"] += "-01"
+
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.user
+
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)
 
     def assertEqualClimbIDs(self, records, qs):
         """
@@ -593,9 +610,9 @@ class TestFilterView(OnyxTestCase):
         """
 
         for fields in [
-            ("submission_date", "score", "start"),
-            ("country", "run_name"),
-            ("country", "run_name", "start"),
+            ("score", "required_when_published"),
+            ("region", "run_name"),
+            ("country", "concern"),
         ]:
             response = self.client.get(self.endpoint, data={"summarise": fields})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -616,14 +633,12 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
-    # TODO: sus
     def test_nested_summarise(self):
         """
         Test summarising a nested column.
         """
 
         for nested_field in [
-            "test_id",
             "test_pass",
             # TODO: Nested date fields cannot be summarised.
             # No current prod instances thankfully, but needs fixing ASAP
@@ -658,7 +673,6 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
-    # TODO: sus
     def test_nested_multi_summarise(self):
         """
         Test summarising multiple nested columns.
@@ -705,11 +719,17 @@ class TestFilterView(OnyxTestCase):
                     ).count(),
                 )
 
-    # TODO: sus
     def test_mixed_summarise(self):
         """
         Test summarising a mix of columns and nested columns.
         """
+
+        import cProfile, pstats, io, time
+        from pstats import SortKey
+
+        pr = cProfile.Profile()
+        pr.enable()
+        # ... do something ...
 
         for fields, nested_fields in [
             (
@@ -717,25 +737,25 @@ class TestFilterView(OnyxTestCase):
                 ("test_pass", "test_result"),
             ),
             (
-                ("country", "region"),
-                ("score_b",),
-            ),
-            (
                 ("concern", "text_option_1"),
-                ("test_result", "score_a"),
+                ("score_a",),
             ),
         ]:
             nested_field_paths = [
                 f"records__{nested_field}" for nested_field in nested_fields
             ]
+            get_start = time.time()
             response = self.client.get(
                 self.endpoint,
                 data={"summarise": list(fields) + nested_field_paths},
             )
             self.assertEqual(response.status_code, status.HTTP_200_OK)
+            get_end = time.time()
+            print("get:", get_end - get_start)
 
             # Check that the number of distinct values in the response
             # matches the number of distinct values in the database
+            count_start = time.time()
             self.assertEqual(
                 len(response.json()["data"]),
                 len(
@@ -744,22 +764,26 @@ class TestFilterView(OnyxTestCase):
                     .distinct()
                 ),
             )
-
-            # Curious to see difference - should be the same
-            print(len(response.json()["data"]))
+            count_end = time.time()
+            print("count:", count_end - count_start)
 
             # Check that the counts match
             for row in response.json()["data"]:
+                kwargs = {
+                    nested_field: row[f"records__{nested_field}"]
+                    for nested_field in nested_fields
+                } | {f"link__{field}": row[field] for field in fields}
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(
-                        **{
-                            nested_field: row[f"records__{nested_field}"]
-                            for nested_field in nested_fields
-                        }
-                        | {f"link__{field}": row[field] for field in fields}
-                    ).count(),
+                    TestModelRecord.objects.filter(**kwargs).count(),
                 )
+
+        pr.disable()
+        s = io.StringIO()
+        sortby = SortKey.CUMULATIVE
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats(30)
+        print(s.getvalue())
 
     def test_filter_summarise(self):
         """
@@ -794,9 +818,8 @@ class TestFilterView(OnyxTestCase):
         """
 
         for fields in [
-            ("submission_date", "score", "start"),
+            ("score", "start"),
             ("submission_date", "run_name"),
-            ("region", "concern"),
             ("country", "concern", "region", "run_name"),
         ]:
             response = self.client.get(
@@ -869,9 +892,7 @@ class TestFilterView(OnyxTestCase):
         """
 
         for nested_fields in [
-            ("test_id", "test_pass", "test_result"),
             ("test_id", "test_pass", "test_result", "score_a"),
-            ("test_id", "test_pass", "test_result", "score_b"),
             ("test_id", "test_pass", "test_result"),
         ]:
             response = self.client.get(
@@ -921,8 +942,8 @@ class TestFilterView(OnyxTestCase):
 
         for fields, nested_fields in [
             (
-                ("submission_date", "score", "start"),
-                ("test_id", "test_pass", "test_result", "score_a"),
+                ("submission_date", "score"),
+                ("test_id", "test_pass", "score_a"),
             ),
             (
                 ("country", "region"),

@@ -1,6 +1,6 @@
-from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
+from projects.testproject.models import TestModel, TestModelRecord
 
 
 # TODO: Tests for query endpoint
@@ -16,12 +16,30 @@ class TestQueryView(OnyxTestCase):
         self.endpoint = reverse(
             "project.testproject.query", kwargs={"code": self.project.code}
         )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
-        for payload in generate_test_data():
-            response = self.client.post(
-                reverse("project.testproject", kwargs={"code": self.project.code}),
-                data=payload,
-            )
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=100):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.user
+
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
+
+            if data.get("received_month"):
+                data["received_month"] += "-01"
+
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.user
+
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)

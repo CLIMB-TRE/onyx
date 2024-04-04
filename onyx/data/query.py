@@ -155,14 +155,18 @@ def validate_atoms(
             for k, atom in layer.items():
                 atom.value = fs.form.cleaned_data[k]
 
-                # Convert {field_path}__ne=None to {field_path}__isnull=False
                 if onyx_fields[k].lookup == "ne":
+                    # Convert {field_path}__ne=None to {field_path}__isnull=False
                     if atom.value is None:
                         atom.key = f"{onyx_fields[k].field_path}__isnull"
                         atom.value = False
                     else:
                         atom.key = onyx_fields[k].field_path
                         atom.exclude = True
+
+                elif onyx_fields[k].lookup == "notin":
+                    atom.key = f"{onyx_fields[k].field_path}__in"
+                    atom.exclude = True
         else:
             # If not valid, record the errors
             for field_name, field_errors in fs.errors.items():

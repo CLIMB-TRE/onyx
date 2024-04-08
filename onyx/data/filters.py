@@ -10,7 +10,8 @@ from .types import OnyxType
 from .fields import OnyxField
 
 
-# TODO: Reject None values within 'in' filter
+# TODO: Reject None values within 'in' filter?
+# TODO: Allow "" values within 'in' filter? Need to sort out
 
 
 class BaseRangeField(filter_fields.BaseRangeField):

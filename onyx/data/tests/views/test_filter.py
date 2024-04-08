@@ -4,10 +4,6 @@ from ..utils import OnyxDataTestCase
 from projects.testproject.models import TestModel, TestModelRecord
 
 
-# TODO:
-# - Test effect of suppressing data
-
-
 class TestFilterView(OnyxDataTestCase):
     def setUp(self):
         """
@@ -48,6 +44,39 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         response = self.client.get(self.endpoint, data={"hello": ":)"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_suppressed(self):
+        """
+        Test that suppressed records are not returned.
+        """
+
+        pass  # TODO
+
+    def test_include_exclude(self):
+        """
+        Test including and excluding fields on a filter.
+        """
+
+        pass  # TODO
+
+    def test_include_exclude_bad_field(self):
+        """
+        Test that including/excluding with an invalid field fails.
+        """
+
+        # Cannot provide a lookup with an include/exclude field
+        response = self.client.get(self.endpoint, data={"include": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.get(self.endpoint, data={"exclude": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"include": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.get(self.endpoint, data={"exclude": "hello"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_text(self):
@@ -810,3 +839,20 @@ class TestFilterView(OnyxDataTestCase):
                     )
                     .count(),
                 )
+
+    def test_summarise_bad_field(self):
+        """
+        Test that summarising with an invalid field fails.
+        """
+
+        # Cannot provide a lookup with a summarise field
+        response = self.client.get(self.endpoint, data={"summarise": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Cannot summarise over a relational field
+        response = self.client.get(self.endpoint, data={"summarise": "records"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"summarise": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

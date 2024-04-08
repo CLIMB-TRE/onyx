@@ -2,6 +2,7 @@ import hashlib
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
+from ...exceptions import IdentifierNotFound
 from data.models import Anonymiser
 from projects.testproject.models import TestModel
 
@@ -160,3 +161,48 @@ class TestIdentifyView(OnyxTestCase):
         assert Anonymiser.objects.filter(identifier=output_sample_id_2).count() == 1
         assert Anonymiser.objects.filter(identifier=output_run_name_1).count() == 1
         assert Anonymiser.objects.filter(identifier=output_run_name_2).count() == 1
+
+    def test_unknown_field(self):
+        """
+        Test failure to identify an unknown field.
+        """
+
+        response = self.client.post(
+            self.endpoint("unknown"),
+            data={
+                "value": "test",
+                "site": self.site.code,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bad_request_body(self):
+        """
+        Test failure to identify a field with a bad request body.
+        """
+
+        # TODO: Test more bad request body cases
+        response = self.client.post(
+            self.endpoint("sample_id"),
+            data={
+                "site": self.site.code,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_identifier_not_found(self):
+        """
+        Test failure to identify a field with an unknown value.
+        """
+
+        response = self.client.post(
+            self.endpoint("sample_id"),
+            data={
+                "value": "unknown",
+                "site": self.site.code,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.json()["messages"]["detail"], IdentifierNotFound.default_detail
+        )

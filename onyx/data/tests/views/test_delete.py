@@ -31,3 +31,14 @@ class TestDeleteView(OnyxTestCase):
         response = self.client.delete(self.endpoint(self.climb_id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(TestModel.objects.filter(climb_id=self.climb_id).exists())
+
+    def test_climb_id_not_found(self):
+        """
+        Test deletion of a record by CLIMB ID that does not exist.
+        """
+
+        prefix, postfix = self.climb_id.split("-")
+        climb_id_not_found = "-".join([prefix, postfix[::-1]])
+        response = self.client.delete(self.endpoint(climb_id_not_found))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(TestModel.objects.filter(climb_id=self.climb_id).exists())

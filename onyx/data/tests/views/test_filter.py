@@ -1,6 +1,6 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
-from ..utils import OnyxTestCase, generate_test_data
+from ..utils import OnyxDataTestCase
 from projects.testproject.models import TestModel, TestModelRecord
 
 
@@ -8,7 +8,7 @@ from projects.testproject.models import TestModel, TestModelRecord
 # - Test effect of suppressing data
 
 
-class TestFilterView(OnyxTestCase):
+class TestFilterView(OnyxDataTestCase):
     def setUp(self):
         """
         Create a user with the required permissions and create a set of test records.
@@ -17,47 +17,6 @@ class TestFilterView(OnyxTestCase):
         super().setUp()
         self.endpoint = reverse(
             "project.testproject", kwargs={"code": self.project.code}
-        )
-
-    @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
-        for data in generate_test_data(n=100):
-            nested_records = data.pop("records", [])
-            data["site"] = cls.site
-            data["user"] = cls.user
-
-            if data.get("collection_month"):
-                data["collection_month"] += "-01"
-
-            if data.get("received_month"):
-                data["received_month"] += "-01"
-
-            record = TestModel.objects.create(**data)
-            for nested_record in nested_records:
-                nested_record["link"] = record
-                nested_record["user"] = cls.user
-
-                if nested_record.get("test_start"):
-                    nested_record["test_start"] += "-01"
-
-                if nested_record.get("test_end"):
-                    nested_record["test_end"] += "-01"
-
-                TestModelRecord.objects.create(**nested_record)
-
-    def assertEqualClimbIDs(self, records, qs):
-        """
-        Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
-        """
-
-        record_values = sorted(record["climb_id"] for record in records)
-        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
-        self.assertTrue(record_values)
-        self.assertTrue(qs_values)
-        self.assertEqual(
-            record_values,
-            qs_values,
         )
 
     def _test_filter(self, field, value, qs, lookup="", allow_empty=False):

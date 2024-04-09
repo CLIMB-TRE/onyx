@@ -26,6 +26,22 @@ class CharField(serializers.CharField):
         return data
 
 
+class IntegerField(serializers.IntegerField):
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
+
+        return super().validate_empty_values(data)
+
+
+class FloatField(serializers.FloatField):
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
+
+        return super().validate_empty_values(data)
+
+
 class DateField(serializers.DateField):
     def __init__(self, format: str, input_formats=None, **kwargs):
         super().__init__(
@@ -34,11 +50,11 @@ class DateField(serializers.DateField):
             **kwargs,
         )
 
-    def to_internal_value(self, data):
-        if self.allow_null and not str(data).strip():
-            return None
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
 
-        return super().to_internal_value(data)
+        return super().validate_empty_values(data)
 
 
 class ChoiceField(serializers.ChoiceField):

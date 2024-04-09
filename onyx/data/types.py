@@ -17,8 +17,6 @@ class OnyxType(Enum):
             "icontains",
             "istartswith",
             "iendswith",
-            "regex",
-            "iregex",
             "length",
             "length__in",
             "length__range",

@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxDataTestCase
@@ -90,16 +91,16 @@ class TestFilterView(OnyxDataTestCase):
             ("ne", "world", TestModel.objects.exclude(text_option_1="world")),
             (
                 "in",
-                "hello, world, hey, world world",
+                "hello, world, hey, ,",
                 TestModel.objects.filter(
-                    text_option_1__in=["hello", "world", "hey", "world world"]
+                    text_option_1__in=["hello", "world", "hey", ""]
                 ),
             ),
             (
                 "notin",
-                "hello, world, hey, world world",
+                "hello, world, hey, ,",
                 TestModel.objects.exclude(
-                    text_option_1__in=["hello", "world", "hey", "world world"]
+                    text_option_1__in=["hello", "world", "hey", ""]
                 ),
             ),
             (
@@ -136,12 +137,6 @@ class TestFilterView(OnyxDataTestCase):
                 "iendswith",
                 "LLO",
                 TestModel.objects.filter(text_option_1__iendswith="LLO"),
-            ),
-            ("regex", "world", TestModel.objects.filter(text_option_1__regex="world")),
-            (
-                "iregex",
-                "WORLD",
-                TestModel.objects.filter(text_option_1__iregex="WORLD"),
             ),
             ("length", 5, TestModel.objects.filter(text_option_1__length=5)),
             (
@@ -180,7 +175,7 @@ class TestFilterView(OnyxDataTestCase):
         Test filtering a choice field.
         """
 
-        choice_1_values = ["eng", "ENG", "Eng", "enG", "eng ", " eng", " eng "]
+        choice_1_values = ["", "eng", "ENG", "Eng", "enG", "eng ", " eng", " eng "]
         choice_2_values = [
             "wales",
             "WALES",
@@ -189,6 +184,7 @@ class TestFilterView(OnyxDataTestCase):
             "wales ",
             " wales",
             " wales ",
+            "",
         ]
         choice_values = choice_1_values + choice_2_values
 
@@ -256,8 +252,16 @@ class TestFilterView(OnyxDataTestCase):
             ("", 1, TestModel.objects.filter(tests=1)),
             ("exact", 1, TestModel.objects.filter(tests__exact=1)),
             ("ne", 1, TestModel.objects.exclude(tests=1)),
-            ("in", "1, 2, 3", TestModel.objects.filter(tests__in=[1, 2, 3])),
-            ("notin", "1, 2, 3", TestModel.objects.exclude(tests__in=[1, 2, 3])),
+            (
+                "in",
+                "1, 2, ,",
+                TestModel.objects.filter(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+            ),
+            (
+                "notin",
+                "1, 2, ,",
+                TestModel.objects.exclude(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+            ),
             ("lt", 3, TestModel.objects.filter(tests__lt=3)),
             ("lte", 3, TestModel.objects.filter(tests__lte=3)),
             ("gt", 2, TestModel.objects.filter(tests__gt=2)),
@@ -291,13 +295,17 @@ class TestFilterView(OnyxDataTestCase):
             ("ne", 1.12345, TestModel.objects.exclude(score=1.12345)),
             (
                 "in",
-                "1.12345, 2.12345, 3.12345",
-                TestModel.objects.filter(score__in=[1.12345, 2.12345, 3.12345]),
+                "1.12345, 2.12345, 3.12345, ,",
+                TestModel.objects.filter(
+                    Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
+                ),
             ),
             (
                 "notin",
-                "1.12345, 2.12345, 3.12345",
-                TestModel.objects.exclude(score__in=[1.12345, 2.12345, 3.12345]),
+                "1.12345, 2.12345, 3.12345, ,",
+                TestModel.objects.exclude(
+                    Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
+                ),
             ),
             ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
             ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
@@ -348,16 +356,18 @@ class TestFilterView(OnyxDataTestCase):
             ),
             (
                 "in",
-                "2022-01, 2022-02, 2022-03",
+                "2022-01, 2022-03, ,",
                 TestModel.objects.filter(
-                    collection_month__in=["2022-01-01", "2022-02-01", "2022-03-01"]
+                    Q(collection_month__in=["2022-01-01", "2022-03-01"])
+                    | Q(collection_month__isnull=True)
                 ),
             ),
             (
                 "notin",
-                "2022-01, 2022-02, 2022-03",
+                "2022-01, 2022-03, ,",
                 TestModel.objects.exclude(
-                    collection_month__in=["2022-01-01", "2022-02-01", "2022-03-01"]
+                    Q(collection_month__in=["2022-01-01", "2022-03-01"])
+                    | Q(collection_month__isnull=True)
                 ),
             ),
             (
@@ -429,16 +439,18 @@ class TestFilterView(OnyxDataTestCase):
             ),
             (
                 "in",
-                "2023-01-01, 2023-01-02, 2023-01-03",
+                "2023-01-01, 2023-01-03, ,",
                 TestModel.objects.filter(
-                    submission_date__in=["2023-01-01", "2023-01-02", "2023-01-03"]
+                    Q(submission_date__in=["2023-01-01", "2023-01-03"])
+                    | Q(submission_date__isnull=True)
                 ),
             ),
             (
                 "notin",
-                "2023-01-01, 2023-01-02, 2023-01-03",
+                "2023-01-01, 2023-01-03, ,",
                 TestModel.objects.exclude(
-                    submission_date__in=["2023-01-01", "2023-01-02", "2023-01-03"]
+                    Q(submission_date__in=["2023-01-01", "2023-01-03"])
+                    | Q(submission_date__isnull=True)
                 ),
             ),
             (
@@ -544,13 +556,17 @@ class TestFilterView(OnyxDataTestCase):
             + [
                 (
                     "in",
-                    "True, False",
-                    TestModel.objects.filter(concern__in=[True, False]),
+                    "True, ,",
+                    TestModel.objects.filter(
+                        Q(concern__in=[True]) | Q(concern__isnull=True)
+                    ),
                 ),
                 (
                     "notin",
-                    "True, False",
-                    TestModel.objects.exclude(concern__in=[True, False]),
+                    "True, ,",
+                    TestModel.objects.exclude(
+                        Q(concern__in=[True]) | Q(concern__isnull=True)
+                    ),
                 ),
                 ("", "", TestModel.objects.filter(concern__isnull=True)),
                 ("ne", "", TestModel.objects.exclude(concern__isnull=True)),

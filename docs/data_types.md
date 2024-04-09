@@ -19,8 +19,6 @@
     "icontains": "<class 'django_filters.filters.CharFilter'>",
     "istartswith": "<class 'django_filters.filters.CharFilter'>",
     "iendswith": "<class 'django_filters.filters.CharFilter'>",
-    "regex": "<class 'data.filters.RegexFilter'>",
-    "iregex": "<class 'data.filters.RegexFilter'>",
     "length": "<class 'django_filters.filters.NumberFilter'>",
     "length__in": "<class 'data.filters.NumberInFilter'>",
     "length__range": "<class 'data.filters.NumberRangeFilter'>",

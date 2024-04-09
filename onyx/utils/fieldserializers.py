@@ -26,6 +26,22 @@ class CharField(serializers.CharField):
         return data
 
 
+class IntegerField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if self.allow_null and not str(data).strip():
+            return None
+
+        return super().to_internal_value(data)
+
+
+class FloatField(serializers.FloatField):
+    def to_internal_value(self, data):
+        if self.allow_null and not str(data).strip():
+            return None
+
+        return super().to_internal_value(data)
+
+
 class DateField(serializers.DateField):
     def __init__(self, format: str, input_formats=None, **kwargs):
         super().__init__(

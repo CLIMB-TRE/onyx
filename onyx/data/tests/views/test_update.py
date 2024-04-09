@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
+from ...exceptions import ClimbIDNotFound
 from projects.testproject.models import TestModel
 
 
@@ -70,4 +71,17 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(updated_instance.tests, original_values["tests"])
         self.assertEqual(
             updated_instance.text_option_2, original_values["text_option_2"]
+        )
+
+    def test_climb_id_not_found(self):
+        """
+        Test update of a record by CLIMB ID that does not exist.
+        """
+
+        prefix, postfix = self.climb_id.split("-")
+        climb_id_not_found = "-".join([prefix, postfix[::-1]])
+        response = self.client.patch(self.endpoint(climb_id_not_found), data={})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.json()["messages"]["detail"], ClimbIDNotFound.default_detail
         )

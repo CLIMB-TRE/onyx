@@ -11,6 +11,9 @@ from utils.constraints import (
 from data.models import BaseRecord, ProjectRecord
 
 
+# TODO: Switch all usage of FloatField to DecimalField?
+
+
 __version__ = "0.1.0"
 
 

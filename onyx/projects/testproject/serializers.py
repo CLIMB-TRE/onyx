@@ -1,12 +1,22 @@
 from utils.validators import OnyxUniqueTogetherValidator
-from utils.fieldserializers import CharField, DateField, ChoiceField
+from utils.fieldserializers import (
+    CharField,
+    IntegerField,
+    FloatField,
+    DateField,
+    ChoiceField,
+)
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
 from .models import TestModel, TestModelRecord
 
 
 class TestModelRecordSerializer(BaseRecordSerializer):
+    test_id = IntegerField()
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
+    score_a = FloatField(required=False, allow_null=True)
+    score_b = FloatField(required=False, allow_null=True)
+    score_c = FloatField(required=False, allow_null=True)
     test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -65,6 +75,10 @@ class TestModelSerializer(ProjectRecordSerializer):
     )
     country = ChoiceField("country", required=False, allow_blank=True)
     region = ChoiceField("region", required=False, allow_blank=True)
+    tests = IntegerField(required=False, allow_null=True)
+    score = FloatField(required=False, allow_null=True)
+    start = IntegerField()
+    end = IntegerField()
     required_when_published = CharField(required=False, allow_blank=True)
 
     class Meta:

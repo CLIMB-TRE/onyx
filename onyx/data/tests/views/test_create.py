@@ -596,13 +596,13 @@ class TestCreateView(OnyxTestCase):
             ("  7  ", 7),
             ("1.", 1),
             (None, None),
+            ("", None),
+            (" ", None),
         ]
 
         bad_ints = [
             "2.45",
             "hello",
-            "",
-            " ",
             2.345,
             True,
             False,
@@ -644,14 +644,14 @@ class TestCreateView(OnyxTestCase):
             (True, 1.0),
             (False, 0.0),
             (None, None),
+            ("", None),
+            (" ", None),
         ]
 
         bad_floats = [
             "2.45.3",
             "1/0",
             "goodbye",
-            "",
-            " ",
             [],
             {},
         ]

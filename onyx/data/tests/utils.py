@@ -3,10 +3,10 @@ import logging
 import itertools
 from django.core.management import call_command
 from django.conf import settings
-from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
 from ..models import Project
+from projects.testproject.models import TestModel, TestModelRecord
 
 
 class OnyxTestCase(APITestCase):
@@ -20,26 +20,41 @@ class OnyxTestCase(APITestCase):
             os.path.join(settings.BASE_DIR, "projects/testproject/project.json"),
             quiet=True,
         )
-
         cls.project = Project.objects.get(code="testproject")
 
         # Set up test sites
         call_command(
-            "sites",
-            os.path.join(settings.BASE_DIR, "projects/testproject/sites.json"),
+            "site",
+            "create",
+            "testsite_1",
+            "--projects",
+            cls.project.code,
+            "--description",
+            "Department of Testing 1",
             quiet=True,
         )
-
+        call_command(
+            "site",
+            "create",
+            "testsite_2",
+            "--projects",
+            cls.project.code,
+            "--description",
+            "University of Testing 2",
+            quiet=True,
+        )
+        call_command("site", "roles", "testsite_1", "--grant", "is_active", quiet=True)
+        call_command("site", "roles", "testsite_2", "--grant", "is_active", quiet=True)
         cls.site = Site.objects.get(code="testsite_1")
         cls.extra_site = Site.objects.get(code="testsite_2")
 
         # Set up test user
-        cls.user = cls.setup_user(
-            "testuser",
-            site=cls.site,
-            roles=["is_staff"],
-            groups=["testproject.admin"],
+        call_command("user", "create", "testuser", "--site", cls.site.code, quiet=True)
+        call_command("user", "roles", "testuser", "--grant", "is_staff", quiet=True)
+        call_command(
+            "user", "groups", "testuser", "--grant", "testproject.admin", quiet=True
         )
+        cls.user = User.objects.get(username="testuser")
 
     def setUp(self):
         """
@@ -48,24 +63,48 @@ class OnyxTestCase(APITestCase):
 
         self.client.force_authenticate(self.user)  # type: ignore
 
+
+class OnyxDataTestCase(OnyxTestCase):
     @classmethod
-    def setup_user(cls, username, site, roles=None, groups=None):
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=100):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.user
+
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
+
+            if data.get("received_month"):
+                data["received_month"] += "-01"
+
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.user
+
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)
+
+    def assertEqualClimbIDs(self, records, qs):
         """
-        Create a user with the given username and roles/groups.
+        Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
         """
 
-        user, _ = User.objects.get_or_create(username=f"onyx-{username}", site=site)
-
-        if roles:
-            for role in roles:
-                setattr(user, role, True)
-
-        if groups:
-            for group in groups:
-                g = Group.objects.get(name=group)
-                user.groups.add(g)
-
-        return user
+        record_values = sorted(record["climb_id"] for record in records)
+        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
+        self.assertEqual(
+            record_values,
+            qs_values,
+        )
 
 
 def generate_test_data(n: int):

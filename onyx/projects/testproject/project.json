@@ -43,7 +43,8 @@
                     "action": [
                         "get",
                         "list",
-                        "filter"
+                        "filter",
+                        "history"
                     ],
                     "fields": [
                         "climb_id",

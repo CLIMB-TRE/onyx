@@ -65,7 +65,7 @@ class ProjectAPIView(APIView):
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
             project=self.project,
-            action=self.project_action,  # type: ignore
+            action=self.project_action.label,  # type: ignore
             user=request.user,
         )
 
@@ -137,9 +137,9 @@ class ProjectsView(APIView):
                     "project": project,
                     "scope": scope,
                     "actions": [
-                        action.value
+                        action.label
                         for action in Actions
-                        if action.value in actions_str
+                        if action.label in actions_str
                     ],
                 }
             )
@@ -198,7 +198,7 @@ class LookupsView(APIView):
 
 class FieldsView(ProjectAPIView):
     permission_classes = ProjectApproved
-    project_action = "access"
+    project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str) -> Response:
         """
@@ -240,7 +240,7 @@ class FieldsView(ProjectAPIView):
 
 class ChoicesView(ProjectAPIView):
     permission_classes = ProjectApproved
-    project_action = "access"
+    project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str, field: str) -> Response:
         """
@@ -272,9 +272,77 @@ class ChoicesView(ProjectAPIView):
         return Response(sorted(choices))
 
 
+class HistoryView(ProjectAPIView):
+    permission_classes = ProjectApproved + [IsSiteMember]
+    project_action = Actions.HISTORY
+
+    def get(self, request: Request, code: str, climb_id: str) -> Response:
+        """
+        Use the `climb_id` to retrieve the history of an instance for the given project `code`.
+        """
+
+        # Initial queryset
+        qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        )
+
+        # Get the instance
+        # If the instance does not exist, return 404
+        try:
+            instance = qs.get(climb_id=climb_id)
+        except self.model.DoesNotExist:
+            raise ClimbIDNotFound
+
+        history_instances = list(
+            instance.history.all().order_by("history_date")  #  type: ignore
+        )
+        history = []
+
+        for i, x in enumerate(history_instances):
+            h = {
+                "username": x.history_user.username if x.history_user else None,
+                "timestamp": x.history_date,
+            }
+
+            if x.history_type == "+":
+                h["action"] = Actions.ADD.label
+
+            elif x.history_type == "~":
+                h["action"] = Actions.CHANGE.label
+                h["changes"] = [
+                    {
+                        "field": change.field,
+                        "from": change.old,
+                        "to": change.new,
+                    }
+                    for change in x.diff_against(
+                        history_instances[i - 1],
+                        included_fields=self.handler.get_fields(),
+                    ).changes
+                ]
+
+            elif x.history_type == "-":
+                h["action"] = Actions.DELETE.label
+
+            else:
+                raise NotImplementedError(f"Unknown history type: {x.history_type}")
+
+            history.append(h)
+
+        # Return history
+        return Response(
+            {
+                "climb_id": climb_id,
+                "history": history,
+            }
+        )
+
+
 class IdentifyView(ProjectAPIView):
     permission_classes = ProjectApproved + [IsSiteMember]
-    project_action = "identify"
+    project_action = Actions.IDENTIFY
 
     def post(self, request: Request, code: str, field: str) -> Response:
         """
@@ -339,25 +407,25 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
             case ("POST", "create"):
-                self.project_action = "add"
+                self.project_action = Actions.ADD
 
             case ("POST", "list"):
-                self.project_action = "list"
+                self.project_action = Actions.LIST
 
             case ("GET", "retrieve") | ("HEAD", "retrieve"):
-                self.project_action = "get"
+                self.project_action = Actions.GET
 
             case ("GET", "list") | ("HEAD", "list"):
-                self.project_action = "list"
+                self.project_action = Actions.LIST
 
             case ("PATCH", "partial_update"):
-                self.project_action = "change"
+                self.project_action = Actions.CHANGE
 
             case ("DELETE", "destroy"):
-                self.project_action = "delete"
+                self.project_action = Actions.DELETE
 
             case ("OPTIONS", "metadata"):
-                self.project_action = "access"
+                self.project_action = Actions.ACCESS
 
             case _:
                 raise exceptions.MethodNotAllowed(self.request.method)

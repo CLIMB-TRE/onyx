@@ -12,11 +12,11 @@ class TestGetView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = lambda climb_id: reverse(
-            "project.testproject.climb_id",
+            "projects.testproject.climb_id",
             kwargs={"code": self.project.code, "climb_id": climb_id},
         )
         response = self.client.post(
-            reverse("project.testproject", kwargs={"code": self.project.code}),
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=next(iter(generate_test_data(n=1))),
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

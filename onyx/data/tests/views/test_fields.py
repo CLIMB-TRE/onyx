@@ -11,7 +11,7 @@ class TestFieldsView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = reverse(
-            "project.testproject.fields", kwargs={"code": self.project.code}
+            "projects.testproject.fields", kwargs={"code": self.project.code}
         )
 
     def test_basic(self):

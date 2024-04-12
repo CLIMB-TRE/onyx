@@ -11,7 +11,7 @@ class TestChoicesView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = lambda field: reverse(
-            "project.testproject.choices",
+            "projects.testproject.choices.field",
             kwargs={"code": self.project.code, "field": field},
         )
 

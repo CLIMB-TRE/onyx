@@ -16,7 +16,7 @@ from .serializers import SerializerNode, SummarySerializer, IdentifierSerializer
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
-from .types import OnyxType
+from .types import OnyxType, OnyxLookup
 from .actions import Actions
 from .spec import generate_fields_spec
 from .fields import (
@@ -148,6 +148,54 @@ class ProjectsView(APIView):
         return Response(project_groups)
 
 
+class TypesView(APIView):
+    permission_classes = Approved
+
+    def get(self, request: Request) -> Response:
+        """
+        List available types.
+        """
+
+        # Build types structure with allowed lookups for each type
+        types = [
+            {
+                "type": onyx_type.label,
+                "description": onyx_type.description,
+                "lookups": [lookup for lookup in onyx_type.lookups if lookup],
+            }
+            for onyx_type in OnyxType
+        ]
+
+        # Return the types and their lookups
+        return Response(types)
+
+
+class LookupsView(APIView):
+    permission_classes = Approved
+
+    def get(self, request: Request) -> Response:
+        """
+        List available lookups.
+        """
+
+        # Build lookups structure with allowed types for each lookup
+        lookups = [
+            {
+                "lookup": onyx_lookup.label,
+                "description": onyx_lookup.description,
+                "types": [
+                    onyx_type.label
+                    for onyx_type in OnyxType
+                    if onyx_lookup.label in onyx_type.lookups
+                ],
+            }
+            for onyx_lookup in OnyxLookup
+        ]
+
+        # Return the types and their lookups
+        return Response(lookups)
+
+
 class FieldsView(ProjectAPIView):
     permission_classes = ProjectApproved
     project_action = "access"
@@ -188,22 +236,6 @@ class FieldsView(ProjectAPIView):
                 "fields": fields_spec,
             }
         )
-
-
-class LookupsView(ProjectAPIView):
-    permission_classes = ProjectApproved
-    project_action = "access"
-
-    def get(self, request: Request, code: str) -> Response:
-        """
-        List all lookups.
-        """
-
-        # Build lookups structure with allowed lookups for each type
-        lookups = {onyx_type.label: onyx_type.lookups for onyx_type in OnyxType}
-
-        # Return the types and their lookups
-        return Response(lookups)
 
 
 class ChoicesView(ProjectAPIView):

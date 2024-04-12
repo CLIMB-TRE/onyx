@@ -11,7 +11,7 @@ from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
 from utils.constraints import unique_together
 from simple_history.models import HistoricalRecords
-from .types import ALL_LOOKUPS
+from .types import OnyxLookup
 
 
 class Project(models.Model):
@@ -97,7 +97,7 @@ class BaseRecord(models.Model):
         errors = super().check(**kwargs)
 
         for field in cls._meta.get_fields():
-            if field.name in ALL_LOOKUPS:
+            if field.name in OnyxLookup.lookups():
                 errors.append(
                     checks.Error(
                         f"Field names must not match existing lookups.",

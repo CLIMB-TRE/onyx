@@ -15,7 +15,7 @@ class TestQueryView(OnyxDataTestCase):
 
         super().setUp()
         self.endpoint = reverse(
-            "project.testproject.query", kwargs={"code": self.project.code}
+            "projects.testproject.query", kwargs={"code": self.project.code}
         )
 
     def test_basic(self):

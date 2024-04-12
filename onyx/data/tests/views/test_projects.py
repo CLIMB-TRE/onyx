@@ -11,7 +11,7 @@ class TestProjectsView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.projects")
+        self.endpoint = reverse("projects")
 
     def test_basic(self):
         """

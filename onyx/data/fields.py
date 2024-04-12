@@ -11,7 +11,7 @@ from utils.fields import (
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
 from .models import Choice, Project, ProjectRecord
-from .types import OnyxType, ALL_LOOKUPS
+from .types import OnyxLookup, OnyxType
 
 
 class OnyxField:
@@ -283,7 +283,7 @@ class FieldHandler:
             field_path = "__".join(components[: i + 1])
             lookup = "__".join(components[i + 1 :])
 
-            if lookup in ALL_LOOKUPS:
+            if lookup in OnyxLookup.lookups():
                 # The field is valid, and the lookup is not sus
                 # So we attempt to instantiate the field instance
                 # This could fail if the lookup is not allowed for the given field

@@ -111,6 +111,14 @@ class OnyxLookup(Enum):
         self.label = label
         self.description = description
 
+    @classmethod
+    def lookups(cls):
+        """
+        Returns the set of all lookup labels.
+        """
+
+        return {""} | {lookup.label for lookup in cls}
+
 
 class OnyxType(Enum):
     TEXT = (
@@ -251,6 +259,3 @@ class OnyxType(Enum):
         self.label = label
         self.description = description
         self.lookups = lookups
-
-
-ALL_LOOKUPS = set(lookup for onyx_type in OnyxType for lookup in onyx_type.lookups)

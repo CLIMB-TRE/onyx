@@ -295,47 +295,95 @@ class HistoryView(ProjectAPIView):
         except self.model.DoesNotExist:
             raise ClimbIDNotFound
 
-        history_instances = list(
-            instance.history.all().order_by("history_date")  #  type: ignore
-        )
-        history = []
+        # Get instances corresponding to the history of the instance
+        history = list(instance.history.all().order_by("history_date"))  #  type: ignore
 
-        for i, x in enumerate(history_instances):
-            h = {
+        # Fields to include in the history
+        fields = [
+            field
+            for field in self.serializer_cls.Meta.fields
+            if field in self.handler.get_fields()
+        ]
+
+        # Nested fields to include in the history
+        nested_fields = [
+            (nested_field, nested_serializer)
+            for nested_field, nested_serializer in self.serializer_cls.OnyxMeta.relations.items()
+            if nested_field in self.handler.get_fields()
+        ]
+
+        # Iterate through the instance's history, building a list of differences over time
+        diffs = []
+        for i, x in enumerate(history):
+            diff = {
                 "username": x.history_user.username if x.history_user else None,
                 "timestamp": x.history_date,
             }
 
             if x.history_type == "+":
-                h["action"] = Actions.ADD.label
+                diff["action"] = Actions.ADD.label
 
             elif x.history_type == "~":
-                h["action"] = Actions.CHANGE.label
-                h["changes"] = [
+                diff["action"] = Actions.CHANGE.label
+                diff["changes"] = [
                     {
                         "field": change.field,
                         "from": change.old,
                         "to": change.new,
                     }
                     for change in x.diff_against(
-                        history_instances[i - 1],
-                        included_fields=self.handler.get_fields(),
+                        history[i - 1],
+                        included_fields=fields,
                     ).changes
                 ]
 
+                for nested_field, nested_serializer in nested_fields:
+                    nested_history_model = nested_serializer.Meta.model.history.model
+
+                    for type, action in [
+                        ("+", "added"),
+                        ("~", "changed"),
+                        ("-", "deleted"),
+                    ]:
+                        if i == len(history) - 1:
+                            count = nested_history_model.objects.filter(
+                                link__climb_id=climb_id,
+                                history_user=x.history_user,
+                                history_type=type,
+                                history_date__gte=x.history_date,
+                            ).count()
+                        else:
+                            count = nested_history_model.objects.filter(
+                                link__climb_id=climb_id,
+                                history_user=x.history_user,
+                                history_type=type,
+                                history_date__gte=x.history_date,
+                                history_date__lt=history[i + 1].history_date,
+                            ).count()
+
+                        if count:
+                            diff["changes"].append(
+                                {
+                                    "field": nested_field,
+                                    "from": "",
+                                    "to": f"{action} {count} record"
+                                    + ("s" if count > 1 else ""),
+                                }
+                            )
+
             elif x.history_type == "-":
-                h["action"] = Actions.DELETE.label
+                diff["action"] = Actions.DELETE.label
 
             else:
                 raise NotImplementedError(f"Unknown history type: {x.history_type}")
 
-            history.append(h)
+            diffs.append(diff)
 
         # Return history
         return Response(
             {
                 "climb_id": climb_id,
-                "history": history,
+                "history": diffs,
             }
         )
 

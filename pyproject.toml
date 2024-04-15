@@ -16,7 +16,7 @@ djangorestframework = "^3.14.0"
 django-rest-knox = "^4.2.0"
 django-filter = "^24.2"
 django-simple-history = "^3.5.0"
-pydantic = "^2.6.4"
+pydantic = "^2.7.0"
 
 [tool.poetry.group.test]
 optional = true

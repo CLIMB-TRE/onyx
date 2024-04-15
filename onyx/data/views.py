@@ -12,7 +12,12 @@ from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from .models import Project, Choice, ProjectRecord, Anonymiser
-from .serializers import SerializerNode, SummarySerializer, IdentifierSerializer
+from .serializers import (
+    HistoryDiffSerializer,
+    SummarySerializer,
+    IdentifierSerializer,
+    SerializerNode,
+)
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
@@ -295,87 +300,109 @@ class HistoryView(ProjectAPIView):
         except self.model.DoesNotExist:
             raise ClimbIDNotFound
 
+        # Check permissions to view the history of the instance
+        self.check_object_permissions(request, instance)
+
         # Get instances corresponding to the history of the instance
         history = list(instance.history.all().order_by("history_date"))  #  type: ignore
 
         # Fields to include in the history
-        fields = [
-            field
-            for field in self.serializer_cls.Meta.fields
-            if field in self.handler.get_fields()
-        ]
+        # These fields are mapped to their corresponding OnyxField objects
+        fields = self.handler.resolve_fields(
+            [
+                field
+                for field in self.serializer_cls.Meta.fields
+                if field in self.handler.get_fields()
+            ]
+        )
 
         # Nested fields to include in the history
-        nested_fields = [
-            (nested_field, nested_serializer)
+        # These fields are mapped to their corresponding history model
+        nested_fields = {
+            nested_field: nested_serializer.Meta.model.history.model
             for nested_field, nested_serializer in self.serializer_cls.OnyxMeta.relations.items()
             if nested_field in self.handler.get_fields()
-        ]
+        }
+
+        # Mapping of history types to Onyx action labels
+        actions = {
+            "+": Actions.ADD.label,
+            "~": Actions.CHANGE.label,
+            "-": Actions.DELETE.label,
+        }
 
         # Iterate through the instance's history, building a list of differences over time
         diffs = []
-        for i, x in enumerate(history):
+        for i, h in enumerate(history):
             diff = {
-                "username": x.history_user.username if x.history_user else None,
-                "timestamp": x.history_date,
+                "username": h.history_user.username if h.history_user else None,
+                "timestamp": h.history_date,
+                "action": actions[h.history_type],
             }
 
-            if x.history_type == "+":
-                diff["action"] = Actions.ADD.label
-
-            elif x.history_type == "~":
-                diff["action"] = Actions.CHANGE.label
+            # If the history type is a change, then include the changes
+            if h.history_type == "~":
+                # Create a list of all direct changes to the instance
+                # These changes need to be serialized so the output field
+                # values are represented correctly (e.g. the correct date format)
                 diff["changes"] = [
-                    {
-                        "field": change.field,
-                        "from": change.old,
-                        "to": change.new,
-                    }
-                    for change in x.diff_against(
+                    HistoryDiffSerializer(
+                        {
+                            "field": change.field,
+                            "from": change.old,
+                            "to": change.new,
+                        },
+                        serializer_cls=self.serializer_cls,
+                        onyx_field=fields[change.field],
+                    ).data
+                    for change in h.diff_against(
                         history[i - 1],
                         included_fields=fields,
                     ).changes
                 ]
 
-                for nested_field, nested_serializer in nested_fields:
-                    nested_history_model = nested_serializer.Meta.model.history.model
+                # Date of the next history entry by the same user
+                next_user_history_date = None
+                for next_h in history[i + 1 :]:
+                    if next_h.history_user == h.history_user:
+                        next_user_history_date = next_h.history_date
+                        break
 
-                    for type, action in [
-                        ("+", "added"),
-                        ("~", "changed"),
-                        ("-", "deleted"),
-                    ]:
-                        if i == len(history) - 1:
-                            count = nested_history_model.objects.filter(
+                # For each nested field, append counts of changes
+                for nested_field, nested_history_model in nested_fields.items():
+                    if next_user_history_date is None:
+                        # If this is the latest change the user made,
+                        # then include all user changes up to the present
+                        nested_diffs = (
+                            nested_history_model.objects.filter(
                                 link__climb_id=climb_id,
-                                history_user=x.history_user,
-                                history_type=type,
-                                history_date__gte=x.history_date,
-                            ).count()
-                        else:
-                            count = nested_history_model.objects.filter(
-                                link__climb_id=climb_id,
-                                history_user=x.history_user,
-                                history_type=type,
-                                history_date__gte=x.history_date,
-                                history_date__lt=history[i + 1].history_date,
-                            ).count()
-
-                        if count:
-                            diff["changes"].append(
-                                {
-                                    "field": nested_field,
-                                    "from": "",
-                                    "to": f"{action} {count} record"
-                                    + ("s" if count > 1 else ""),
-                                }
+                                history_user=h.history_user,
+                                history_date__gte=h.history_date,
                             )
+                            .values("history_type")
+                            .annotate(count=Count("history_type"))
+                        )
+                    else:
+                        # Otherwise, include all changes up to the user's next history entry
+                        nested_diffs = (
+                            nested_history_model.objects.filter(
+                                link__climb_id=climb_id,
+                                history_user=h.history_user,
+                                history_date__gte=h.history_date,
+                                history_date__lt=next_user_history_date,
+                            )
+                            .values("history_type")
+                            .annotate(count=Count("history_type"))
+                        )
 
-            elif x.history_type == "-":
-                diff["action"] = Actions.DELETE.label
-
-            else:
-                raise NotImplementedError(f"Unknown history type: {x.history_type}")
+                    for nested_diff in nested_diffs:
+                        diff["changes"].append(
+                            {
+                                "field": nested_field,
+                                "action": actions[nested_diff["history_type"]],
+                                "count": nested_diff["count"],
+                            }
+                        )
 
             diffs.append(diff)
 

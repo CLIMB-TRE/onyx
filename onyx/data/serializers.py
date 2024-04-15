@@ -25,6 +25,47 @@ FIELDS = {
 }
 
 
+class HistoryDiffSerializer(serializers.Serializer):
+    """
+    Serializer for tracked field changes.
+    """
+
+    field = serializers.CharField()
+
+    def __init__(
+        self,
+        *args,
+        serializer_cls: type[ProjectRecordSerializer],
+        onyx_field: OnyxField,
+        **kwargs,
+    ):
+        # Instantiate the superclass normally
+        super().__init__(*args, **kwargs)
+
+        serlializer_instance = serializer_cls()
+        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        serializer_fields = serlializer_instance.get_fields()
+
+        if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
+            output_format = get_date_output_format(
+                serializer_fields[onyx_field.field_name]
+            )
+            self.fields["from"] = FIELDS[onyx_field.onyx_type](format=output_format)
+            self.fields["to"] = FIELDS[onyx_field.onyx_type](format=output_format)
+        else:
+            self.fields["from"] = FIELDS[onyx_field.onyx_type]()
+            self.fields["to"] = FIELDS[onyx_field.onyx_type]()
+
+
+class IdentifierSerializer(serializers.Serializer):
+    """
+    Serializer for input to the `data.project.identify` endpoint.
+    """
+
+    site = SiteField(default=CurrentUserSiteDefault())
+    value = serializers.CharField()
+
+
 class SummarySerializer(serializers.Serializer):
     """
     Serializer for multi-field count aggregates.
@@ -38,6 +79,9 @@ class SummarySerializer(serializers.Serializer):
         count_name: str,
         **kwargs,
     ):
+        # Instantiate the superclass normally
+        super().__init__(*args, **kwargs)
+
         serlializer_instance = serializer_cls()
         assert isinstance(serlializer_instance, ProjectRecordSerializer)
         serializer_fields = serlializer_instance.get_fields()
@@ -51,16 +95,6 @@ class SummarySerializer(serializers.Serializer):
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
 
         self.fields[count_name] = serializers.IntegerField()
-        super().__init__(*args, **kwargs)
-
-
-class IdentifierSerializer(serializers.Serializer):
-    """
-    Serializer for input to the `data.project.identify` endpoint.
-    """
-
-    site = SiteField(default=CurrentUserSiteDefault())
-    value = serializers.CharField()
 
 
 # https://www.django-rest-framework.org/api-guide/serializers/#dynamically-modifying-fields

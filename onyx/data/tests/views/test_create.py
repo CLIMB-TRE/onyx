@@ -53,10 +53,6 @@ default_payload = {
 
 class TestCreateView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions.
-        """
-
         super().setUp()
         self.endpoint = reverse(
             "projects.testproject", kwargs={"code": self.project.code}

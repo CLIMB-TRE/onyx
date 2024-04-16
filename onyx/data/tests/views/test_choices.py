@@ -5,10 +5,6 @@ from ..utils import OnyxTestCase
 
 class TestChoicesView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions.
-        """
-
         super().setUp()
         self.endpoint = lambda field: reverse(
             "projects.testproject.choices.field",

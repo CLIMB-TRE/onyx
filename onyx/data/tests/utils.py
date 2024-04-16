@@ -57,10 +57,6 @@ class OnyxTestCase(APITestCase):
         cls.user = User.objects.get(username="testuser")
 
     def setUp(self):
-        """
-        Set up test case.
-        """
-
         self.client.force_authenticate(self.user)  # type: ignore
 
 

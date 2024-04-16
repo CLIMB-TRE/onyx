@@ -4,6 +4,7 @@ from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import ClimbIDNotFound
 from ...actions import Actions
+from ...types import OnyxType
 from projects.testproject.models import TestModel
 
 
@@ -91,6 +92,11 @@ class TestHistoryView(OnyxTestCase):
         )
 
         self.assertEqual(len(response.json()["data"]["history"][1]["changes"]), 3)
+        types = {
+            "submission_date": OnyxType.DATE.label,
+            "tests": OnyxType.INTEGER.label,
+            "text_option_2": OnyxType.TEXT.label,
+        }
         for change in response.json()["data"]["history"][1]["changes"]:
             from_value = getattr(instance, change["field"])
             if isinstance(from_value, date):
@@ -100,6 +106,7 @@ class TestHistoryView(OnyxTestCase):
             if isinstance(to_value, date):
                 to_value = to_value.strftime("%Y-%m-%d")
 
+            self.assertEqual(change["type"], types[change["field"]])
             self.assertEqual(change["from"], from_value)
             self.assertEqual(change["to"], to_value)
 
@@ -174,6 +181,11 @@ class TestHistoryView(OnyxTestCase):
         )
 
         self.assertEqual(len(response.json()["data"]["history"][1]["changes"]), 3)
+        types = {
+            "submission_date": OnyxType.DATE.label,
+            "tests": OnyxType.INTEGER.label,
+            "text_option_2": OnyxType.TEXT.label,
+        }
         for change in response.json()["data"]["history"][1]["changes"]:
             from_value = getattr(instance, change["field"])
             if isinstance(from_value, date):
@@ -183,15 +195,17 @@ class TestHistoryView(OnyxTestCase):
             if isinstance(to_value, date):
                 to_value = to_value.strftime("%Y-%m-%d")
 
+            self.assertEqual(change["type"], types[change["field"]])
             self.assertEqual(change["from"], from_value)
             self.assertEqual(change["to"], to_value)
 
         self.assertEqual(len(response.json()["data"]["history"][2]["changes"]), 2)
         for change in response.json()["data"]["history"][2]["changes"]:
+            self.assertEqual(change["field"], "records")
+            self.assertEqual(change["type"], OnyxType.RELATION.label)
+
             if change["count"] == 1:
-                self.assertEqual(change["field"], "records")
                 self.assertEqual(change["action"], Actions.ADD.label)
             else:
-                self.assertEqual(change["field"], "records")
                 self.assertEqual(change["action"], Actions.CHANGE.label)
                 self.assertEqual(change["count"], 2)

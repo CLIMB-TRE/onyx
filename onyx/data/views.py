@@ -306,22 +306,20 @@ class HistoryView(ProjectAPIView):
         # Get instances corresponding to the history of the instance
         history = list(instance.history.all().order_by("history_date"))  #  type: ignore
 
-        # Fields to include in the history
-        # These fields are mapped to their corresponding OnyxField objects
-        fields = self.handler.resolve_fields(
-            [
-                field
-                for field in self.serializer_cls.Meta.fields
-                if field in self.handler.get_fields()
-            ]
-        )
+        # Mapping of all history fields to their corresponding OnyxField objects
+        fields = self.handler.resolve_fields(self.handler.get_fields())
+
+        # Non-nested fields to include in the history
+        included_fields = [
+            field for field in self.serializer_cls.Meta.fields if field in fields
+        ]
 
         # Nested fields to include in the history
         # These fields are mapped to their corresponding history model
-        nested_fields = {
+        included_nested_fields = {
             nested_field: nested_serializer.Meta.model.history.model
             for nested_field, nested_serializer in self.serializer_cls.OnyxMeta.relations.items()
-            if nested_field in self.handler.get_fields()
+            if nested_field in fields
         }
 
         # Mapping of history types to Onyx action labels
@@ -349,6 +347,7 @@ class HistoryView(ProjectAPIView):
                     HistoryDiffSerializer(
                         {
                             "field": change.field,
+                            "type": fields[change.field].onyx_type.label,
                             "from": change.old,
                             "to": change.new,
                         },
@@ -357,7 +356,7 @@ class HistoryView(ProjectAPIView):
                     ).data
                     for change in h.diff_against(
                         history[i - 1],
-                        included_fields=fields,
+                        included_fields=included_fields,
                     ).changes
                 ]
 
@@ -369,7 +368,10 @@ class HistoryView(ProjectAPIView):
                         break
 
                 # For each nested field, append counts of changes
-                for nested_field, nested_history_model in nested_fields.items():
+                for (
+                    nested_field,
+                    nested_history_model,
+                ) in included_nested_fields.items():
                     if next_user_history_date is None:
                         # If this is the latest change the user made,
                         # then include all user changes up to the present
@@ -399,6 +401,7 @@ class HistoryView(ProjectAPIView):
                         diff["changes"].append(
                             {
                                 "field": nested_field,
+                                "type": fields[nested_field].onyx_type.label,
                                 "action": actions[nested_diff["history_type"]],
                                 "count": nested_diff["count"],
                             }

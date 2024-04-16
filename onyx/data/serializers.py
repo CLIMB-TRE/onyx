@@ -31,6 +31,7 @@ class HistoryDiffSerializer(serializers.Serializer):
     """
 
     field = serializers.CharField()
+    type = serializers.CharField()
 
     def __init__(
         self,

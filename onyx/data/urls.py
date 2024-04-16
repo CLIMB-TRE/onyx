@@ -8,7 +8,17 @@ urlpatterns = [
     path(
         "",
         views.ProjectsView.as_view(),
-        name="data.projects",
+        name="projects",
+    ),
+    path(
+        "types/",
+        views.TypesView.as_view(),
+        name=f"projects.types",
+    ),
+    path(
+        "lookups/",
+        views.LookupsView.as_view(),
+        name=f"projects.lookups",
     ),
 ]
 
@@ -29,9 +39,9 @@ def generate_project_urls(
 
     return [
         path(
-            r"",
+            "",
             views.ProjectRecordsViewSet.as_view({"post": "create", "get": "list"}),
-            name=f"project.{code}",
+            name=f"projects.{code}",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
@@ -39,49 +49,49 @@ def generate_project_urls(
             views.ProjectRecordsViewSet.as_view(
                 {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
             ),
-            name=f"project.{code}.climb_id",
+            name=f"projects.{code}.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
-        re_path(
-            r"^test/$",
+        path(
+            "test/",
             views.ProjectRecordsViewSet.as_view({"post": "create"}),
-            name=f"project.{code}.test",
+            name=f"projects.{code}.test",
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
         re_path(
             r"^test/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
             views.ProjectRecordsViewSet.as_view({"patch": "partial_update"}),
-            name=f"project.{code}.test.climb_id",
+            name=f"projects.{code}.test.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
-        re_path(
-            r"^query/$",
+        path(
+            "query/",
             views.ProjectRecordsViewSet.as_view({"post": "list"}),
-            name=f"project.{code}.query",
+            name=f"projects.{code}.query",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
-        re_path(
-            r"^fields/$",
+        path(
+            "fields/",
             views.FieldsView.as_view(),
-            name=f"project.{code}.fields",
-            kwargs={"code": code, "serializer_class": serializer_class},
-        ),
-        re_path(
-            r"^lookups/$",
-            views.LookupsView.as_view(),
-            name=f"project.{code}.lookups",
+            name=f"projects.{code}.fields",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
             r"^choices/(?P<field>[a-zA-Z0-9_]*)/$",
             views.ChoicesView.as_view(),
-            name=f"project.{code}.choices",
+            name=f"projects.{code}.choices.field",
+            kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
+            r"^history/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            views.HistoryView.as_view(),
+            name=f"projects.{code}.history.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
             r"^identify/(?P<field>[a-zA-Z0-9_]*)/$",
             views.IdentifyView.as_view(),
-            name=f"project.{code}.identify",
+            name=f"projects.{code}.identify.field",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
     ]

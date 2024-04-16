@@ -15,7 +15,7 @@ class TestIdentifyView(OnyxTestCase):
 
         super().setUp()
         self.endpoint = lambda field: reverse(
-            "project.testproject.identify",
+            "projects.testproject.identify.field",
             kwargs={"code": self.project.code, "field": field},
         )
 
@@ -37,7 +37,7 @@ class TestIdentifyView(OnyxTestCase):
             start=1,
         ):
             result = self.client.post(
-                reverse("project.testproject", kwargs={"code": self.project.code}),
+                reverse("projects.testproject", kwargs={"code": self.project.code}),
                 data=record,
             )
             self.assertEqual(result.status_code, status.HTTP_201_CREATED)
@@ -89,7 +89,7 @@ class TestIdentifyView(OnyxTestCase):
         iterator = iter(generate_test_data(n=2))
         test_record_1 = next(iterator)
         response = self.client.post(
-            reverse("project.testproject", kwargs={"code": self.project.code}),
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=test_record_1,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -99,7 +99,7 @@ class TestIdentifyView(OnyxTestCase):
         test_record_2 = next(iterator)
         test_record_2["run_name"] = test_record_1["run_name"]
         response = self.client.post(
-            reverse("project.testproject", kwargs={"code": self.project.code}),
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=test_record_2,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -127,7 +127,7 @@ class TestIdentifyView(OnyxTestCase):
         iterator = iter(generate_test_data(n=2))
         test_record_1 = next(iterator)
         response = self.client.post(
-            reverse("project.testproject", kwargs={"code": self.project.code}),
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=test_record_1,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -139,7 +139,7 @@ class TestIdentifyView(OnyxTestCase):
         test_record_2["sample_id"] = test_record_1["sample_id"]
         test_record_2["run_name"] = test_record_1["run_name"]
         response = self.client.post(
-            reverse("project.testproject", kwargs={"code": self.project.code}),
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=test_record_2,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

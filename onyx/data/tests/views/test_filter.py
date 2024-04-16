@@ -13,7 +13,7 @@ class TestFilterView(OnyxDataTestCase):
 
         super().setUp()
         self.endpoint = reverse(
-            "project.testproject", kwargs={"code": self.project.code}
+            "projects.testproject", kwargs={"code": self.project.code}
         )
 
     def _test_filter(self, field, value, qs, lookup="", allow_empty=False):

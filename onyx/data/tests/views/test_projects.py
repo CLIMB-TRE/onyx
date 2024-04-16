@@ -11,7 +11,7 @@ class TestProjectsView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("data.projects")
+        self.endpoint = reverse("projects")
 
     def test_basic(self):
         """
@@ -26,7 +26,7 @@ class TestProjectsView(OnyxTestCase):
                 {
                     "project": "testproject",
                     "scope": "admin",
-                    "actions": [action.value for action in Actions],
+                    "actions": [action.label for action in Actions],
                 }
             ],
         )

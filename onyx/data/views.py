@@ -12,7 +12,12 @@ from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from .models import Project, Choice, ProjectRecord, Anonymiser
-from .serializers import SerializerNode, SummarySerializer, IdentifierSerializer
+from .serializers import (
+    HistoryDiffSerializer,
+    SummarySerializer,
+    IdentifierSerializer,
+    SerializerNode,
+)
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
 from .query import make_atoms, validate_atoms, make_query
 from .queryset import init_project_queryset, prefetch_nested
@@ -65,7 +70,7 @@ class ProjectAPIView(APIView):
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
             project=self.project,
-            action=self.project_action,  # type: ignore
+            action=self.project_action.label,  # type: ignore
             user=request.user,
         )
 
@@ -137,9 +142,9 @@ class ProjectsView(APIView):
                     "project": project,
                     "scope": scope,
                     "actions": [
-                        action.value
+                        action.label
                         for action in Actions
-                        if action.value in actions_str
+                        if action.label in actions_str
                     ],
                 }
             )
@@ -198,7 +203,7 @@ class LookupsView(APIView):
 
 class FieldsView(ProjectAPIView):
     permission_classes = ProjectApproved
-    project_action = "access"
+    project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str) -> Response:
         """
@@ -240,7 +245,7 @@ class FieldsView(ProjectAPIView):
 
 class ChoicesView(ProjectAPIView):
     permission_classes = ProjectApproved
-    project_action = "access"
+    project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str, field: str) -> Response:
         """
@@ -272,9 +277,150 @@ class ChoicesView(ProjectAPIView):
         return Response(sorted(choices))
 
 
+class HistoryView(ProjectAPIView):
+    permission_classes = ProjectApproved + [IsSiteMember]
+    project_action = Actions.HISTORY
+
+    def get(self, request: Request, code: str, climb_id: str) -> Response:
+        """
+        Use the `climb_id` to retrieve the history of an instance for the given project `code`.
+        """
+
+        # Initial queryset
+        qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        )
+
+        # Get the instance
+        # If the instance does not exist, return 404
+        try:
+            instance = qs.get(climb_id=climb_id)
+        except self.model.DoesNotExist:
+            raise ClimbIDNotFound
+
+        # Check permissions to view the history of the instance
+        self.check_object_permissions(request, instance)
+
+        # Get instances corresponding to the history of the instance
+        history = list(instance.history.all().order_by("history_date"))  #  type: ignore
+
+        # Mapping of all history fields to their corresponding OnyxField objects
+        fields = self.handler.resolve_fields(self.handler.get_fields())
+
+        # Non-nested fields to include in the history
+        included_fields = [
+            field for field in self.serializer_cls.Meta.fields if field in fields
+        ]
+
+        # Nested fields to include in the history
+        # These fields are mapped to their corresponding history model
+        included_nested_fields = {
+            nested_field: nested_serializer.Meta.model.history.model
+            for nested_field, nested_serializer in self.serializer_cls.OnyxMeta.relations.items()
+            if nested_field in fields
+        }
+
+        # Mapping of history types to Onyx action labels
+        actions = {
+            "+": Actions.ADD.label,
+            "~": Actions.CHANGE.label,
+            "-": Actions.DELETE.label,
+        }
+
+        # Iterate through the instance's history, building a list of differences over time
+        diffs = []
+        for i, h in enumerate(history):
+            diff = {
+                "username": h.history_user.username if h.history_user else None,
+                "timestamp": h.history_date,
+                "action": actions[h.history_type],
+            }
+
+            # If the history type is a change, then include the changes
+            if h.history_type == "~":
+                # Create a list of all direct changes to the instance
+                # These changes need to be serialized so the output field
+                # values are represented correctly (e.g. the correct date format)
+                diff["changes"] = [
+                    HistoryDiffSerializer(
+                        {
+                            "field": change.field,
+                            "type": fields[change.field].onyx_type.label,
+                            "from": change.old,
+                            "to": change.new,
+                        },
+                        serializer_cls=self.serializer_cls,
+                        onyx_field=fields[change.field],
+                    ).data
+                    for change in h.diff_against(
+                        history[i - 1],
+                        included_fields=included_fields,
+                    ).changes
+                ]
+
+                # Date of the next history entry by the same user
+                next_user_history_date = None
+                for next_h in history[i + 1 :]:
+                    if next_h.history_user == h.history_user:
+                        next_user_history_date = next_h.history_date
+                        break
+
+                # For each nested field, append counts of changes
+                for (
+                    nested_field,
+                    nested_history_model,
+                ) in included_nested_fields.items():
+                    if next_user_history_date is None:
+                        # If this is the latest change the user made,
+                        # then include all user changes up to the present
+                        nested_diffs = (
+                            nested_history_model.objects.filter(
+                                link__climb_id=climb_id,
+                                history_user=h.history_user,
+                                history_date__gte=h.history_date,
+                            )
+                            .values("history_type")
+                            .annotate(count=Count("history_type"))
+                        )
+                    else:
+                        # Otherwise, include all changes up to the user's next history entry
+                        nested_diffs = (
+                            nested_history_model.objects.filter(
+                                link__climb_id=climb_id,
+                                history_user=h.history_user,
+                                history_date__gte=h.history_date,
+                                history_date__lt=next_user_history_date,
+                            )
+                            .values("history_type")
+                            .annotate(count=Count("history_type"))
+                        )
+
+                    for nested_diff in nested_diffs:
+                        diff["changes"].append(
+                            {
+                                "field": nested_field,
+                                "type": fields[nested_field].onyx_type.label,
+                                "action": actions[nested_diff["history_type"]],
+                                "count": nested_diff["count"],
+                            }
+                        )
+
+            diffs.append(diff)
+
+        # Return history
+        return Response(
+            {
+                "climb_id": climb_id,
+                "history": diffs,
+            }
+        )
+
+
 class IdentifyView(ProjectAPIView):
     permission_classes = ProjectApproved + [IsSiteMember]
-    project_action = "identify"
+    project_action = Actions.IDENTIFY
 
     def post(self, request: Request, code: str, field: str) -> Response:
         """
@@ -339,25 +485,25 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
             case ("POST", "create"):
-                self.project_action = "add"
+                self.project_action = Actions.ADD
 
             case ("POST", "list"):
-                self.project_action = "list"
+                self.project_action = Actions.LIST
 
             case ("GET", "retrieve") | ("HEAD", "retrieve"):
-                self.project_action = "get"
+                self.project_action = Actions.GET
 
             case ("GET", "list") | ("HEAD", "list"):
-                self.project_action = "list"
+                self.project_action = Actions.LIST
 
             case ("PATCH", "partial_update"):
-                self.project_action = "change"
+                self.project_action = Actions.CHANGE
 
             case ("DELETE", "destroy"):
-                self.project_action = "delete"
+                self.project_action = Actions.DELETE
 
             case ("OPTIONS", "metadata"):
-                self.project_action = "access"
+                self.project_action = Actions.ACCESS
 
             case _:
                 raise exceptions.MethodNotAllowed(self.request.method)

@@ -84,9 +84,9 @@ def generate_fields_spec(
             "type": onyx_type.label,
             "required": required,
             "actions": [
-                action.value
+                action.label
                 for action in Actions
-                if action.value in actions_map[field_path]
+                if action.label in actions_map[field_path]
             ],
         }
 
@@ -167,9 +167,9 @@ def generate_fields_spec(
             "type": onyx_type.label,
             "required": onyx_fields[field_path].required,
             "actions": [
-                action.value
+                action.label
                 for action in Actions
-                if action.value in actions_map[field_path]
+                if action.label in actions_map[field_path]
             ],
             # Recursively generate fields spec for the nested serializer
             "fields": generate_fields_spec(

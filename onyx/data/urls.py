@@ -83,6 +83,12 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
+            r"^history/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            views.HistoryView.as_view(),
+            name=f"projects.{code}.history.climb_id",
+            kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
             r"^identify/(?P<field>[a-zA-Z0-9_]*)/$",
             views.IdentifyView.as_view(),
             name=f"projects.{code}.identify.field",

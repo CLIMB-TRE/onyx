@@ -5,6 +5,43 @@ from accounts.models import Site
 from utils.functions import get_suggestions
 
 
+class CharField(serializers.CharField):
+    def to_internal_value(self, data):
+        data = super().to_internal_value(data)
+
+        if data.upper().strip() in {
+            "NA",
+            "N/A",
+            "N.A.",
+            "N.A",
+            "EMPTY",
+            "NULL",
+            "NONE",
+            "NADA",
+        }:
+            raise serializers.ValidationError(
+                "Cannot provide text representing empty data."
+            )
+
+        return data
+
+
+class IntegerField(serializers.IntegerField):
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
+
+        return super().validate_empty_values(data)
+
+
+class FloatField(serializers.FloatField):
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
+
+        return super().validate_empty_values(data)
+
+
 class DateField(serializers.DateField):
     def __init__(self, format: str, input_formats=None, **kwargs):
         super().__init__(
@@ -13,11 +50,11 @@ class DateField(serializers.DateField):
             **kwargs,
         )
 
-    def to_internal_value(self, data):
-        if self.allow_null and not str(data).strip():
-            return None
+    def validate_empty_values(self, data):
+        if not str(data).strip():
+            data = None
 
-        return super().to_internal_value(data)
+        return super().validate_empty_values(data)
 
 
 class ChoiceField(serializers.ChoiceField):

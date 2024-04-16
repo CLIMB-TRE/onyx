@@ -58,9 +58,8 @@ class TestCreateView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
+        self.endpoint = reverse(
+            "projects.testproject", kwargs={"code": self.project.code}
         )
 
     def test_basic(self):
@@ -85,7 +84,7 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         response = self.client.post(
-            reverse("project.testproject.test", kwargs={"code": "testproject"}),
+            reverse("projects.testproject.test", kwargs={"code": self.project.code}),
             data=payload,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -597,13 +596,13 @@ class TestCreateView(OnyxTestCase):
             ("  7  ", 7),
             ("1.", 1),
             (None, None),
+            ("", None),
+            (" ", None),
         ]
 
         bad_ints = [
             "2.45",
             "hello",
-            "",
-            " ",
             2.345,
             True,
             False,
@@ -645,14 +644,14 @@ class TestCreateView(OnyxTestCase):
             (True, 1.0),
             (False, 0.0),
             (None, None),
+            ("", None),
+            (" ", None),
         ]
 
         bad_floats = [
             "2.45.3",
             "1/0",
             "goodbye",
-            "",
-            " ",
             [],
             {},
         ]

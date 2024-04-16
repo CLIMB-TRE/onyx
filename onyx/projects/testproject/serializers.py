@@ -1,12 +1,23 @@
 from utils.validators import OnyxUniqueTogetherValidator
-from utils.fieldserializers import DateField, ChoiceField
+from utils.fieldserializers import (
+    CharField,
+    IntegerField,
+    FloatField,
+    DateField,
+    ChoiceField,
+)
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
-from .models import BaseTestModel, TestModel, TestModelRecord
+from .models import TestModel, TestModelRecord
 
 
 class TestModelRecordSerializer(BaseRecordSerializer):
+    test_id = IntegerField()
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
+    score_a = FloatField(required=False, allow_null=True)
+    score_b = FloatField(required=False, allow_null=True)
+    score_c = FloatField(required=False, allow_null=True)
+    test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
         model = TestModelRecord
@@ -38,7 +49,9 @@ class TestModelRecordSerializer(BaseRecordSerializer):
         )
 
 
-class BaseTestModelSerializer(ProjectRecordSerializer):
+class TestModelSerializer(ProjectRecordSerializer):
+    sample_id = CharField(max_length=50)
+    run_name = CharField(max_length=100)
     collection_month = DateField(
         "%Y-%m",
         input_formats=["%Y-%m"],
@@ -51,6 +64,9 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         required=False,
         allow_null=True,
     )
+    char_max_length_20 = CharField(max_length=20, required=False, allow_blank=True)
+    text_option_1 = CharField(required=False, allow_blank=True)
+    text_option_2 = CharField(required=False, allow_blank=True)
     submission_date = DateField(
         "%Y-%m-%d",
         input_formats=["%Y-%m-%d"],
@@ -59,9 +75,14 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
     )
     country = ChoiceField("country", required=False, allow_blank=True)
     region = ChoiceField("region", required=False, allow_blank=True)
+    tests = IntegerField(required=False, allow_null=True)
+    score = FloatField(required=False, allow_null=True)
+    start = IntegerField()
+    end = IntegerField()
+    required_when_published = CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = BaseTestModel
+        model = TestModel
         fields = ProjectRecordSerializer.Meta.fields + [
             "sample_id",
             "run_name",
@@ -82,12 +103,21 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         ]
         validators = [
             OnyxUniqueTogetherValidator(
-                queryset=BaseTestModel.objects.all(),
+                queryset=TestModel.objects.all(),
                 fields=["sample_id", "run_name"],
             )
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):
+        relations = ProjectRecordSerializer.OnyxMeta.relations | {
+            "records": TestModelRecordSerializer,
+        }
+        relation_options = ProjectRecordSerializer.OnyxMeta.relation_options | {
+            "records": {
+                "many": True,
+                "required": False,
+            },
+        }
         optional_value_groups = (
             ProjectRecordSerializer.OnyxMeta.optional_value_groups
             + [
@@ -121,23 +151,4 @@ class BaseTestModelSerializer(ProjectRecordSerializer):
         anonymised_fields = ProjectRecordSerializer.OnyxMeta.anonymised_fields | {
             "sample_id": "S-",
             "run_name": "R-",
-        }
-
-
-class TestModelSerializer(BaseTestModelSerializer):
-    class Meta:
-        model = TestModel
-        fields = BaseTestModelSerializer.Meta.fields
-        # NOTE: Just like fields, validators must be inherited, IF they exist in the parent class.
-        validators = BaseTestModelSerializer.Meta.validators
-
-    class OnyxMeta(BaseTestModelSerializer.OnyxMeta):
-        relations = BaseTestModelSerializer.OnyxMeta.relations | {
-            "records": TestModelRecordSerializer,
-        }
-        relation_options = BaseTestModelSerializer.OnyxMeta.relation_options | {
-            "records": {
-                "many": True,
-                "required": False,
-            },
         }

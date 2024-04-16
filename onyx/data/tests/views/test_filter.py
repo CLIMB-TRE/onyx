@@ -1,45 +1,19 @@
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.reverse import reverse
-from ..utils import OnyxTestCase, generate_test_data
-from projects.testproject.models import TestModel
+from ..utils import OnyxDataTestCase
+from projects.testproject.models import TestModel, TestModelRecord
 
 
-# TODO:
-# - Test summarise function
-# - Test all OnyxTypes
-# - Test effect of suppressing data
-
-
-class TestFilterView(OnyxTestCase):
+class TestFilterView(OnyxDataTestCase):
     def setUp(self):
         """
         Create a user with the required permissions and create a set of test records.
         """
 
         super().setUp()
-        self.endpoint = reverse("project.testproject", kwargs={"code": "testproject"})
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
-        for payload in generate_test_data():
-            response = self.client.post(self.endpoint, data=payload)
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def assertEqualClimbIDs(self, records, qs, allow_empty=False):
-        """
-        Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
-        """
-
-        record_values = sorted(record["climb_id"] for record in records)
-        qs_values = sorted(qs.distinct().values_list("climb_id", flat=True))
-
-        if not allow_empty:
-            self.assertTrue(record_values)
-            self.assertTrue(qs_values)
-
-        self.assertEqual(
-            record_values,
-            qs_values,
+        self.endpoint = reverse(
+            "projects.testproject", kwargs={"code": self.project.code}
         )
 
     def _test_filter(self, field, value, qs, lookup="", allow_empty=False):
@@ -51,7 +25,7 @@ class TestFilterView(OnyxTestCase):
             self.endpoint, data={f"{field}__{lookup}" if lookup else field: value}
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(response.json()["data"], qs, allow_empty=allow_empty)
+        self.assertEqualClimbIDs(response.json()["data"], qs)
 
     def test_basic(self):
         """
@@ -73,62 +47,127 @@ class TestFilterView(OnyxTestCase):
         response = self.client.get(self.endpoint, data={"hello": ":)"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_suppressed(self):
+        """
+        Test that suppressed records are not returned.
+        """
+
+        pass  # TODO
+
+    def test_include_exclude(self):
+        """
+        Test including and excluding fields on a filter.
+        """
+
+        pass  # TODO
+
+    def test_include_exclude_bad_field(self):
+        """
+        Test that including/excluding with an invalid field fails.
+        """
+
+        # Cannot provide a lookup with an include/exclude field
+        response = self.client.get(self.endpoint, data={"include": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.get(self.endpoint, data={"exclude": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"include": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.get(self.endpoint, data={"exclude": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_text(self):
         """
         Test filtering a text field.
         """
 
         for lookup, value, qs in [
-            ("", "run-1", TestModel.objects.filter(run_name="run-1")),
-            ("exact", "run-1", TestModel.objects.filter(run_name__exact="run-1")),
-            ("ne", "run-1", TestModel.objects.filter(run_name__ne="run-1")),
+            ("", "world", TestModel.objects.filter(text_option_1="world")),
+            ("exact", "world", TestModel.objects.filter(text_option_1__exact="world")),
+            ("ne", "world", TestModel.objects.exclude(text_option_1="world")),
             (
                 "in",
-                "run-1, run-2, run-3",
-                TestModel.objects.filter(run_name__in=["run-1", "run-2", "run-3"]),
+                "hello, world, hey, ,",
+                TestModel.objects.filter(
+                    text_option_1__in=["hello", "world", "hey", ""]
+                ),
             ),
-            ("contains", "run", TestModel.objects.filter(run_name__contains="run")),
-            ("startswith", "run", TestModel.objects.filter(run_name__startswith="run")),
-            ("endswith", "n-1", TestModel.objects.filter(run_name__endswith="n-1")),
-            ("iexact", "RUN-1", TestModel.objects.filter(run_name__iexact="RUN-1")),
-            ("icontains", "RUN", TestModel.objects.filter(run_name__icontains="RUN")),
+            (
+                "notin",
+                "hello, world, hey, ,",
+                TestModel.objects.exclude(
+                    text_option_1__in=["hello", "world", "hey", ""]
+                ),
+            ),
+            (
+                "contains",
+                "orl",
+                TestModel.objects.filter(text_option_1__contains="orl"),
+            ),
+            (
+                "startswith",
+                "wor",
+                TestModel.objects.filter(text_option_1__startswith="wor"),
+            ),
+            (
+                "endswith",
+                "rld",
+                TestModel.objects.filter(text_option_1__endswith="rld"),
+            ),
+            (
+                "iexact",
+                "HELLO",
+                TestModel.objects.filter(text_option_1__iexact="HELLO"),
+            ),
+            (
+                "icontains",
+                "ELL",
+                TestModel.objects.filter(text_option_1__icontains="ELL"),
+            ),
             (
                 "istartswith",
-                "RUN",
-                TestModel.objects.filter(run_name__istartswith="RUN"),
+                "HEL",
+                TestModel.objects.filter(text_option_1__istartswith="HEL"),
             ),
-            ("iendswith", "N-1", TestModel.objects.filter(run_name__iendswith="N-1")),
-            ("regex", "run-1", TestModel.objects.filter(run_name__regex="run-1")),
-            ("iregex", "RUN-1", TestModel.objects.filter(run_name__iregex="RUN-1")),
-            ("length", 5, TestModel.objects.filter(run_name__length=5)),
+            (
+                "iendswith",
+                "LLO",
+                TestModel.objects.filter(text_option_1__iendswith="LLO"),
+            ),
+            ("length", 5, TestModel.objects.filter(text_option_1__length=5)),
             (
                 "length__in",
                 "1, 3, 5",
-                TestModel.objects.filter(run_name__length__in=[1, 3, 5]),
+                TestModel.objects.filter(text_option_1__length__in=[1, 3, 5]),
             ),
             (
                 "length__range",
                 "3, 5",
-                TestModel.objects.filter(run_name__length__range=[3, 5]),
+                TestModel.objects.filter(text_option_1__length__range=[3, 5]),
             ),
-            ("", "", TestModel.objects.filter(run_name__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(run_name__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(run_name="")),
-            ("isnull", False, TestModel.objects.exclude(run_name="")),
+            ("", "", TestModel.objects.filter(text_option_1__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(text_option_1__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(text_option_1="")),
+            ("isnull", False, TestModel.objects.exclude(text_option_1="")),
         ]:
             self._test_filter(
-                field="run_name",
+                field="text_option_1",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
 
         # Test the isnull lookup against invalid true/false values
         for value in ["", " ", "invalid"]:
-            response = self.client.get(self.endpoint, data={"run_name__isnull": value})
+            response = self.client.get(
+                self.endpoint, data={"text_option_1__isnull": value}
+            )
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_choice(self):
@@ -136,7 +175,7 @@ class TestFilterView(OnyxTestCase):
         Test filtering a choice field.
         """
 
-        choice_1_values = ["eng", "ENG", "Eng", "enG", "eng ", " eng", " eng "]
+        choice_1_values = ["", "eng", "ENG", "Eng", "enG", "eng ", " eng", " eng "]
         choice_2_values = [
             "wales",
             "WALES",
@@ -145,6 +184,7 @@ class TestFilterView(OnyxTestCase):
             "wales ",
             " wales",
             " wales ",
+            "",
         ]
         choice_values = choice_1_values + choice_2_values
 
@@ -163,6 +203,16 @@ class TestFilterView(OnyxTestCase):
                     "in",
                     ", ".join(x),
                     TestModel.objects.filter(
+                        country__in=[y.strip().lower() for y in x]
+                    ),
+                )
+                for x in zip(choice_1_values, choice_2_values)
+            ]
+            + [
+                (
+                    "notin",
+                    ", ".join(x),
+                    TestModel.objects.exclude(
                         country__in=[y.strip().lower() for y in x]
                     ),
                 )
@@ -199,22 +249,40 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1, TestModel.objects.filter(start=1)),
-            ("exact", 1, TestModel.objects.filter(start__exact=1)),
-            ("ne", 1, TestModel.objects.exclude(start=1)),
-            ("in", "1, 2, 3", TestModel.objects.filter(start__in=[1, 2, 3])),
-            ("lt", 3, TestModel.objects.filter(start__lt=3)),
-            ("lte", 3, TestModel.objects.filter(start__lte=3)),
-            ("gt", 2, TestModel.objects.filter(start__gt=2)),
-            ("gte", 2, TestModel.objects.filter(start__gte=2)),
-            ("range", "1, 3", TestModel.objects.filter(start__range=[1, 3])),
+            ("", 1, TestModel.objects.filter(tests=1)),
+            ("exact", 1, TestModel.objects.filter(tests__exact=1)),
+            ("ne", 1, TestModel.objects.exclude(tests=1)),
+            (
+                "in",
+                "1, 2, ,",
+                TestModel.objects.filter(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+            ),
+            (
+                "notin",
+                "1, 2, ,",
+                TestModel.objects.exclude(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+            ),
+            ("lt", 3, TestModel.objects.filter(tests__lt=3)),
+            ("lte", 3, TestModel.objects.filter(tests__lte=3)),
+            ("gt", 2, TestModel.objects.filter(tests__gt=2)),
+            ("gte", 2, TestModel.objects.filter(tests__gte=2)),
+            ("range", "1, 3", TestModel.objects.filter(tests__range=[1, 3])),
+            ("", "", TestModel.objects.filter(tests__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(tests__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(tests__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(tests__isnull=True)),
         ]:
             self._test_filter(
-                field="start",
+                field="tests",
                 value=value,
                 qs=qs,
                 lookup=lookup,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"tests__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_decimal(self):
         """
@@ -222,27 +290,48 @@ class TestFilterView(OnyxTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1.1, TestModel.objects.filter(score=1.1)),
-            ("exact", 1.1, TestModel.objects.filter(score__exact=1.1)),
-            ("ne", 1.1, TestModel.objects.exclude(score=1.1)),
+            ("", 1.12345, TestModel.objects.filter(score=1.12345)),
+            ("exact", 1.12345, TestModel.objects.filter(score__exact=1.12345)),
+            ("ne", 1.12345, TestModel.objects.exclude(score=1.12345)),
             (
                 "in",
-                "1.1, 2.2, 3.3",
-                TestModel.objects.filter(score__in=[1.1, 2.2, 3.3]),
+                "1.12345, 2.12345, 3.12345, ,",
+                TestModel.objects.filter(
+                    Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
+                ),
             ),
-            ("lt", 3.3, TestModel.objects.filter(score__lt=3.3)),
-            ("lte", 3.3, TestModel.objects.filter(score__lte=3.3)),
-            ("gt", 4.4, TestModel.objects.filter(score__gt=4.4)),
-            ("gte", 4.4, TestModel.objects.filter(score__gte=4.4)),
-            ("range", "1.1, 9.9", TestModel.objects.filter(score__range=[1.1, 9.9])),
+            (
+                "notin",
+                "1.12345, 2.12345, 3.12345, ,",
+                TestModel.objects.exclude(
+                    Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
+                ),
+            ),
+            ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
+            ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
+            ("gt", 4.12345, TestModel.objects.filter(score__gt=4.12345)),
+            ("gte", 4.12345, TestModel.objects.filter(score__gte=4.12345)),
+            (
+                "range",
+                "1.12345, 9.12345",
+                TestModel.objects.filter(score__range=[1.12345, 9.12345]),
+            ),
+            ("", "", TestModel.objects.filter(score__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(score__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(score__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(score__isnull=True)),
         ]:
             self._test_filter(
                 field="score",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"score__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_yearmonth(self):
         """
@@ -267,9 +356,18 @@ class TestFilterView(OnyxTestCase):
             ),
             (
                 "in",
-                "2022-01, 2022-02, 2022-03",
+                "2022-01, 2022-03, ,",
                 TestModel.objects.filter(
-                    collection_month__in=["2022-01-01", "2022-02-01", "2022-03-01"]
+                    Q(collection_month__in=["2022-01-01", "2022-03-01"])
+                    | Q(collection_month__isnull=True)
+                ),
+            ),
+            (
+                "notin",
+                "2022-01, 2022-03, ,",
+                TestModel.objects.exclude(
+                    Q(collection_month__in=["2022-01-01", "2022-03-01"])
+                    | Q(collection_month__isnull=True)
                 ),
             ),
             (
@@ -299,29 +397,24 @@ class TestFilterView(OnyxTestCase):
                     collection_month__range=["2022-01-01", "2022-03-01"]
                 ),
             ),
-            # (
-            #     "year",
-            #     2022,
-            #     TestModel.objects.filter(collection_month__year=2022),
-            # ),
-            # (
-            #     "year__in",
-            #     "2022, 2023",
-            #     TestModel.objects.filter(collection_month__year__in=[2022, 2023]),
-            # ),
-            # (
-            #     "year__range",
-            #     "2022, 2023",
-            #     TestModel.objects.filter(collection_month__year__range=[2022, 2023]),
-            # ),
+            ("", "", TestModel.objects.filter(collection_month__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(collection_month__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(collection_month__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(collection_month__isnull=True)),
         ]:
             self._test_filter(
                 field="collection_month",
                 value=value,
                 lookup=lookup,
                 qs=qs,
-                allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(
+                self.endpoint, data={"collection_month__isnull": value}
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_date(self):
         """
@@ -346,9 +439,18 @@ class TestFilterView(OnyxTestCase):
             ),
             (
                 "in",
-                "2023-01-01, 2023-01-02, 2023-01-03",
+                "2023-01-01, 2023-01-03, ,",
                 TestModel.objects.filter(
-                    submission_date__in=["2023-01-01", "2023-01-02", "2023-01-03"]
+                    Q(submission_date__in=["2023-01-01", "2023-01-03"])
+                    | Q(submission_date__isnull=True)
+                ),
+            ),
+            (
+                "notin",
+                "2023-01-01, 2023-01-03, ,",
+                TestModel.objects.exclude(
+                    Q(submission_date__in=["2023-01-01", "2023-01-03"])
+                    | Q(submission_date__isnull=True)
                 ),
             ),
             (
@@ -378,21 +480,6 @@ class TestFilterView(OnyxTestCase):
                     submission_date__range=["2023-01-01", "2023-06-03"]
                 ),
             ),
-            # (
-            #     "year",
-            #     2023,
-            #     TestModel.objects.filter(submission_date__year=2023),
-            # ),
-            # (
-            #     "year__in",
-            #     "2023, 2024",
-            #     TestModel.objects.filter(submission_date__year__in=[2023, 2024]),
-            # ),
-            # (
-            #     "year__range",
-            #     "2023, 2024",
-            #     TestModel.objects.filter(submission_date__year__range=[2023, 2024]),
-            # ),
             (
                 "iso_year",
                 2023,
@@ -423,14 +510,24 @@ class TestFilterView(OnyxTestCase):
                 "10, 33",
                 TestModel.objects.filter(submission_date__week__range=[10, 33]),
             ),
+            ("", "", TestModel.objects.filter(submission_date__isnull=True)),
+            ("ne", "", TestModel.objects.exclude(submission_date__isnull=True)),
+            ("isnull", True, TestModel.objects.filter(submission_date__isnull=True)),
+            ("isnull", False, TestModel.objects.exclude(submission_date__isnull=True)),
         ]:
             self._test_filter(
                 field="submission_date",
                 value=value,
                 qs=qs,
                 lookup=lookup,
-                allow_empty=True,
             )
+
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(
+                self.endpoint, data={"submission_date__isnull": value}
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_bool(self):
         """
@@ -451,10 +548,38 @@ class TestFilterView(OnyxTestCase):
                 for l in ["", "exact"]
                 for x in false_values
             ]
-            + [("ne", x, TestModel.objects.filter(concern=False)) for x in true_values]
-            + [("ne", x, TestModel.objects.filter(concern=True)) for x in false_values]
+            + [("ne", x, TestModel.objects.exclude(concern=True)) for x in true_values]
             + [
-                ("in", "True, False", TestModel.objects.all()),
+                ("ne", x, TestModel.objects.exclude(concern=False))
+                for x in false_values
+            ]
+            + [
+                (
+                    "in",
+                    "True, ,",
+                    TestModel.objects.filter(
+                        Q(concern__in=[True]) | Q(concern__isnull=True)
+                    ),
+                ),
+                (
+                    "notin",
+                    "True, ,",
+                    TestModel.objects.exclude(
+                        Q(concern__in=[True]) | Q(concern__isnull=True)
+                    ),
+                ),
+                ("", "", TestModel.objects.filter(concern__isnull=True)),
+                ("ne", "", TestModel.objects.exclude(concern__isnull=True)),
+                (
+                    "isnull",
+                    True,
+                    TestModel.objects.filter(concern__isnull=True),
+                ),
+                (
+                    "isnull",
+                    False,
+                    TestModel.objects.exclude(concern__isnull=True),
+                ),
             ]
         ):
             self._test_filter(
@@ -464,29 +589,286 @@ class TestFilterView(OnyxTestCase):
                 lookup=lookup,
             )
 
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"concern__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_relation(self):
         """
         Test filtering a relation field.
         """
 
-        response = self.client.get(self.endpoint, data={"records__isnull": True})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(
-            response.json()["data"],
-            TestModel.objects.filter(records__isnull=True),
-        )
+        for lookup, value, qs in [
+            (
+                "isnull",
+                True,
+                TestModel.objects.filter(records__isnull=True),
+            ),
+            (
+                "isnull",
+                False,
+                TestModel.objects.filter(records__isnull=False),
+            ),
+        ]:
+            self._test_filter(
+                field="records",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+            )
 
-        response = self.client.get(self.endpoint, data={"records__isnull": False})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqualClimbIDs(
-            response.json()["data"],
-            TestModel.objects.filter(records__isnull=False),
-        )
+        # Test the isnull lookup against invalid true/false values
+        for value in ["", " ", "invalid"]:
+            response = self.client.get(self.endpoint, data={"records__isnull": value})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_relation_invalid_lookup(self):
-        """
-        Test filtering a relation field with an invalid lookup.
-        """
-
+        # Test filtering the relation field with an invalid lookup
         response = self.client.get(self.endpoint, data={"records": 1})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_summarise(self):
+        """
+        Test filtering and summarising columns.
+        """
+
+        field_groups = [
+            ("country",),
+            ("run_name",),
+            ("start",),
+            ("score",),
+            ("submission_date",),
+            ("score", "required_when_published"),
+            ("region", "run_name"),
+            ("country", "concern"),
+        ]
+
+        for fields in field_groups:
+            response = self.client.get(self.endpoint, data={"summarise": fields})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.values(*fields).distinct().count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(
+                        **{field: row[field] for field in fields}
+                    ).count(),
+                )
+
+        for fields in field_groups:
+            response = self.client.get(
+                self.endpoint, data={"summarise": fields, "country": "eng"}
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(country="eng")
+                .values(*fields)
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["count"],
+                    TestModel.objects.filter(country="eng")
+                    .filter(**{field: row[field] for field in fields})
+                    .count(),
+                )
+
+    def test_nested_summarise(self):
+        """
+        Test filtering and summarising nested columns.
+        """
+
+        nested_field_groups = [
+            ("records__test_pass",),
+            # TODO: Nested date fields cannot be summarised.
+            # No current prod instances thankfully, but needs fixing ASAP
+            # "records__test_start",
+            ("records__test_result",),
+            ("records__score_a",),
+            ("records__score_c",),
+            ("records__test_pass", "records__test_result"),
+            ("records__score_b", "records__score_c", "records__test_pass"),
+        ]
+
+        for nested_fields in nested_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={"summarise": nested_fields},
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*nested_fields)
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                    ).count(),
+                )
+
+        for nested_fields in nested_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": nested_fields,
+                    "records__test_result": "details",
+                },
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(records__test_result="details")
+                .values(*nested_fields)
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(test_result="details")
+                    .filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                    )
+                    .count(),
+                )
+
+    def test_mixed_summarise(self):
+        """
+        Test filtering and summarising a mix of columns and nested columns.
+        """
+
+        mixed_field_groups = [
+            (
+                ("run_name",),
+                ("records__test_pass", "records__test_result"),
+            ),
+            (
+                ("concern", "text_option_1"),
+                ("records__score_a",),
+            ),
+        ]
+
+        for fields, nested_fields in mixed_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={"summarise": fields + nested_fields},
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    ).count(),
+                )
+
+        for fields, nested_fields in mixed_field_groups:
+            response = self.client.get(
+                self.endpoint,
+                data={
+                    "summarise": fields + nested_fields,
+                    "country": "eng",
+                    "records__test_result": "details",
+                },
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Check that the number of distinct values in the response
+            # matches the number of distinct values in the database
+            self.assertEqual(
+                len(response.json()["data"]),
+                TestModel.objects.filter(records__isnull=False)
+                .filter(country="eng")
+                .filter(records__test_result="details")
+                .values(*(fields + nested_fields))
+                .distinct()
+                .count(),
+            )
+
+            # Check that the counts match
+            for row in response.json()["data"]:
+                self.assertEqual(
+                    row["records__count"],
+                    TestModelRecord.objects.filter(link__country="eng")
+                    .filter(test_result="details")
+                    .filter(
+                        **{
+                            nested_field.removeprefix("records__"): row[nested_field]
+                            for nested_field in nested_fields
+                        }
+                        | {f"link__{field}": row[field] for field in fields}
+                    )
+                    .count(),
+                )
+
+    def test_summarise_bad_field(self):
+        """
+        Test that summarising with an invalid field fails.
+        """
+
+        # Cannot provide a lookup with a summarise field
+        response = self.client.get(self.endpoint, data={"summarise": "run_name__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Cannot summarise over a relational field
+        response = self.client.get(self.endpoint, data={"summarise": "records"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"summarise": "hello"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

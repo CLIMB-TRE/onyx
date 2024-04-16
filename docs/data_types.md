@@ -19,8 +19,6 @@
     "icontains": "<class 'django_filters.filters.CharFilter'>",
     "istartswith": "<class 'django_filters.filters.CharFilter'>",
     "iendswith": "<class 'django_filters.filters.CharFilter'>",
-    "regex": "<class 'data.filters.RegexFilter'>",
-    "iregex": "<class 'data.filters.RegexFilter'>",
     "length": "<class 'django_filters.filters.NumberFilter'>",
     "length__in": "<class 'data.filters.NumberInFilter'>",
     "length__range": "<class 'data.filters.NumberRangeFilter'>",
@@ -86,40 +84,10 @@
 }
 ```
 
-## Date (YYYY-MM)
-**OnyxType**: `OnyxType.DATE_YYYY_MM`
+## Date
+**OnyxType**: `OnyxType.DATE`
 
-**Label**: `date (YYYY-MM)`
-
-**Lookups**:
-```
-{
-    "": "<class 'data.filters.YearMonthFilter'>",
-    "exact": "<class 'data.filters.YearMonthFilter'>",
-    "ne": "<class 'data.filters.YearMonthFilter'>",
-    "in": "<class 'data.filters.YearMonthInFilter'>",
-    "lt": "<class 'data.filters.YearMonthFilter'>",
-    "lte": "<class 'data.filters.YearMonthFilter'>",
-    "gt": "<class 'data.filters.YearMonthFilter'>",
-    "gte": "<class 'data.filters.YearMonthFilter'>",
-    "range": "<class 'data.filters.YearMonthRangeFilter'>",
-    "year": "<class 'django_filters.filters.NumberFilter'>",
-    "year__in": "<class 'data.filters.NumberInFilter'>",
-    "year__range": "<class 'data.filters.NumberRangeFilter'>",
-    "isnull": "<class 'data.filters.BooleanFilter'>",
-    "iso_year": "<class 'django_filters.filters.NumberFilter'>",
-    "iso_year__in": "<class 'data.filters.NumberInFilter'>",
-    "iso_year__range": "<class 'data.filters.NumberRangeFilter'>",
-    "week": "<class 'django_filters.filters.NumberFilter'>",
-    "week__in": "<class 'data.filters.NumberInFilter'>",
-    "week__range": "<class 'data.filters.NumberRangeFilter'>"
-}
-```
-
-## Date (YYYY-MM-DD)
-**OnyxType**: `OnyxType.DATE_YYYY_MM_DD`
-
-**Label**: `date (YYYY-MM-DD)`
+**Label**: `date`
 
 **Lookups**:
 ```
@@ -133,9 +101,6 @@
     "gt": "<class 'data.filters.DateFilter'>",
     "gte": "<class 'data.filters.DateFilter'>",
     "range": "<class 'data.filters.DateRangeFilter'>",
-    "year": "<class 'django_filters.filters.NumberFilter'>",
-    "year__in": "<class 'data.filters.NumberInFilter'>",
-    "year__range": "<class 'data.filters.NumberRangeFilter'>",
     "iso_year": "<class 'django_filters.filters.NumberFilter'>",
     "iso_year__in": "<class 'data.filters.NumberInFilter'>",
     "iso_year__range": "<class 'data.filters.NumberRangeFilter'>",
@@ -146,10 +111,10 @@
 }
 ```
 
-## Datetime (YYYY-MM-DD HH:MM:SS)
+## Datetime
 **OnyxType**: `OnyxType.DATETIME`
 
-**Label**: `date (YYYY-MM-DD HH:MM:SS)`
+**Label**: `date`
 
 **Lookups**:
 ```
@@ -163,9 +128,6 @@
     "gt": "<class 'data.filters.DateTimeFilter'>",
     "gte": "<class 'data.filters.DateTimeFilter'>",
     "range": "<class 'data.filters.DateTimeRangeFilter'>",
-    "year": "<class 'django_filters.filters.NumberFilter'>",
-    "year__in": "<class 'data.filters.NumberInFilter'>",
-    "year__range": "<class 'data.filters.NumberRangeFilter'>",
     "iso_year": "<class 'django_filters.filters.NumberFilter'>",
     "iso_year__in": "<class 'data.filters.NumberInFilter'>",
     "iso_year__range": "<class 'data.filters.NumberRangeFilter'>",

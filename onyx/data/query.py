@@ -51,11 +51,13 @@ class QueryAtom:
     Class for representing the most basic component of a query; a single key-value pair.
     """
 
-    __slots__ = "key", "value"
+    __slots__ = "key", "value", "exclude", "default"
 
-    def __init__(self, key, value):
+    def __init__(self, key, value, exclude=False, default=None):
         self.key = key
         self.value = value
+        self.exclude = exclude
+        self.default = default
 
 
 # TODO: Improve validation or find better ways e.g. JSON Schema?
@@ -132,7 +134,7 @@ def make_atoms(data: Dict[str, Any]) -> List[QueryAtom]:
         # This is what the filterset is built to handle; it attempts to decode these strs and returns errors if it fails.
         # If we don't turn these values into strs, the filterset can crash
         # e.g. If you pass a list, it assumes it is a str, and tries to split by a comma -> ERROR
-        atom = QueryAtom(key, str(value))
+        atom = QueryAtom(key, str(value) if value is not None else "")
 
         # Replace the data value with the QueryAtom object
         data[key] = atom
@@ -163,7 +165,13 @@ def make_query(data: Dict[str, Any]) -> Q:
         # Base case: a QueryAtom to filter on
         # 'value' here is a QueryAtom object
         # That by this point, should have been cleaned and corrected to work in a query
-        q = Q(**{value.key: value.value})
+        if value.default:
+            q = value.default
+        else:
+            q = Q(**{value.key: value.value})
+
+        if value.exclude:
+            q = ~q
         return q
 
 
@@ -207,6 +215,33 @@ def validate_atoms(
             # Update the QueryAtom objects with their cleaned values
             for k, atom in layer.items():
                 atom.value = fs.form.cleaned_data[k]
+
+                # Handle manual overrides for Q objects of certain lookups
+                if onyx_fields[k].lookup == "ne":
+                    if atom.value is None:
+                        atom.key = f"{onyx_fields[k].field_path}__isnull"
+                        atom.value = False
+                    else:
+                        atom.key = onyx_fields[k].field_path
+                        atom.exclude = True
+
+                elif onyx_fields[k].lookup == "in":
+                    if None in atom.value:
+                        atom.value = [v for v in atom.value if v is not None]
+                        atom.default = Q(**{atom.key: atom.value}) | Q(
+                            **{f"{onyx_fields[k].field_path}__isnull": True}
+                        )
+
+                elif onyx_fields[k].lookup == "notin":
+                    atom.key = f"{onyx_fields[k].field_path}__in"
+                    atom.exclude = True
+
+                    if None in atom.value:
+                        atom.value = [v for v in atom.value if v is not None]
+                        atom.default = Q(**{atom.key: atom.value}) | Q(
+                            **{f"{onyx_fields[k].field_path}__isnull": True}
+                        )
+
         else:
             # If not valid, record the errors
             for field_name, field_errors in fs.errors.items():

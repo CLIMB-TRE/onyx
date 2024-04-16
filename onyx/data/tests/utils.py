@@ -1,20 +1,17 @@
 import os
-import random
 import logging
+import itertools
 from django.core.management import call_command
 from django.conf import settings
-from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
 from ..models import Project
+from projects.testproject.models import TestModel, TestModelRecord
 
 
 class OnyxTestCase(APITestCase):
-    def setUp(self):
-        """
-        Set up test case.
-        """
-
+    @classmethod
+    def setUpTestData(cls):
         logging.disable(logging.CRITICAL)
 
         # Set up test project
@@ -23,100 +20,240 @@ class OnyxTestCase(APITestCase):
             os.path.join(settings.BASE_DIR, "projects/testproject/project.json"),
             quiet=True,
         )
+        cls.project = Project.objects.get(code="testproject")
 
         # Set up test sites
-        self.site = Site.objects.create(
-            code="testsite_1",
-            description="Department of Testing 1",
+        call_command(
+            "site",
+            "create",
+            "testsite_1",
+            "--projects",
+            cls.project.code,
+            "--description",
+            "Department of Testing 1",
+            quiet=True,
         )
-
-        self.extra_site = Site.objects.create(
-            code="testsite_2",
-            description="Department of Testing 2",
+        call_command(
+            "site",
+            "create",
+            "testsite_2",
+            "--projects",
+            cls.project.code,
+            "--description",
+            "University of Testing 2",
+            quiet=True,
         )
+        call_command("site", "roles", "testsite_1", "--grant", "is_active", quiet=True)
+        call_command("site", "roles", "testsite_2", "--grant", "is_active", quiet=True)
+        cls.site = Site.objects.get(code="testsite_1")
+        cls.extra_site = Site.objects.get(code="testsite_2")
 
-        # Add test project to sites
-        self.site.projects.add(Project.objects.get(code="testproject"))
-        self.extra_site.projects.add(Project.objects.get(code="testproject"))
+        # Set up test user
+        call_command("user", "create", "testuser", "--site", cls.site.code, quiet=True)
+        call_command("user", "roles", "testuser", "--grant", "is_staff", quiet=True)
+        call_command(
+            "user", "groups", "testuser", "--grant", "testproject.admin", quiet=True
+        )
+        cls.user = User.objects.get(username="testuser")
 
-    def setup_user(self, username, roles=None, groups=None):
+    def setUp(self):
         """
-        Create a user with the given username and roles/groups.
+        Set up test case.
         """
 
-        user, _ = User.objects.get_or_create(
-            username=f"onyx-{username}", site=self.site
+        self.client.force_authenticate(self.user)  # type: ignore
+
+
+class OnyxDataTestCase(OnyxTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=100):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.user
+
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
+
+            if data.get("received_month"):
+                data["received_month"] += "-01"
+
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.user
+
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)
+
+    def assertEqualClimbIDs(self, records, qs):
+        """
+        Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
+        """
+
+        record_values = sorted(record["climb_id"] for record in records)
+        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
+        self.assertEqual(
+            record_values,
+            qs_values,
         )
 
-        if roles:
-            for role in roles:
-                setattr(user, role, True)
 
-        if groups:
-            for group in groups:
-                g = Group.objects.get(name=group)
-                user.groups.add(g)
-
-        self.client.force_authenticate(user)  # type: ignore
-        return user
-
-
-def generate_test_data(n: int = 100, nested: bool = False):
+def generate_test_data(n: int):
     """
     Generate test data.
     """
 
-    # TODO: Better generation of test data
-    # - Empty values for testing isnull without requiring allow_empty = True
-    # - More distinct float, dates etc for testing exact filter matches without requiring allow_empty = True
+    sample_ids = [f"sample-{i}" for i in range(n)]
+    run_names = ["run-1", "run-2", "run-3"]
+    collection_months = [f"2022-{i}" for i in range(1, 4)] + [None]
+    received_months = [f"2023-{i}" for i in range(1, 13)]
+    char_max_length_20 = ["X" * 20, "Y" * 15, "Z" * 10]
+    text_option_1 = ["hello", "world", "hey", "world world", "y", ""]
+    text_option_2 = ["hello", "bye"]
+    submission_dates = [f"2023-{i}-{j}" for i in [1, 8, 12] for j in [1, 10, 15]] + [
+        None
+    ]
+    countries = ["eng", "scot", "wales", "ni", ""]
+    regions = {
+        "eng": lambda i: ["ne", "nw", "se", "sw"][i % 4],
+        "scot": lambda: "other",
+        "wales": lambda: "other",
+        "ni": lambda: "other",
+        "": lambda: "",
+    }
+    concerns = [True, False, None]
+    tests = [1, 2, 3, None]
+    scores = [x + 0.12345 for x in range(10)] + [None]
+    starts = [1, 2, 3, 4, 5]
+    ends = [6, 7, 8, 9, 10]
+    required_when_publisheds = ["hello", "world"]
+    has_nesteds = [True, False]
+    nested_ranges = [
+        (1, 10),
+        (400, 404),
+        (2, 5),
+        (7, 12),
+        (4, 17),
+        (20, 25),
+        (3, 11),
+        (800, 808),
+    ]
 
     data = []
-    for i in range(n):
-        country_region_group = random.randint(0, 4)
-        records = random.randint(0, 1)
+    for i, (
+        sample_id,
+        run_name,
+        collection_month,
+        received_month,
+        char_max_length_20,
+        text_option_1,
+        text_option_2,
+        submission_date,
+        country,
+        concern,
+        tests,
+        score,
+        start,
+        end,
+        required_when_published,
+        has_nested,
+        nested_range,
+    ) in enumerate(
+        zip(
+            sample_ids,
+            itertools.cycle(run_names),
+            itertools.cycle(collection_months),
+            itertools.cycle(received_months),
+            itertools.cycle(char_max_length_20),
+            itertools.cycle(text_option_1),
+            itertools.cycle(text_option_2),
+            itertools.cycle(submission_dates),
+            itertools.cycle(countries),
+            itertools.cycle(concerns),
+            itertools.cycle(tests),
+            itertools.cycle(scores),
+            itertools.cycle(starts),
+            itertools.cycle(ends),
+            itertools.cycle(required_when_publisheds),
+            itertools.cycle(has_nesteds),
+            itertools.cycle(nested_ranges),
+        )
+    ):
         x = {
-            "sample_id": f"sample-{i}",
-            "run_name": f"run-{random.randint(1, 3)}",
-            "collection_month": f"2022-{random.randint(1, 12)}",
-            "received_month": f"2023-{random.randint(1, 6)}",
-            "char_max_length_20": "X" * 20,
-            "text_option_1": random.choice(["hi", ""]),
-            "text_option_2": "bye",
-            "submission_date": f"2023-{random.randint(1, 6)}-{random.randint(1, 25)}",
-            "country": ["eng", "scot", "wales", "ni", ""][country_region_group],
-            "region": [
-                random.choice(["ne", "se", "nw", "sw", ""]),
-                "other",
-                "other",
-                "other",
-                "",
-            ][country_region_group],
-            "concern": random.choice([True, False]),
-            "tests": 2,
-            "score": random.random() * 42,
-            "start": random.randint(1, 5),
-            "end": random.randint(6, 10),
-            "required_when_published": "hello",
+            "sample_id": sample_id,
+            "run_name": run_name,
+            "collection_month": collection_month,
+            "received_month": received_month,
+            "char_max_length_20": char_max_length_20,
+            "text_option_1": text_option_1,
+            "text_option_2": text_option_2,
+            "submission_date": submission_date,
+            "country": country,
+            "region": regions[country]() if country != "eng" else regions[country](i),
+            "concern": concern,
+            "tests": tests,
+            "score": score,
+            "start": start,
+            "end": end,
+            "required_when_published": required_when_published,
         }
-        if records or nested:
-            x["records"] = [
-                {
-                    "test_id": 1,
-                    "test_pass": random.choice([True, False]),
-                    "test_start": f"2022-{random.randint(1, 12)}",
-                    "test_end": f"2023-{random.randint(1, 6)}",
-                    "score_a": random.random() * 42,
-                    "test_result": "details",
-                },
-                {
-                    "test_id": 2,
-                    "test_pass": random.choice([True, False]),
-                    "test_start": f"2022-{random.randint(1, 12)}",
-                    "test_end": f"2023-{random.randint(1, 6)}",
-                    "score_b": random.random() * 42,
-                    "test_result": "details",
-                },
+
+        if has_nested:
+            test_ids = [x for x in range(*nested_range)]
+            test_passes = [True, False]
+            test_starts = [f"2022-{i}" for i in range(1, 6)]
+            test_ends = [f"2023-{i}" for i in range(1, 6)]
+            score_as = [
+                x + 0.678910 if not (x % 2 == 0) else None for x in range(1, 10)
             ]
+            score_bs = [
+                x + 0.678910 if not ((x + 1) % 2 == 0) else None for x in range(1, 10)
+            ]
+            test_results = [
+                "details",
+                "more details",
+                "other details",
+                "random details",
+            ]
+            for (
+                test_id,
+                test_pass,
+                test_start,
+                test_end,
+                score_a,
+                score_b,
+                test_result,
+            ) in zip(
+                test_ids,
+                itertools.cycle(test_passes),
+                itertools.cycle(test_starts),
+                itertools.cycle(test_ends),
+                itertools.cycle(score_as),
+                itertools.cycle(score_bs),
+                itertools.cycle(test_results),
+            ):
+
+                x.setdefault("records", []).append(
+                    {
+                        "test_id": test_id,
+                        "test_pass": test_pass,
+                        "test_start": test_start,
+                        "test_end": test_end,
+                        "score_a": score_a,
+                        "score_b": score_b,
+                        "test_result": test_result,
+                    }
+                )
+
         data.append(x)
     return data
 

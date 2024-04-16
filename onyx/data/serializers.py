@@ -6,6 +6,7 @@ from rest_framework import serializers, exceptions
 from accounts.models import User
 from utils.defaults import CurrentUserSiteDefault
 from utils.fieldserializers import DateField, SiteField
+from utils.functions import get_date_output_format
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
@@ -18,24 +19,43 @@ FIELDS = {
     OnyxType.CHOICE: serializers.CharField,
     OnyxType.INTEGER: serializers.IntegerField,
     OnyxType.DECIMAL: serializers.FloatField,
-    OnyxType.DATE_YYYY_MM: lambda: DateField("%Y-%m", input_formats=["%Y-%m"]),
-    OnyxType.DATE_YYYY_MM_DD: lambda: DateField("%Y-%m-%d", input_formats=["%Y-%m-%d"]),
-    OnyxType.DATETIME: serializers.DateTimeField,
+    OnyxType.DATE: lambda format: DateField(format=format),
+    OnyxType.DATETIME: lambda format: serializers.DateTimeField(format=format),
     OnyxType.BOOLEAN: serializers.BooleanField,
 }
 
 
-class SummarySerializer(serializers.Serializer):
+class HistoryDiffSerializer(serializers.Serializer):
     """
-    Serializer for multi-field count aggregates.
+    Serializer for tracked field changes.
     """
 
-    def __init__(self, *args, onyx_fields: dict[str, OnyxField], **kwargs):
-        for field_name, onyx_field in onyx_fields.items():
-            self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
+    field = serializers.CharField()
+    type = serializers.CharField()
 
-        self.fields["count"] = serializers.IntegerField()
+    def __init__(
+        self,
+        *args,
+        serializer_cls: type[ProjectRecordSerializer],
+        onyx_field: OnyxField,
+        **kwargs,
+    ):
+        # Instantiate the superclass normally
         super().__init__(*args, **kwargs)
+
+        serlializer_instance = serializer_cls()
+        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        serializer_fields = serlializer_instance.get_fields()
+
+        if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
+            output_format = get_date_output_format(
+                serializer_fields[onyx_field.field_name]
+            )
+            self.fields["from"] = FIELDS[onyx_field.onyx_type](format=output_format)
+            self.fields["to"] = FIELDS[onyx_field.onyx_type](format=output_format)
+        else:
+            self.fields["from"] = FIELDS[onyx_field.onyx_type]()
+            self.fields["to"] = FIELDS[onyx_field.onyx_type]()
 
 
 class IdentifierSerializer(serializers.Serializer):
@@ -45,6 +65,37 @@ class IdentifierSerializer(serializers.Serializer):
 
     site = SiteField(default=CurrentUserSiteDefault())
     value = serializers.CharField()
+
+
+class SummarySerializer(serializers.Serializer):
+    """
+    Serializer for multi-field count aggregates.
+    """
+
+    def __init__(
+        self,
+        *args,
+        serializer_cls: type[ProjectRecordSerializer],
+        onyx_fields: dict[str, OnyxField],
+        count_name: str,
+        **kwargs,
+    ):
+        # Instantiate the superclass normally
+        super().__init__(*args, **kwargs)
+
+        serlializer_instance = serializer_cls()
+        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        serializer_fields = serlializer_instance.get_fields()
+
+        for field_name, onyx_field in onyx_fields.items():
+            if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type](
+                    format=get_date_output_format(serializer_fields[field_name])
+                )
+            else:
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
+
+        self.fields[count_name] = serializers.IntegerField()
 
 
 # https://www.django-rest-framework.org/api-guide/serializers/#dynamically-modifying-fields

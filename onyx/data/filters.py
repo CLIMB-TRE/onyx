@@ -1,30 +1,79 @@
-import re
 from datetime import datetime
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework.serializers import BooleanField
-from django_filters import rest_framework as filters
+from django_filters import rest_framework as filters, fields as filter_fields
 from utils.functions import get_suggestions, strtobool
 from .types import OnyxType
 from .fields import OnyxField
 
 
-class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+class StrictFieldMixin:
+    def clean(self, value):
+        value = super().clean(value)  #  type: ignore
+
+        if value is None:
+            raise ValidationError(f"Value cannot be null.")
+
+        return value
+
+
+class StrictFieldListMixin:
+    def clean(self, value):
+        value = super().clean(value)  #  type: ignore
+        assert isinstance(value, list)
+
+        if not value or None in value:
+            raise ValidationError(f"Value cannot be null.")
+
+        return value
+
+
+class BaseInField(filter_fields.BaseCSVField):
+    def clean(self, value):
+        value = super().clean(value)
+        assert isinstance(value, list)
+
+        if not value:
+            value.append(None)
+
+        return value
+
+
+class StrictBaseInField(StrictFieldListMixin, BaseInField):
     pass
 
 
-class RegexForm(forms.CharField):
-    def validate(self, value):
-        super().validate(value)
-        try:
-            re.compile(value)
-        except re.error as e:
-            raise ValidationError(f"Invalid pattern: {e}")
+class BaseInFilter(filters.BaseInFilter):
+    base_field_class = BaseInField
 
 
-class RegexFilter(filters.Filter):
-    field_class = RegexForm
+class StrictBaseInFilter(BaseInFilter):
+    base_field_class = StrictBaseInField
+
+
+class BaseRangeField(StrictFieldListMixin, filter_fields.BaseRangeField):
+    pass
+
+
+class BaseRangeFilter(filters.BaseRangeFilter):
+    base_field_class = BaseRangeField
+
+
+class CharInField(filter_fields.BaseCSVField):
+    def clean(self, value):
+        value = super().clean(value)
+        assert isinstance(value, list)
+
+        if not value:
+            value.append("")
+
+        return value
+
+
+class CharInFilter(BaseInFilter, filters.CharFilter):
+    base_field_class = CharInField
 
 
 class ChoiceFieldMixin:
@@ -66,63 +115,84 @@ class ChoiceFilter(filters.Filter):
     field_class = ChoiceFieldForm
 
 
-class ChoiceInFilter(filters.BaseInFilter, ChoiceFilter):
+class ChoiceInFilter(BaseInFilter, ChoiceFilter):
+    base_field_class = CharInField
+
+
+class NumberFieldForm(forms.DecimalField):
+    def clean(self, value):
+        if not str(value).strip():
+            value = None
+
+        return super().clean(value)
+
+
+class StrictNumberFieldForm(StrictFieldMixin, NumberFieldForm):
     pass
 
 
-class NumberInFilter(filters.BaseInFilter, filters.NumberFilter):
+class NumberFilter(filters.NumberFilter):
+    field_class = NumberFieldForm
+
+
+class StrictNumberFilter(NumberFilter):
+    field_class = StrictNumberFieldForm
+
+
+class NumberInFilter(BaseInFilter, NumberFilter):
     pass
 
 
-class NumberRangeFilter(filters.BaseRangeFilter, filters.NumberFilter):
+class StrictNumberInFilter(StrictBaseInFilter, StrictNumberFilter):
     pass
 
 
-class YearMonthForm(forms.DateField):
-    def __init__(self, **kwargs):
-        kwargs["input_formats"] = ["%Y-%m"]
-        super().__init__(**kwargs)
-
-
-class YearMonthFilter(filters.Filter):
-    field_class = YearMonthForm
-
-
-class YearMonthInFilter(filters.BaseInFilter, YearMonthFilter):
-    pass
-
-
-class YearMonthRangeFilter(filters.BaseRangeFilter, YearMonthFilter):
+class NumberRangeFilter(BaseRangeFilter, StrictNumberFilter):
     pass
 
 
 class DateFieldForm(forms.DateField):
     def __init__(self, **kwargs):
-        kwargs["input_formats"] = ["%Y-%m-%d"]
+        kwargs["input_formats"] = [
+            "%Y-%m",
+            "%Y-%m-%d",
+        ]
         super().__init__(**kwargs)
 
     def clean(self, value):
         if isinstance(value, str) and value.strip().lower() == "today":
             value = datetime.now().date()
 
+        if not str(value).strip():
+            value = None
+
         return super().clean(value)
+
+
+class StrictDateFieldForm(StrictFieldMixin, DateFieldForm):
+    pass
 
 
 class DateFilter(filters.Filter):
     field_class = DateFieldForm
 
 
-class DateInFilter(filters.BaseInFilter, DateFilter):
+class StrictDateFilter(DateFilter):
+    field_class = StrictDateFieldForm
+
+
+class DateInFilter(BaseInFilter, DateFilter):
     pass
 
 
-class DateRangeFilter(filters.BaseRangeFilter, DateFilter):
+class DateRangeFilter(BaseRangeFilter, StrictDateFilter):
     pass
 
 
 class DateTimeFieldForm(forms.DateTimeField):
     def __init__(self, **kwargs):
         kwargs["input_formats"] = [
+            "%Y-%m",
             "%Y-%m-%d",
             "%Y-%m-%d %H:%M",
             "%Y-%m-%d %H:%M:%S",
@@ -134,18 +204,29 @@ class DateTimeFieldForm(forms.DateTimeField):
         if isinstance(value, str) and value.strip().lower() == "today":
             value = datetime.now()
 
+        if not str(value).strip():
+            value = None
+
         return super().clean(value)
+
+
+class StrictDateTimeFieldForm(StrictFieldMixin, DateTimeFieldForm):
+    pass
 
 
 class DateTimeFilter(filters.Filter):
     field_class = DateTimeFieldForm
 
 
-class DateTimeInFilter(filters.BaseInFilter, DateTimeFilter):
+class StrictDateTimeFilter(DateTimeFilter):
+    field_class = StrictDateTimeFieldForm
+
+
+class DateTimeInFilter(BaseInFilter, DateTimeFilter):
     pass
 
 
-class DateTimeRangeFilter(filters.BaseRangeFilter, DateTimeFilter):
+class DateTimeRangeFilter(BaseRangeFilter, StrictDateTimeFilter):
     pass
 
 
@@ -163,6 +244,7 @@ class BooleanFieldForm(ChoiceFieldMixin, forms.TypedChoiceField):
     def __init__(self, **kwargs):
         kwargs["choices"] = BOOLEAN_CHOICES
         kwargs["coerce"] = lambda x: strtobool(x)
+        kwargs["empty_value"] = None
         super().__init__(**kwargs)
 
 
@@ -170,21 +252,16 @@ class BooleanFilter(filters.TypedChoiceFilter):
     field_class = BooleanFieldForm
 
 
-class BooleanInFilter(filters.BaseInFilter, BooleanFilter):
+class BooleanInFilter(BaseInFilter, BooleanFilter):
     pass
 
 
-class IsNullForm(BooleanFieldForm):
-    def clean(self, value):
-        value = super().clean(value)
-        if value not in [True, False]:
-            raise ValidationError(f"Value must be True or False.")
-
-        return value
+class StrictBooleanForm(StrictFieldMixin, BooleanFieldForm):
+    pass
 
 
-class IsNullFilter(BooleanFilter):
-    field_class = IsNullForm
+class StrictBooleanFilter(BooleanFilter):
+    field_class = StrictBooleanForm
 
 
 # Mappings from field type + lookup to filter
@@ -192,90 +269,82 @@ FILTERS = {
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
     | {
         "in": CharInFilter,
-        "regex": RegexFilter,
-        "iregex": RegexFilter,
-        "length": filters.NumberFilter,
-        "length__in": NumberInFilter,
+        "notin": CharInFilter,
+        "length": StrictNumberFilter,
+        "length__in": StrictNumberInFilter,
         "length__range": NumberRangeFilter,
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
     OnyxType.CHOICE: {lookup: ChoiceFilter for lookup in OnyxType.CHOICE.lookups}
     | {
         "in": ChoiceInFilter,
-        "isnull": IsNullFilter,
+        "notin": ChoiceInFilter,
+        "isnull": StrictBooleanFilter,
     },
-    OnyxType.INTEGER: {
-        lookup: filters.NumberFilter for lookup in OnyxType.INTEGER.lookups
-    }
+    OnyxType.INTEGER: {lookup: NumberFilter for lookup in OnyxType.INTEGER.lookups}
     | {
         "in": NumberInFilter,
+        "notin": NumberInFilter,
+        "lt": StrictNumberFilter,
+        "lte": StrictNumberFilter,
+        "gt": StrictNumberFilter,
+        "gte": StrictNumberFilter,
         "range": NumberRangeFilter,
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
-    OnyxType.DECIMAL: {
-        lookup: filters.NumberFilter for lookup in OnyxType.DECIMAL.lookups
-    }
+    OnyxType.DECIMAL: {lookup: NumberFilter for lookup in OnyxType.DECIMAL.lookups}
     | {
         "in": NumberInFilter,
+        "notin": NumberInFilter,
+        "lt": StrictNumberFilter,
+        "lte": StrictNumberFilter,
+        "gt": StrictNumberFilter,
+        "gte": StrictNumberFilter,
         "range": NumberRangeFilter,
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
-    OnyxType.DATE_YYYY_MM: {
-        lookup: YearMonthFilter for lookup in OnyxType.DATE_YYYY_MM.lookups
-    }
-    | {
-        "in": YearMonthInFilter,
-        "range": YearMonthRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
-        "iso_year": filters.NumberFilter,
-        "iso_year__in": NumberInFilter,
-        "iso_year__range": NumberRangeFilter,
-        "week": filters.NumberFilter,
-        "week__in": NumberInFilter,
-        "week__range": NumberRangeFilter,
-        "isnull": IsNullFilter,
-    },
-    OnyxType.DATE_YYYY_MM_DD: {
-        lookup: DateFilter for lookup in OnyxType.DATE_YYYY_MM_DD.lookups
-    }
+    OnyxType.DATE: {lookup: DateFilter for lookup in OnyxType.DATE.lookups}
     | {
         "in": DateInFilter,
+        "notin": DateInFilter,
+        "lt": StrictDateFilter,
+        "lte": StrictDateFilter,
+        "gt": StrictDateFilter,
+        "gte": StrictDateFilter,
         "range": DateRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
-        "iso_year": filters.NumberFilter,
-        "iso_year__in": NumberInFilter,
+        "iso_year": StrictNumberFilter,
+        "iso_year__in": StrictNumberInFilter,
         "iso_year__range": NumberRangeFilter,
-        "week": filters.NumberFilter,
-        "week__in": NumberInFilter,
+        "week": StrictNumberFilter,
+        "week__in": StrictNumberInFilter,
         "week__range": NumberRangeFilter,
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
     OnyxType.DATETIME: {lookup: DateTimeFilter for lookup in OnyxType.DATETIME.lookups}
     | {
         "in": DateTimeInFilter,
+        "notin": DateTimeInFilter,
+        "lt": StrictDateTimeFilter,
+        "lte": StrictDateTimeFilter,
+        "gt": StrictDateTimeFilter,
+        "gte": StrictDateTimeFilter,
         "range": DateTimeRangeFilter,
-        "year": filters.NumberFilter,
-        "year__in": NumberInFilter,
-        "year__range": NumberRangeFilter,
-        "iso_year": filters.NumberFilter,
-        "iso_year__in": NumberInFilter,
+        "iso_year": StrictNumberFilter,
+        "iso_year__in": StrictNumberInFilter,
         "iso_year__range": NumberRangeFilter,
-        "week": filters.NumberFilter,
-        "week__in": NumberInFilter,
+        "week": StrictNumberFilter,
+        "week__in": StrictNumberInFilter,
         "week__range": NumberRangeFilter,
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
     OnyxType.BOOLEAN: {lookup: BooleanFilter for lookup in OnyxType.BOOLEAN.lookups}
     | {
         "in": BooleanInFilter,
-        "isnull": IsNullFilter,
+        "notin": BooleanInFilter,
+        "isnull": StrictBooleanFilter,
     },
     OnyxType.RELATION: {
-        "isnull": IsNullFilter,
+        "isnull": StrictBooleanFilter,
     },
 }
 

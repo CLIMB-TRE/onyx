@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase
-from ...types import OnyxType
+from ...types import OnyxLookup, OnyxType
 
 
 class TestLookupsView(OnyxTestCase):
@@ -11,19 +11,25 @@ class TestLookupsView(OnyxTestCase):
         """
 
         super().setUp()
-        self.endpoint = reverse(
-            "project.testproject.lookups", kwargs={"code": "testproject"}
-        )
-        self.user = self.setup_user(
-            "testuser", roles=["is_staff"], groups=["testproject.admin"]
-        )
+        self.endpoint = reverse("projects.lookups")
 
     def test_basic(self):
         """
-        Test retrieval of available lookups for a project.
+        Test retrieval of available lookups.
         """
 
         response = self.client.get(self.endpoint)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        lookups = {onyx_type.label: onyx_type.lookups for onyx_type in OnyxType}
+        lookups = [
+            {
+                "lookup": onyx_lookup.label,
+                "description": onyx_lookup.description,
+                "types": [
+                    onyx_type.label
+                    for onyx_type in OnyxType
+                    if onyx_lookup.label in onyx_type.lookups
+                ],
+            }
+            for onyx_lookup in OnyxLookup
+        ]
         self.assertEqual(response.json()["data"], lookups)

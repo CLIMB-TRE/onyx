@@ -18,7 +18,7 @@ def get_discriminator_value(obj):
         if key in {"&", "|", "^", "~"}:
             return key
         else:
-            return "atom"
+            return "Atom"
 
     return None
 
@@ -30,66 +30,32 @@ class Atom(pydantic.RootModel):
 
 
 class AND(pydantic.BaseModel):
-    op: list[
-        Annotated[
-            Annotated[Atom, pydantic.Tag("atom")]
-            | Annotated[AND, pydantic.Tag("&")]
-            | Annotated[OR, pydantic.Tag("|")]
-            | Annotated[NOT, pydantic.Tag("~")]
-            | Annotated[XOR, pydantic.Tag("^")],
-            pydantic.Discriminator(get_discriminator_value),
-        ]
-    ] = pydantic.Field(alias="&", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(alias="&", min_length=1, max_length=100)
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class OR(pydantic.BaseModel):
-    op: list[
-        Annotated[
-            Annotated[Atom, pydantic.Tag("atom")]
-            | Annotated[AND, pydantic.Tag("&")]
-            | Annotated[OR, pydantic.Tag("|")]
-            | Annotated[NOT, pydantic.Tag("~")]
-            | Annotated[XOR, pydantic.Tag("^")],
-            pydantic.Discriminator(get_discriminator_value),
-        ]
-    ] = pydantic.Field(alias="|", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(alias="|", min_length=1, max_length=100)
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class XOR(pydantic.BaseModel):
-    op: list[
-        Annotated[
-            Annotated[Atom, pydantic.Tag("atom")]
-            | Annotated[AND, pydantic.Tag("&")]
-            | Annotated[OR, pydantic.Tag("|")]
-            | Annotated[NOT, pydantic.Tag("~")]
-            | Annotated[XOR, pydantic.Tag("^")],
-            pydantic.Discriminator(get_discriminator_value),
-        ]
-    ] = pydantic.Field(alias="^", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(alias="^", min_length=1, max_length=100)
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class NOT(pydantic.BaseModel):
-    op: Annotated[
-        Annotated[Atom, pydantic.Tag("atom")]
-        | Annotated[AND, pydantic.Tag("&")]
-        | Annotated[OR, pydantic.Tag("|")]
-        | Annotated[NOT, pydantic.Tag("~")]
-        | Annotated[XOR, pydantic.Tag("^")],
-        pydantic.Discriminator(get_discriminator_value),
-    ] = pydantic.Field(alias="~")
+    op: Query = pydantic.Field(alias="~")
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class Query(pydantic.RootModel):
     root: Annotated[
-        Annotated[Atom, pydantic.Tag("atom")]
+        Annotated[Atom, pydantic.Tag("Atom")]
         | Annotated[AND, pydantic.Tag("&")]
         | Annotated[OR, pydantic.Tag("|")]
-        | Annotated[NOT, pydantic.Tag("~")]
-        | Annotated[XOR, pydantic.Tag("^")],
+        | Annotated[XOR, pydantic.Tag("^")]
+        | Annotated[NOT, pydantic.Tag("~")],
         pydantic.Discriminator(get_discriminator_value),
     ]
 

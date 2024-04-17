@@ -1,7 +1,9 @@
 from __future__ import annotations
 import hashlib
+import pydantic.validators
+from typing_extensions import Annotated
 from collections import namedtuple
-from pydantic import RootModel, ValidationError as PydanticValidationError
+import pydantic
 from django.db.models import Count, Subquery
 from rest_framework import status, exceptions
 from rest_framework.request import Request
@@ -9,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
-from utils.functions import parse_permission
+from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from .models import Project, Choice, ProjectRecord, Anonymiser
 from .serializers import (
@@ -32,14 +34,54 @@ from .fields import (
 )
 
 
-class RequestBody(RootModel):
+def get_discriminator_value(obj):
+    if type(obj) == dict:
+        return "dict"
+
+    elif type(obj) == list:
+        return "list"
+
+    elif type(obj) == str:
+        return "str"
+
+    elif type(obj) == int:
+        return "int"
+
+    elif type(obj) == float:
+        return "float"
+
+    elif type(obj) == bool:
+        return "bool"
+
+    elif obj is None:
+        return "null"
+
+    else:
+        return None
+
+
+class RequestBody(pydantic.RootModel):
     """
     Generic structure for the body of a request.
 
     This is used to validate the body of POST and PATCH requests.
     """
 
-    root: dict[str, RequestBody | list[RequestBody] | str | int | float | bool | None]
+    root: dict[
+        str,
+        Annotated[
+            Annotated[RequestBody, pydantic.Tag("dict")]
+            | Annotated[
+                list[RequestBody], pydantic.Tag("list"), pydantic.Field(max_length=100)
+            ]
+            | Annotated[str, pydantic.Tag("str")]
+            | Annotated[int, pydantic.Tag("int")]
+            | Annotated[float, pydantic.Tag("float")]
+            | Annotated[bool, pydantic.Tag("bool")]
+            | Annotated[None, pydantic.Tag("null")],
+            pydantic.Discriminator(get_discriminator_value),
+        ],
+    ] = pydantic.Field(max_length=100)
 
 
 class ProjectAPIView(APIView):
@@ -100,22 +142,8 @@ class ProjectAPIView(APIView):
             self.request_data = RequestBody.model_validate(request.data).model_dump(
                 mode="python"
             )
-        except PydanticValidationError as e:
-            # Transform pydantic validation errors into DRF-style validation errors
-            errors = {}
-
-            for error in e.errors(
-                include_url=False, include_context=False, include_input=False
-            ):
-                if not error["loc"]:
-                    errors.setdefault("non_field_errors", []).append(error["msg"])
-                else:
-                    errors.setdefault(error["loc"][0], []).append(error["msg"])
-
-            for name, errs in errors.items():
-                errors[name] = list(set(errs))
-
-            raise exceptions.ValidationError(errors)
+        except pydantic.ValidationError as e:
+            raise pydantic_to_drf_error(e)
 
 
 class ProjectsView(APIView):

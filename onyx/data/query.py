@@ -2,48 +2,96 @@ from __future__ import annotations
 import operator
 import functools
 from typing import Dict, List, Any
+from typing_extensions import Annotated
+import pydantic
 from django.db.models import Q, Model
 from rest_framework import exceptions
-from pydantic import RootModel, BaseModel, Field, ValidationError, ConfigDict
+from utils.functions import pydantic_to_drf_error
 from .filters import OnyxFilter
 from .fields import OnyxField
 
 
-from typing_extensions import Annotated
+def get_discriminator_value(obj):
+    if isinstance(obj, dict):
+        key = next(iter(obj.keys()), None)
 
-from pydantic import BaseModel, ValidationError
-from pydantic.functional_validators import AfterValidator
+        if key in {"&", "|", "^", "~"}:
+            return key
+        else:
+            return "atom"
 
-
-def check_length(v: dict) -> dict:
-    if len(v) != 1:
-        raise ValueError(f"atom is not a single key-value pair")
-    return v
-
-
-class Atom(RootModel):
-    root: Annotated[dict[str, str], AfterValidator(check_length)]
-    model_config = ConfigDict(coerce_numbers_to_str=True)
+    return None
 
 
-class AND(BaseModel):
-    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="&")
+class Atom(pydantic.RootModel):
+    root: dict[str, str | int | float | bool | None] = pydantic.Field(
+        min_length=1, max_length=1
+    )
 
 
-class OR(BaseModel):
-    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="|")
+class AND(pydantic.BaseModel):
+    op: list[
+        Annotated[
+            Annotated[Atom, pydantic.Tag("atom")]
+            | Annotated[AND, pydantic.Tag("&")]
+            | Annotated[OR, pydantic.Tag("|")]
+            | Annotated[NOT, pydantic.Tag("~")]
+            | Annotated[XOR, pydantic.Tag("^")],
+            pydantic.Discriminator(get_discriminator_value),
+        ]
+    ] = pydantic.Field(alias="&", min_length=1, max_length=100)
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
-class XOR(BaseModel):
-    op: list[Atom | AND | OR | NOT | XOR] = Field(alias="^")
+class OR(pydantic.BaseModel):
+    op: list[
+        Annotated[
+            Annotated[Atom, pydantic.Tag("atom")]
+            | Annotated[AND, pydantic.Tag("&")]
+            | Annotated[OR, pydantic.Tag("|")]
+            | Annotated[NOT, pydantic.Tag("~")]
+            | Annotated[XOR, pydantic.Tag("^")],
+            pydantic.Discriminator(get_discriminator_value),
+        ]
+    ] = pydantic.Field(alias="|", min_length=1, max_length=100)
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
-class NOT(BaseModel):
-    op: Atom | AND | OR | NOT | XOR = Field(alias="~")
+class XOR(pydantic.BaseModel):
+    op: list[
+        Annotated[
+            Annotated[Atom, pydantic.Tag("atom")]
+            | Annotated[AND, pydantic.Tag("&")]
+            | Annotated[OR, pydantic.Tag("|")]
+            | Annotated[NOT, pydantic.Tag("~")]
+            | Annotated[XOR, pydantic.Tag("^")],
+            pydantic.Discriminator(get_discriminator_value),
+        ]
+    ] = pydantic.Field(alias="^", min_length=1, max_length=100)
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
-class Query(RootModel):
-    root: Atom | AND | OR | NOT | XOR
+class NOT(pydantic.BaseModel):
+    op: Annotated[
+        Annotated[Atom, pydantic.Tag("atom")]
+        | Annotated[AND, pydantic.Tag("&")]
+        | Annotated[OR, pydantic.Tag("|")]
+        | Annotated[NOT, pydantic.Tag("~")]
+        | Annotated[XOR, pydantic.Tag("^")],
+        pydantic.Discriminator(get_discriminator_value),
+    ] = pydantic.Field(alias="~")
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+
+class Query(pydantic.RootModel):
+    root: Annotated[
+        Annotated[Atom, pydantic.Tag("atom")]
+        | Annotated[AND, pydantic.Tag("&")]
+        | Annotated[OR, pydantic.Tag("|")]
+        | Annotated[NOT, pydantic.Tag("~")]
+        | Annotated[XOR, pydantic.Tag("^")],
+        pydantic.Discriminator(get_discriminator_value),
+    ]
 
 
 class QueryAtom:
@@ -103,21 +151,8 @@ def make_atoms(data: Dict[str, Any]) -> List[QueryAtom]:
 
     try:
         Query.model_validate(data)
-    except ValidationError as e:
-        errors = {}
-
-        for error in e.errors(
-            include_url=False, include_context=False, include_input=False
-        ):
-            if not error["loc"]:
-                errors.setdefault("non_field_errors", []).append(error["msg"])
-            else:
-                errors.setdefault(error["loc"][0], []).append(error["msg"])
-
-        for name, errs in errors.items():
-            errors[name] = list(set(errs))
-
-        raise exceptions.ValidationError(errors)
+    except pydantic.ValidationError as e:
+        raise pydantic_to_drf_error(e)
 
     key, value = next(iter(data.items()))
 

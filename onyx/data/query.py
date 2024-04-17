@@ -4,6 +4,7 @@ import functools
 from typing import Dict, List, Any
 from typing_extensions import Annotated
 import pydantic
+from django.conf import settings
 from django.db.models import Q, Model
 from rest_framework import exceptions
 from utils.functions import pydantic_to_drf_error
@@ -30,17 +31,23 @@ class Atom(pydantic.RootModel):
 
 
 class AND(pydantic.BaseModel):
-    op: list[Query] = pydantic.Field(alias="&", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(
+        alias="&", min_length=1, max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]
+    )
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class OR(pydantic.BaseModel):
-    op: list[Query] = pydantic.Field(alias="|", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(
+        alias="|", min_length=1, max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]
+    )
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class XOR(pydantic.BaseModel):
-    op: list[Query] = pydantic.Field(alias="^", min_length=1, max_length=100)
+    op: list[Query] = pydantic.Field(
+        alias="^", min_length=1, max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]
+    )
     model_config = pydantic.ConfigDict(extra="forbid")
 
 

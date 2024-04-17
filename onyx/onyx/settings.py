@@ -202,3 +202,10 @@ LOGGING = {
 SILENCED_SYSTEM_CHECKS = [
     "rest_framework.W001",  # REST Framework Paginator page size is set but no default paginator
 ]
+
+ONYX_CONFIG = {
+    # The maximum number of items that can be submitted within a request body iterable
+    "MAX_ITERABLE_INPUT": 100,
+    # The maximum number of items that can be returned within a summary
+    "MAX_SUMMARY_OUTPUT": 100000,
+}

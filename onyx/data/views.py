@@ -4,6 +4,7 @@ import pydantic.validators
 from typing_extensions import Annotated
 from collections import namedtuple
 import pydantic
+from django.conf import settings
 from django.db.models import Count, Subquery
 from rest_framework import status, exceptions
 from rest_framework.request import Request
@@ -72,7 +73,9 @@ class RequestBody(pydantic.RootModel):
         Annotated[
             Annotated[RequestBody, pydantic.Tag("dict")]
             | Annotated[
-                list[RequestBody], pydantic.Tag("list"), pydantic.Field(max_length=100)
+                list[RequestBody],
+                pydantic.Tag("list"),
+                pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]),
             ]
             | Annotated[str, pydantic.Tag("str")]
             | Annotated[int, pydantic.Tag("int")]
@@ -81,7 +84,7 @@ class RequestBody(pydantic.RootModel):
             | Annotated[None, pydantic.Tag("null")],
             pydantic.Discriminator(get_discriminator_value),
         ],
-    ] = pydantic.Field(max_length=100)
+    ] = pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"])
 
 
 class ProjectAPIView(APIView):
@@ -770,7 +773,10 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             summary_values = qs.values(*summary_fields.keys())
 
             # Reject summary if it would return too many distinct values
-            if summary_values.distinct().count() > 100000:
+            if (
+                summary_values.distinct().count()
+                > settings.ONYX_CONFIG["MAX_SUMMARY_OUTPUT"]
+            ):
                 raise exceptions.ValidationError(
                     {
                         "detail": "The current summary would return too many distinct values."

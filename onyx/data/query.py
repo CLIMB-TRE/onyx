@@ -35,12 +35,20 @@ def get_discriminator_value(obj):
 
 
 class Atom(pydantic.RootModel):
+    """
+    The most basic query element.
+    """
+
     root: dict[str, str | int | float | bool | None] = pydantic.Field(
         min_length=1, max_length=1
     )
 
 
 class AND(pydantic.BaseModel):
+    """
+    Logical AND operation.
+    """
+
     op: list[Query] = pydantic.Field(
         alias=QuerySymbol.AND.value,
         min_length=1,
@@ -50,6 +58,10 @@ class AND(pydantic.BaseModel):
 
 
 class OR(pydantic.BaseModel):
+    """
+    Logical OR operation.
+    """
+
     op: list[Query] = pydantic.Field(
         alias=QuerySymbol.OR.value,
         min_length=1,
@@ -59,6 +71,10 @@ class OR(pydantic.BaseModel):
 
 
 class XOR(pydantic.BaseModel):
+    """
+    Logical XOR operation.
+    """
+
     op: list[Query] = pydantic.Field(
         alias=QuerySymbol.XOR.value,
         min_length=1,
@@ -68,11 +84,19 @@ class XOR(pydantic.BaseModel):
 
 
 class NOT(pydantic.BaseModel):
+    """
+    Logical NOT operation.
+    """
+
     op: Query = pydantic.Field(alias=QuerySymbol.NOT.value)
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
 class Query(pydantic.RootModel):
+    """
+    Generic structure for a query: can be an atom or a logical operation.
+    """
+
     root: Annotated[
         Annotated[Atom, pydantic.Tag(QuerySymbol.ATOM.value)]
         | Annotated[AND, pydantic.Tag(QuerySymbol.AND.value)]
@@ -84,7 +108,9 @@ class Query(pydantic.RootModel):
 
 
 class QueryBuilder:
-    def __init__(self, data: dict[str, Any], handler: FieldHandler):
+    __slots__ = "data", "field_handler", "onyx_fields", "errors"
+
+    def __init__(self, data: dict[str, Any], handler: FieldHandler) -> None:
         """
         Initialises the QueryBuilder object with the provided data and field handler.
 
@@ -108,6 +134,13 @@ class QueryBuilder:
                 self.errors.setdefault(name, []).extend(err)
 
     def validate_fields(self, data: dict[str, Any]) -> None:
+        """
+        Validates the fields in the provided data.
+
+        Args:
+            data: The data to validate.
+        """
+
         key, value = next(iter(data.items()))
 
         if key in {
@@ -151,6 +184,10 @@ class QueryBuilder:
         return not self.errors
 
     def validate_field_values(self) -> None:
+        """
+        Validates the values of the fields in the query data.
+        """
+
         # Each OnyxField object is mapped to a unique key
         onyx_fields_map = {}
         for i, onyx_field in enumerate(self.onyx_fields):
@@ -184,6 +221,16 @@ class QueryBuilder:
                 self.errors.setdefault(filter_path, []).extend(errors)
 
     def _build(self, data: dict[str, Any]) -> Q:
+        """
+        Recursively builds a Q object from the provided query data.
+
+        Args:
+            data: The data to build the Q object from.
+
+        Returns:
+            The Q object built from the provided data.
+        """
+
         key, value = next(iter(data.items()))
 
         operators = {

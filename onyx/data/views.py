@@ -1,7 +1,10 @@
 from __future__ import annotations
 import hashlib
+import pydantic.validators
+from typing_extensions import Annotated
 from collections import namedtuple
-from pydantic import RootModel, ValidationError as PydanticValidationError
+import pydantic
+from django.conf import settings
 from django.db.models import Count, Subquery
 from rest_framework import status, exceptions
 from rest_framework.request import Request
@@ -9,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.pagination import CursorPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
-from utils.functions import parse_permission
+from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from .models import Project, Choice, ProjectRecord, Anonymiser
 from .serializers import (
@@ -19,7 +22,7 @@ from .serializers import (
     SerializerNode,
 )
 from .exceptions import ClimbIDNotFound, IdentifierNotFound
-from .query import make_atoms, validate_atoms, make_query
+from .query import QuerySymbol, QueryBuilder
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType, OnyxLookup
 from .actions import Actions
@@ -32,14 +35,56 @@ from .fields import (
 )
 
 
-class RequestBody(RootModel):
+def get_discriminator_value(obj):
+    if type(obj) == dict:
+        return "dict"
+
+    elif type(obj) == list:
+        return "list"
+
+    elif type(obj) == str:
+        return "str"
+
+    elif type(obj) == int:
+        return "int"
+
+    elif type(obj) == float:
+        return "float"
+
+    elif type(obj) == bool:
+        return "bool"
+
+    elif obj is None:
+        return "null"
+
+    else:
+        return None
+
+
+class RequestBody(pydantic.RootModel):
     """
     Generic structure for the body of a request.
 
     This is used to validate the body of POST and PATCH requests.
     """
 
-    root: dict[str, RequestBody | list[RequestBody] | str | int | float | bool | None]
+    root: dict[
+        str,
+        Annotated[
+            Annotated[RequestBody, pydantic.Tag("dict")]
+            | Annotated[
+                list[RequestBody],
+                pydantic.Tag("list"),
+                pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]),
+            ]
+            | Annotated[str, pydantic.Tag("str")]
+            | Annotated[int, pydantic.Tag("int")]
+            | Annotated[float, pydantic.Tag("float")]
+            | Annotated[bool, pydantic.Tag("bool")]
+            | Annotated[None, pydantic.Tag("null")],
+            pydantic.Discriminator(get_discriminator_value),
+        ],
+    ] = pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"])
 
 
 class ProjectAPIView(APIView):
@@ -97,25 +142,13 @@ class ProjectAPIView(APIView):
 
         # Build request body
         try:
-            self.request_data = RequestBody.model_validate(request.data).model_dump(
+            request_data = RequestBody.model_validate(request.data).model_dump(
                 mode="python"
             )
-        except PydanticValidationError as e:
-            # Transform pydantic validation errors into DRF-style validation errors
-            errors = {}
-
-            for error in e.errors(
-                include_url=False, include_context=False, include_input=False
-            ):
-                if not error["loc"]:
-                    errors.setdefault("non_field_errors", []).append(error["msg"])
-                else:
-                    errors.setdefault(error["loc"][0], []).append(error["msg"])
-
-            for name, errs in errors.items():
-                errors[name] = list(set(errs))
-
-            raise exceptions.ValidationError(errors)
+            assert isinstance(request_data, dict)
+            self.request_data = request_data
+        except pydantic.ValidationError as e:
+            raise pydantic_to_drf_error(e)
 
 
 class ProjectsView(APIView):
@@ -599,65 +632,18 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # If method == GET, then parameters were provided in the query_params
         # Convert these into the same format as the JSON provided when method == POST
         if request.method == "GET":
-            query = self.query_params
-            if query:
-                query = {"&": query}
+            data = (
+                {QuerySymbol.AND.value: self.query_params} if self.query_params else {}
+            )
         else:
-            query = self.request_data
+            data = self.request_data
 
-        # If a query was provided
-        # Turn the value of each key-value pair in query into a 'QueryAtom' object
-        # A list of QueryAtoms is returned
-        if query:
-            atoms = make_atoms(query)  # type: ignore
-        else:
-            atoms = []
-
-        # Validate fields
-        field_errors = {}
-        filter_fields = {}
-        summary_fields = {}
+        errors = {}
         filter_handler = FieldHandler(
             project=self.project,
             action="filter",
             user=request.user,
         )
-
-        # Validate filter fields and determine OnyxField objects
-        # If a summary is being carried out on one or more fields
-        # then any field involved in filtering will also be included
-        for atom in atoms:
-            try:
-                # Lookups are allowed for filter fields
-                resolved_field = filter_handler.resolve_field(
-                    atom.key, allow_lookup=True
-                )
-
-                # The key used in filter_fields includes the field_path + lookup
-                filter_fields[atom.key] = resolved_field
-
-                # The key used in summary_fields is just the field_path
-                summary_fields[resolved_field.field_path] = resolved_field
-
-            except exceptions.ValidationError as e:
-                field_errors.setdefault(atom.key, []).append(e.args[0])
-
-        # Validate summarise fields and determine OnyxField objects
-        if self.summarise:
-            for field in self.summarise:
-                try:
-                    # Lookups are not allowed for summarise fields
-                    summary_fields[field] = filter_handler.resolve_field(field)
-
-                except exceptions.ValidationError as e:
-                    field_errors.setdefault(field, []).append(e.args[0])
-
-            # Reject any relational fields in a summary
-            for field, onyx_field in summary_fields.items():
-                if onyx_field.onyx_type == OnyxType.RELATION:
-                    field_errors.setdefault(field, []).append(
-                        "Cannot summarise over a relational field."
-                    )
 
         # Validate include/exclude fields
         include_exclude = self.include + self.exclude
@@ -665,17 +651,43 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             try:
                 # Lookups are not allowed for include/exclude fields
                 self.handler.resolve_field(field)
-
             except exceptions.ValidationError as e:
-                field_errors.setdefault(field, []).append(e.args[0])
+                errors.setdefault(field, []).append(e.args[0])
 
-        if field_errors:
-            raise exceptions.ValidationError(field_errors)
+        # Validate summarise fields and determine OnyxField objects
+        summary_fields = {}
+        if self.summarise:
+            for field in self.summarise:
+                try:
+                    # Lookups are not allowed for summarise fields
+                    summary_fields[field] = filter_handler.resolve_field(field)
+                except exceptions.ValidationError as e:
+                    errors.setdefault(field, []).append(e.args[0])
 
-        # Validate and clean the provided key-value pairs
-        # This is done by first building a FilterSet
-        # And then checking the underlying form is valid
-        validate_atoms(self.model, atoms, filter_fields)
+            # Reject any relational fields in a summary
+            for field, onyx_field in summary_fields.items():
+                if onyx_field.onyx_type == OnyxType.RELATION:
+                    errors.setdefault(field, []).append(
+                        "Cannot summarise over a relational field."
+                    )
+
+        # Validate the query data
+        if data:
+            query = QueryBuilder(data, filter_handler)
+
+            if not query.is_valid():
+                for filter_name, errs in query.errors.items():
+                    errors.setdefault(filter_name, []).extend(errs)
+
+            # If a summary is being carried out on one or more fields
+            # then any field involved in filtering will also be included
+            for onyx_field in query.onyx_fields:
+                summary_fields[onyx_field.field_path] = onyx_field
+        else:
+            query = None
+
+        if errors:
+            raise exceptions.ValidationError(errors)
 
         # Initial queryset
         qs = init_project_queryset(
@@ -697,7 +709,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # If data was provided, then it has now been validated
         # So we form the Q object, and filter the queryset with it
         if query:
-            q_object = make_query(query)  # type: ignore
+            q_object = query.build()
 
             # A queryset is not guaranteed to return unique objects
             # Especially as a result of complex nested queries
@@ -742,7 +754,10 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             summary_values = qs.values(*summary_fields.keys())
 
             # Reject summary if it would return too many distinct values
-            if summary_values.distinct().count() > 100000:
+            if (
+                summary_values.distinct().count()
+                > settings.ONYX_CONFIG["MAX_SUMMARY_OUTPUT"]
+            ):
                 raise exceptions.ValidationError(
                     {
                         "detail": "The current summary would return too many distinct values."

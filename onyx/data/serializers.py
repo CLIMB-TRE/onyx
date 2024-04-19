@@ -48,6 +48,8 @@ class HistoryDiffSerializer(serializers.Serializer):
         serializer_fields = serlializer_instance.get_fields()
 
         if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
+            # TODO: Currently this does not work for nested date fields
+            # Ideal solution would be to have serializer field instances attached to OnyxField objects
             output_format = get_date_output_format(
                 serializer_fields[onyx_field.field_name]
             )

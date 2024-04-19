@@ -674,15 +674,15 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Validate the query data
         if data:
             query = QueryBuilder(data, filter_handler)
-
-            if not query.is_valid():
+            if query.is_valid():
+                # If a summary is being carried out on one or more fields
+                # then any field involved in filtering will also be included
+                for onyx_field in query.onyx_fields:
+                    if onyx_field.field_path not in summary_fields:
+                        summary_fields[onyx_field.field_path] = onyx_field
+            else:
                 for filter_name, errs in query.errors.items():
                     errors.setdefault(filter_name, []).extend(errs)
-
-            # If a summary is being carried out on one or more fields
-            # then any field involved in filtering will also be included
-            for onyx_field in query.onyx_fields:
-                summary_fields[onyx_field.field_path] = onyx_field
         else:
             query = None
 

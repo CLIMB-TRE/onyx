@@ -176,13 +176,6 @@ class QueryBuilder:
             except exceptions.ValidationError as e:
                 self.errors.setdefault(key, []).append(e.args[0])
 
-    def is_valid(self) -> bool:
-        """
-        Returns True if the query data is valid, False otherwise.
-        """
-
-        return not self.errors
-
     def validate_field_values(self) -> None:
         """
         Validates the values of the fields in the query data.
@@ -219,6 +212,13 @@ class QueryBuilder:
                     filter_path = onyx_field.field_path
 
                 self.errors.setdefault(filter_path, []).extend(errors)
+
+    def is_valid(self) -> bool:
+        """
+        Returns True if the query data is valid, False otherwise.
+        """
+
+        return not self.errors
 
     def _build(self, data: dict[str, Any]) -> Q:
         """

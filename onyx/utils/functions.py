@@ -1,5 +1,7 @@
 import difflib
+import pydantic
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.settings import api_settings
 
 
@@ -134,3 +136,23 @@ def get_date_output_format(
 
     assert isinstance(output_format, str)
     return output_format
+
+
+def pydantic_to_drf_error(
+    e: pydantic.ValidationError,
+) -> ValidationError:
+    """
+    Transform pydantic ValidationError into DRF ValidationError.
+    """
+
+    errors = {}
+
+    for error in e.errors(
+        include_url=False, include_context=False, include_input=False
+    ):
+        errors.setdefault("non_field_errors", []).append(error["msg"])
+
+    for name, errs in errors.items():
+        errors[name] = list(set(errs))
+
+    return ValidationError(errors)

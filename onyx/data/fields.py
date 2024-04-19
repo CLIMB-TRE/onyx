@@ -31,6 +31,7 @@ class OnyxField:
         "description",
         "choices",
         "lookup",
+        "value",
     )
 
     def __init__(
@@ -40,6 +41,7 @@ class OnyxField:
         field_path: str,
         lookup: str,
         allow_lookup: bool = False,
+        value: Any = None,
     ):
         self.project = project
         self.field_model = field_model
@@ -120,6 +122,7 @@ class OnyxField:
             raise exceptions.ValidationError(suggestions)
 
         self.lookup = lookup
+        self.value = value
 
 
 class FieldHandler:

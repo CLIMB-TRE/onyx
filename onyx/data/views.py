@@ -334,7 +334,13 @@ class HistoryView(ProjectAPIView):
             raise ClimbIDNotFound
 
         # Check permissions to view the history of the instance
-        self.check_object_permissions(request, instance)
+        try:
+            # If the user is a site member or staff, then they can view value changes
+            self.check_object_permissions(request, instance)
+            show_values = True
+        except exceptions.PermissionDenied:
+            # Otherwise, only the history of the instance can be viewed
+            show_values = False
 
         # Get instances corresponding to the history of the instance
         history = list(instance.history.all().order_by("history_date"))  #  type: ignore
@@ -364,6 +370,7 @@ class HistoryView(ProjectAPIView):
 
         # Iterate through the instance's history, building a list of differences over time
         diffs = []
+        HIDDEN = "XXXX"
         for i, h in enumerate(history):
             diff = {
                 "username": h.history_user.username if h.history_user else None,
@@ -381,11 +388,12 @@ class HistoryView(ProjectAPIView):
                         {
                             "field": change.field,
                             "type": fields[change.field].onyx_type.label,
-                            "from": change.old,
-                            "to": change.new,
+                            "from": change.old if show_values else HIDDEN,
+                            "to": change.new if show_values else HIDDEN,
                         },
                         serializer_cls=self.serializer_cls,
                         onyx_field=fields[change.field],
+                        show_values=show_values,
                     ).data
                     for change in h.diff_against(
                         history[i - 1],

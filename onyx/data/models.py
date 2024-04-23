@@ -46,6 +46,7 @@ class Choice(models.Model):
     project = models.ForeignKey(Project, to_field="code", on_delete=models.CASCADE)
     field = models.TextField()
     choice = models.TextField()
+    description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     constraints = models.ManyToManyField("Choice", related_name="reverse_constraints")
 

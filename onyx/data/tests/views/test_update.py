@@ -8,10 +8,6 @@ from projects.testproject.models import TestModel
 # TODO: Tests for update endpoint
 class TestUpdateView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions and create a test record.
-        """
-
         super().setUp()
         self.endpoint = lambda climb_id: reverse(
             "projects.testproject.climb_id",
@@ -85,3 +81,45 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(
             response.json()["messages"]["detail"], ClimbIDNotFound.default_detail
         )
+
+    def test_empty_payload_success(self):
+        """
+        Test that an empty payload passes.
+        """
+
+        for payload in [None, {}]:
+            response = self.client.patch(self.endpoint(self.climb_id), data=payload)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_bad_request(self):
+        """
+        Test that a badly structured payload fails.
+        """
+
+        for payload in [
+            "",
+            "hi",
+            0,
+            [],
+            {"records": ""},
+            {"records": "hi"},
+            {"records": 0},
+            {"records": {}},
+            {"sample_id": []},
+            {None: {}},
+            {"records": [[[[[[[[]]]]]]]]},
+        ]:
+            response = self.client.patch(self.endpoint(self.climb_id), data=payload)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unpermissioned_viewable_field(self):
+        """
+        Test that a payload with an unpermissioned viewable field fails.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id), data={"climb_id": "helloooo"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        instance = TestModel.objects.get(climb_id=self.climb_id)
+        self.assertEqual(instance.climb_id, self.climb_id)

@@ -132,10 +132,22 @@
         {
             "field": "country",
             "options": [
-                "eng",
-                "wales",
-                "scot",
-                "ni"
+                {
+                    "choice": "eng",
+                    "description": "England"
+                },
+                {
+                    "choice": "wales",
+                    "description": "Wales"
+                },
+                {
+                    "choice": "scot",
+                    "description": "Scotland"
+                },
+                {
+                    "choice": "ni",
+                    "description": "N. Ireland"
+                }
             ]
         },
         {

@@ -11,10 +11,6 @@ from projects.testproject.models import TestModel
 
 class TestQueryView(OnyxDataTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions and create a set of test records.
-        """
-
         super().setUp()
         self.endpoint = reverse(
             "projects.testproject.query", kwargs={"code": self.project.code}

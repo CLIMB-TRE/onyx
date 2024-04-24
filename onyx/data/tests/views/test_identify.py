@@ -9,10 +9,6 @@ from projects.testproject.models import TestModel
 
 class TestIdentifyView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions and create a test record.
-        """
-
         super().setUp()
         self.endpoint = lambda field: reverse(
             "projects.testproject.identify.field",

@@ -300,7 +300,7 @@ class ChoicesView(ProjectAPIView):
         choices = {
             choice: {"description": description, "is_active": is_active}
             for choice, description, is_active in Choice.objects.filter(
-                project_id=self.project.code,
+                project=self.project,
                 field=onyx_field.field_name,
             )
             .order_by("choice")

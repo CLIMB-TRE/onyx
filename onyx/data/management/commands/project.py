@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel
 from django.core.management import base
 from django.contrib.auth.models import Group, Permission
@@ -17,9 +17,14 @@ class GroupConfig(BaseModel):
     permissions: List[PermissionConfig]
 
 
+class ChoiceInfoConfig(BaseModel):
+    choice: str
+    description: str
+
+
 class ChoiceConfig(BaseModel):
     field: str
-    options: List[str]
+    options: List[Union[str, ChoiceInfoConfig]]
 
 
 class ChoiceConstraintConfig(BaseModel):
@@ -243,11 +248,18 @@ class Command(base.BaseCommand):
         for choice_config in choice_configs:
             # Create new choices if required
             for option in choice_config.options:
+                if isinstance(option, ChoiceInfoConfig):
+                    choice = option.choice
+                    description = option.description
+                else:
+                    choice = option
+                    description = ""
+
                 try:
                     instance = Choice.objects.get(
                         project_id=self.project.code,
                         field=choice_config.field,
-                        choice__iexact=option,
+                        choice__iexact=choice,
                     )
 
                     if not instance.is_active:
@@ -262,21 +274,29 @@ class Command(base.BaseCommand):
                             f"Active choice: {self.project.code} | {instance.field} | {instance.choice}",
                         )
 
-                    if instance.choice != option:
+                    if instance.choice != choice:
                         # The case of the choice has changed
                         # e.g. lowercase -> uppercase
                         old = instance.choice
-                        instance.choice = option
+                        instance.choice = choice
                         instance.save()
                         self.print(
                             f"Renamed choice: {self.project.code} | {instance.field} | {old} -> {instance.choice}"
+                        )
+
+                    if instance.description != description:
+                        instance.description = description
+                        instance.save()
+                        self.print(
+                            f"Changed choice description: {self.project.code} | {instance.field} | {instance.choice}",
                         )
 
                 except Choice.DoesNotExist:
                     instance = Choice.objects.create(
                         project_id=self.project.code,
                         field=choice_config.field,
-                        choice=option,
+                        choice=choice,
+                        description=description,
                     )
                     self.print(
                         f"Created choice: {self.project.code} | {instance.field} | {instance.choice}",
@@ -289,8 +309,13 @@ class Command(base.BaseCommand):
                 is_active=True,
             )
 
+            active_choices = {
+                option.choice if isinstance(option, ChoiceInfoConfig) else option
+                for option in choice_config.options
+            }
+
             for instance in instances:
-                if instance.choice not in choice_config.options:
+                if instance.choice not in active_choices:
                     instance.is_active = False
                     instance.save()
                     self.print(

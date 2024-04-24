@@ -22,7 +22,15 @@ class TestChoicesView(OnyxTestCase):
 
         response = self.client.get(self.endpoint("country"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(set(response.json()["data"]), {"eng", "wales", "scot", "ni"})
+        self.assertEqual(
+            response.json()["data"],
+            {
+                "eng": {"description": "England", "is_active": True},
+                "ni": {"description": "N. Ireland", "is_active": True},
+                "scot": {"description": "Scotland", "is_active": True},
+                "wales": {"description": "Wales", "is_active": True},
+            },
+        )
 
     def test_unknown_field(self):
         """

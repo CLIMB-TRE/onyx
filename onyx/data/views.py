@@ -297,17 +297,22 @@ class ChoicesView(ProjectAPIView):
             )
 
         # Obtain choices for the field
-        choices = Choice.objects.filter(
-            project_id=self.project.code,
-            field=onyx_field.field_name,
-            is_active=True,
-        ).values_list(
-            "choice",
-            flat=True,
-        )
+        choices = {
+            choice: {"description": description, "is_active": is_active}
+            for choice, description, is_active in Choice.objects.filter(
+                project=self.project,
+                field=onyx_field.field_name,
+            )
+            .order_by("choice")
+            .values_list(
+                "choice",
+                "description",
+                "is_active",
+            )
+        }
 
         # Return choices for the field
-        return Response(sorted(choices))
+        return Response(choices)
 
 
 class HistoryView(ProjectAPIView):

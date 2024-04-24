@@ -7,10 +7,6 @@ from projects.testproject.models import TestModel, TestModelRecord
 
 class TestFilterView(OnyxDataTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions and create a set of test records.
-        """
-
         super().setUp()
         self.endpoint = reverse(
             "projects.testproject", kwargs={"code": self.project.code}

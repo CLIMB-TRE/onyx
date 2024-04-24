@@ -6,10 +6,6 @@ from ...types import OnyxLookup, OnyxType
 
 class TestLookupsView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions.
-        """
-
         super().setUp()
         self.endpoint = reverse("projects.lookups")
 

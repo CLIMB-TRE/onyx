@@ -6,10 +6,6 @@ from projects.testproject.models import TestModel
 
 class TestGetView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions and create a test record.
-        """
-
         super().setUp()
         self.endpoint = lambda climb_id: reverse(
             "projects.testproject.climb_id",

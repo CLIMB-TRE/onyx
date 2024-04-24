@@ -6,10 +6,6 @@ from ...actions import Actions
 
 class TestProjectsView(OnyxTestCase):
     def setUp(self):
-        """
-        Create a user with the required permissions.
-        """
-
         super().setUp()
         self.endpoint = reverse("projects")
 

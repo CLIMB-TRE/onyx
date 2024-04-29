@@ -22,7 +22,7 @@ pydantic = "^2.7.0"
 optional = true
 
 [tool.poetry.group.test.dependencies]
-coverage = "^7.4.4"
+coverage = "^7.5.0"
 
 [build-system]
 requires = ["poetry-core"]

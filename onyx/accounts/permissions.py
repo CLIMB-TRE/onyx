@@ -2,6 +2,7 @@ from rest_framework import permissions, exceptions
 from rest_framework.request import Request
 from utils.functions import get_permission
 from data.models import Project
+from data.actions import Actions
 
 
 class AllowAny(permissions.AllowAny):
@@ -104,7 +105,7 @@ class IsProjectApproved(permissions.BasePermission):
         # Check the user's permission to access the project
         project_access_permission = get_permission(
             app_label=project.content_type.app_label,
-            action="access",
+            action=Actions.ACCESS.label,
             code=project.code,
         )
         if not request.user.has_perm(project_access_permission):

@@ -658,7 +658,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         errors = {}
         filter_handler = FieldHandler(
             project=self.project,
-            action="filter",
+            action=Actions.FILTER.label,
             user=request.user,
         )
 

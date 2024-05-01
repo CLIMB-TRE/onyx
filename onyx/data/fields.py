@@ -12,6 +12,7 @@ from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
 from .models import Choice, Project, ProjectRecord
 from .types import OnyxLookup, OnyxType
+from .actions import Actions
 
 
 class OnyxField:
@@ -216,7 +217,7 @@ class FieldHandler:
         # If the user does not have permission, tell them it is unknown
         field_access_permission = get_permission(
             app_label=self.app_label,
-            action="access",
+            action=Actions.ACCESS.label,
             code=self.code,
             field=onyx_field.field_path,
         )

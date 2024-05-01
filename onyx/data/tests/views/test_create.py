@@ -9,7 +9,6 @@ from projects.testproject.models import TestModel, TestModelRecord
 
 # TODO:
 # - Required field tests (i.e. no None/"" values)
-# - Investigate IntegerField/FloatField different handling of True/False
 # - Test validators/constraints for nested fields
 # - Test Anonymiser
 
@@ -498,15 +497,16 @@ class TestCreateView(OnyxTestCase):
         good_texts = [
             ("hello", "hello"),
             ("  hello  ", "hello"),
-            ("  ", ""),
             (0, "0"),
             (0.0, "0.0"),
+            (None, ""),
+            ("", ""),
+            (" ", ""),
         ]
 
         bad_texts = [
             True,
             False,
-            None,
             [],
             {},
         ]
@@ -544,7 +544,9 @@ class TestCreateView(OnyxTestCase):
             ("Nw", "nw"),
             ("NW", "nw"),
             (" nw", "nw"),
-            ("    ", ""),
+            (None, ""),
+            ("", ""),
+            (" ", ""),
         ]
 
         bad_choices = [
@@ -554,7 +556,6 @@ class TestCreateView(OnyxTestCase):
             2.345,
             True,
             False,
-            None,
             [],
             {},
         ]
@@ -635,10 +636,9 @@ class TestCreateView(OnyxTestCase):
         """
 
         good_floats = [
+            ("42", 42.0),
             ("42.832", 42.832),
             (" 55.873 ", 55.873),
-            (True, 1.0),
-            (False, 0.0),
             (None, None),
             ("", None),
             (" ", None),
@@ -648,6 +648,8 @@ class TestCreateView(OnyxTestCase):
             "2.45.3",
             "1/0",
             "goodbye",
+            True,
+            False,
             [],
             {},
         ]

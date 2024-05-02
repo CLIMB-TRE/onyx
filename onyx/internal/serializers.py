@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from internal.models import Request
+from internal.models import RequestHistory
 
 
-class RequestSerializer(serializers.ModelSerializer):
+class RequestHistorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Request
+        model = RequestHistory
         fields = [
             "date",
             "address",

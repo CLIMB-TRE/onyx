@@ -46,7 +46,7 @@ class TextIsNull(models.Lookup):
             return "%s <> ''" % sql, params
 
 
-class Request(models.Model):
+class RequestHistory(models.Model):
     endpoint = models.CharField(max_length=100, blank=True)
     method = models.CharField(max_length=10, blank=True)
     status = models.PositiveSmallIntegerField()

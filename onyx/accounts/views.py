@@ -6,8 +6,8 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, ListAPIView
 from knox.views import LoginView as KnoxLoginView
-import internal.models
-from internal.serializers import RequestSerializer
+from internal.models import RequestHistory
+from internal.serializers import RequestHistorySerializer
 from .models import User, Site
 from .serializers import (
     RegisterSerializer,
@@ -56,20 +56,12 @@ class ActivityView(ListAPIView):
     """
 
     permission_classes = Approved
-    serializer_class = RequestSerializer
+    serializer_class = RequestHistorySerializer
 
     def get_queryset(self):
-        assert isinstance(self.request.user, User)
-
-        activity = reversed(
-            internal.models.Request.objects.filter(
-                user=self.request.user,
-            ).order_by(
-                "-date"
-            )[:50]
+        return reversed(
+            RequestHistory.objects.filter(user=self.request.user).order_by("-date")[:50]
         )
-
-        return activity
 
 
 class WaitingUsersView(ListAPIView):

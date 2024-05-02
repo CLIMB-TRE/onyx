@@ -1,5 +1,6 @@
-from data.tests.utils import OnyxTestCase
 from rest_framework.reverse import reverse
+from data.tests.utils import OnyxTestCase
+from internal.models import RequestHistory
 
 
 class TestActivityView(OnyxTestCase):
@@ -12,9 +13,12 @@ class TestActivityView(OnyxTestCase):
         Test retrieval of user activity.
         """
 
+        self.assertEqual(RequestHistory.objects.count(), 0)
+
         response = self.client.get(self.endpoint)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"], [])
+        self.assertEqual(RequestHistory.objects.count(), 1)
 
         # Making the request again will show the previous call to the activity endpoint
         response = self.client.get(self.endpoint)
@@ -26,6 +30,7 @@ class TestActivityView(OnyxTestCase):
         self.assertEqual(response.json()["data"][0]["method"], "GET")
         self.assertEqual(response.json()["data"][0]["status"], 200)
         self.assertEqual(response.json()["data"][0]["error_messages"], "")
+        self.assertEqual(RequestHistory.objects.count(), 2)
 
         # Calls to other endpoints will also be recorded
         testproject_endpoint = reverse(
@@ -33,6 +38,7 @@ class TestActivityView(OnyxTestCase):
         )
         response = self.client.get(testproject_endpoint)
         status_code = response.status_code
+        self.assertEqual(RequestHistory.objects.count(), 3)
 
         # Making the activity request again will show the previous call to the testproject endpoint,
         # as well as the previous calls to the activity endpoint
@@ -50,3 +56,4 @@ class TestActivityView(OnyxTestCase):
         self.assertEqual(response.json()["data"][0]["method"], "GET")
         self.assertEqual(response.json()["data"][0]["status"], status_code)
         self.assertEqual(response.json()["data"][0]["error_messages"], "")
+        self.assertEqual(RequestHistory.objects.count(), 4)

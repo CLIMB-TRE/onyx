@@ -8,7 +8,7 @@ urlpatterns = [
     path("logout/", knox_views.LogoutView.as_view(), name="knox_logout"),
     path("logoutall/", knox_views.LogoutAllView.as_view(), name="knox_logoutall"),
     path("profile/", views.ProfileView.as_view()),
-    path("activity/", views.ActivityView.as_view()),
+    path("activity/", views.ActivityView.as_view(), name="accounts.activity"),
     path("waiting/", views.WaitingUsersView.as_view()),
     re_path(
         r"^approve/(?P<username>[a-zA-Z0-9_\.\-]*)/$", views.ApproveUserView.as_view()

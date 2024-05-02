@@ -3,6 +3,23 @@ from data.tests.utils import OnyxTestCase
 from internal.models import RequestHistory
 
 
+class TestProfileView(OnyxTestCase):
+    def setUp(self):
+        super().setUp()
+        self.endpoint = reverse("accounts.profile")
+
+    def test_basic(self):
+        """
+        Test retrieval of the user's profile.
+        """
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["username"], self.user.username)
+        self.assertEqual(response.json()["data"]["site"], self.user.site.code)
+        self.assertEqual(response.json()["data"]["email"], self.user.email)
+
+
 class TestActivityView(OnyxTestCase):
     def setUp(self):
         super().setUp()

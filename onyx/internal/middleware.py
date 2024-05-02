@@ -1,6 +1,6 @@
 import time
 from rest_framework import status
-from .models import Request
+from .models import RequestHistory
 
 
 # Credit to Felix Eklöf for this middleware
@@ -48,7 +48,7 @@ class SaveRequest:
         address = address[:20]
 
         # Log the request
-        Request.objects.create(
+        RequestHistory.objects.create(
             endpoint=path,
             method=request.method,
             status=response.status_code,

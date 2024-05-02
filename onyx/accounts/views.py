@@ -6,6 +6,8 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, ListAPIView
 from knox.views import LoginView as KnoxLoginView
+from internal.models import RequestHistory
+from internal.serializers import RequestHistorySerializer
 from .models import User, Site
 from .serializers import (
     RegisterSerializer,
@@ -46,6 +48,20 @@ class ProfileView(APIView):
         # Serialize and return the user's profile information
         serializer = ViewUserSerializer(instance=request.user)
         return Response(serializer.data)
+
+
+class ActivityView(ListAPIView):
+    """
+    View the user's latest activity.
+    """
+
+    permission_classes = Approved
+    serializer_class = RequestHistorySerializer
+
+    def get_queryset(self):
+        return reversed(
+            RequestHistory.objects.filter(user=self.request.user).order_by("-date")[:50]
+        )
 
 
 class WaitingUsersView(ListAPIView):

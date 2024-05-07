@@ -177,7 +177,7 @@ class ProjectsView(APIView):
                     "actions": [
                         action.label
                         for action in Actions
-                        if action.label in actions_str
+                        if action != Actions.ACCESS and action.label in actions_str
                     ],
                 }
             )
@@ -251,7 +251,11 @@ class FieldsView(ProjectAPIView):
         for permission in request.user.get_all_permissions():
             _, action, project, field = parse_permission(permission)
 
-            if action != "access" and project == self.project.code and field in fields:
+            if (
+                action != Actions.ACCESS.label
+                and project == self.project.code
+                and field in fields
+            ):
                 actions_map.setdefault(field, []).append(action)
 
         # Determine OnyxField objects for each field
@@ -654,7 +658,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         errors = {}
         filter_handler = FieldHandler(
             project=self.project,
-            action="filter",
+            action=Actions.FILTER.label,
             user=request.user,
         )
 

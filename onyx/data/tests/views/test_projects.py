@@ -22,7 +22,9 @@ class TestProjectsView(OnyxTestCase):
                 {
                     "project": "testproject",
                     "scope": "admin",
-                    "actions": [action.label for action in Actions],
+                    "actions": [
+                        action.label for action in Actions if action != Actions.ACCESS
+                    ],
                 }
             ],
         )

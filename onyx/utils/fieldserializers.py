@@ -6,6 +6,12 @@ from utils.functions import get_suggestions
 
 
 class CharField(serializers.CharField):
+    def validate_empty_values(self, data):
+        if data is None:
+            data = ""
+
+        return super().validate_empty_values(data)
+
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
 
@@ -33,6 +39,12 @@ class IntegerField(serializers.IntegerField):
 
         return super().validate_empty_values(data)
 
+    def to_internal_value(self, data):
+        if isinstance(data, bool):
+            self.fail("invalid")
+
+        return super().to_internal_value(data)
+
 
 class FloatField(serializers.FloatField):
     def validate_empty_values(self, data):
@@ -40,6 +52,12 @@ class FloatField(serializers.FloatField):
             data = None
 
         return super().validate_empty_values(data)
+
+    def to_internal_value(self, data):
+        if isinstance(data, bool):
+            self.fail("invalid")
+
+        return super().to_internal_value(data)
 
 
 class DateField(serializers.DateField):
@@ -63,6 +81,12 @@ class ChoiceField(serializers.ChoiceField):
     def __init__(self, field, **kwargs):
         self.field = field
         super().__init__([], **kwargs)
+
+    def validate_empty_values(self, data):
+        if data is None:
+            data = ""
+
+        return super().validate_empty_values(data)
 
     def to_internal_value(self, data):
         data = str(data).strip().lower()

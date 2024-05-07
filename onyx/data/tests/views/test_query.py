@@ -149,3 +149,34 @@ class TestQueryView(OnyxDataTestCase):
             self.assertEqualClimbIDs(
                 response.json()["data"], TestModel.objects.filter(expected)
             )
+
+    def test_empty_value(self):
+        """
+        Test that empty values are handled correctly for each field type.
+        """
+
+        for empty in ["", " ", "   ", None]:
+            for field in [
+                "text_option_1",  # text
+                "country",  # choice
+                "tests",  # integer
+                "score",  # decimal
+                "collection_month",  # date (YYYY-MM)
+                "submission_date",  # date (YYYY-MM-DD)
+                "concern",  # bool
+            ]:
+                # Equal to empty
+                response = self.client.post(self.endpoint, data={field: empty})
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqualClimbIDs(
+                    response.json()["data"],
+                    TestModel.objects.filter(**{f"{field}__isnull": True}),
+                )
+
+                # Not equal to empty
+                response = self.client.post(self.endpoint, data={"~": {field: empty}})
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqualClimbIDs(
+                    response.json()["data"],
+                    TestModel.objects.filter(**{f"{field}__isnull": False}),
+                )

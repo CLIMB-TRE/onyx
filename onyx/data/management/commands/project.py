@@ -1,15 +1,29 @@
 import json
 from typing import Optional, List, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from django.core.management import base
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from ...models import Project, ProjectGroup, Choice
+from ...actions import Actions
+
+
+ACTION_LABELS = [action.label for action in Actions]
 
 
 class PermissionConfig(BaseModel):
     action: str | List[str]
     fields: List[str]
+
+    @field_validator("action")
+    def validate_action(cls, value):
+        if isinstance(value, str):
+            assert value in ACTION_LABELS, f"Invalid action: {value}"
+        else:
+            for v in value:
+                assert v in ACTION_LABELS, f"Invalid action: {v}"
+
+        return value
 
 
 class GroupConfig(BaseModel):
@@ -147,7 +161,7 @@ class Command(base.BaseCommand):
                 self.print("Created permission:", access_project_permission)
             permissions.append(access_project_permission)
 
-            group_actions = ["access"]
+            group_actions = [Actions.ACCESS.label]
             for permission_config in group_config.permissions:
                 if isinstance(permission_config.action, str):
                     actions = [permission_config.action]

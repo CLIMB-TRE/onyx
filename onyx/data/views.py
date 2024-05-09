@@ -671,7 +671,16 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             except exceptions.ValidationError as e:
                 errors.setdefault(field, []).append(e.args[0])
 
-        # Validate summarise fields and determine OnyxField objects
+        # Validate the query fields
+        if data:
+            query = QueryBuilder(data, filter_handler)
+            if not query.is_valid():
+                for filter_name, errs in query.errors.items():
+                    errors.setdefault(filter_name, []).extend(errs)
+        else:
+            query = None
+
+        # Validate summarise fields
         summary_fields = {}
         if self.summarise:
             for field in self.summarise:
@@ -681,27 +690,18 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 except exceptions.ValidationError as e:
                     errors.setdefault(field, []).append(e.args[0])
 
-            # Reject any relational fields in a summary
+            if query:
+                # Add query fields to the summarise fields
+                for onyx_field in query.onyx_fields:
+                    if onyx_field.field_path not in summary_fields:
+                        summary_fields[onyx_field.field_path] = onyx_field
+
+            # Reject any relational fields
             for field, onyx_field in summary_fields.items():
                 if onyx_field.onyx_type == OnyxType.RELATION:
                     errors.setdefault(field, []).append(
                         "Cannot summarise over a relational field."
                     )
-
-        # Validate the query data
-        if data:
-            query = QueryBuilder(data, filter_handler)
-            if query.is_valid():
-                # If a summary is being carried out on one or more fields
-                # then any field involved in filtering will also be included
-                for onyx_field in query.onyx_fields:
-                    if onyx_field.field_path not in summary_fields:
-                        summary_fields[onyx_field.field_path] = onyx_field
-            else:
-                for filter_name, errs in query.errors.items():
-                    errors.setdefault(filter_name, []).extend(errs)
-        else:
-            query = None
 
         if errors:
             raise exceptions.ValidationError(errors)

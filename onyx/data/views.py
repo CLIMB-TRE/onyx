@@ -142,6 +142,7 @@ class ProjectAPIView(APIView):
         # Summary aggregate in filter/query
         self.summarise = list(request.query_params.getlist("summarise"))
 
+        # Search used in filter/query
         self.search = request.query_params.get("search")
 
         # Build request body

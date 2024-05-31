@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "knox",
     "django_filters",
@@ -52,7 +53,11 @@ INSTALLED_APPS = [
     "internal",
     "data",
     "accounts",
-] + [f"projects.{project}" for project in os.environ["ONYX_PROJECTS"].split(",")]
+] + [
+    f"projects.{project}"
+    for project in os.getenv("ONYX_PROJECTS", "").split(",")
+    if project
+]
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -61,6 +66,7 @@ AUTHENTICATION_BACKENDS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -68,6 +74,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
     "internal.middleware.SaveRequest",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    allowed_origin
+    for allowed_origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if allowed_origin
 ]
 
 ROOT_URLCONF = "onyx.urls"

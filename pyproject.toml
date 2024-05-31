@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "onyx"
-version = "0.16.5"
+version = "0.16.6"
 description = "API for pathogen metadata."
 authors = ["Thomas Brier <t.brier@outlook.com>"]
 license = "LICENSE"
@@ -17,6 +17,7 @@ django-rest-knox = "^4.2.0"
 django-filter = "^24.2"
 django-simple-history = "^3.5.0"
 pydantic = "^2.7.1"
+django-cors-headers = "^4.3.1"
 
 [tool.poetry.group.test]
 optional = true

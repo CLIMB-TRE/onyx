@@ -53,7 +53,11 @@ INSTALLED_APPS = [
     "internal",
     "data",
     "accounts",
-] + [f"projects.{project}" for project in os.environ["ONYX_PROJECTS"].split(",")]
+] + [
+    f"projects.{project}"
+    for project in os.getenv("ONYX_PROJECTS", "").split(",")
+    if project
+]
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -73,7 +77,9 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    origin for origin in os.environ["CORS_ALLOWED_ORIGINS"].split(",")
+    allowed_origin
+    for allowed_origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if allowed_origin
 ]
 
 ROOT_URLCONF = "onyx.urls"

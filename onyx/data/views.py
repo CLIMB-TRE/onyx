@@ -733,24 +733,35 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
         # If the search parameter was provided, form the Q object for it
         if self.search:
-            search_fields = [
-                field
-                for field, onyx_field in self.handler.resolve_fields(fields).items()
-                if onyx_field.onyx_type in [OnyxType.CHOICE, OnyxType.TEXT]
-            ]
-            words = [w.strip() for w in self.search.split()]
-            q_search = Q()
-            for word in words:
-                s = Q()
-                for field in search_fields:
-                    if field == "site":
-                        s |= Q(**{f"{field}__code__icontains": word})
-                    else:
-                        s |= Q(**{f"{field}__icontains": word})
-                q_search &= s
+            # Split the search string into individual words
+            words = []
+            for word in self.search.split():
+                w = word.strip().strip("'").strip('"').strip()
+                if w:
+                    words.append(w)
 
-            # Add to the list of Q objects
-            q_objects.append(q_search)
+            if words:
+                # Get the fields to search over
+                search_fields = [
+                    field
+                    for field, onyx_field in self.handler.resolve_fields(fields).items()
+                    if onyx_field.onyx_type == OnyxType.TEXT
+                    or onyx_field.onyx_type == OnyxType.CHOICE
+                ]
+
+                # Form the Q object for the search
+                q_search = Q()
+                for word in words:
+                    s = Q()
+                    for field in search_fields:
+                        if field == "site":
+                            s |= Q(**{f"{field}__code__icontains": word})
+                        else:
+                            s |= Q(**{f"{field}__icontains": word})
+                    q_search &= s
+
+                # Add to the list of Q objects
+                q_objects.append(q_search)
 
         # If a valid query was provided, form the Q object for it
         if query:

@@ -1,11 +1,13 @@
 from __future__ import annotations
 import hashlib
+import operator
+import functools
 import pydantic.validators
 from typing_extensions import Annotated
 from collections import namedtuple
 import pydantic
 from django.conf import settings
-from django.db.models import Count, Subquery
+from django.db.models import Count, Subquery, Q
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -124,7 +126,7 @@ class ProjectAPIView(APIView):
             {field: value}
             for field in request.query_params
             for value in request.query_params.getlist(field)
-            if field not in {"cursor", "include", "exclude", "summarise"}
+            if field not in {"cursor", "include", "exclude", "summarise", "search"}
         ]
 
         # Build extra query parameters
@@ -139,6 +141,9 @@ class ProjectAPIView(APIView):
 
         # Summary aggregate in filter/query
         self.summarise = list(request.query_params.getlist("summarise"))
+
+        # Search used in filter/query
+        self.search = request.query_params.get("search")
 
         # Build request body
         try:
@@ -723,10 +728,51 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Prefetch nested fields returned in response
         qs = prefetch_nested(qs, unflatten_fields(fields))
 
-        # If data was provided, then it has now been validated
-        # So we form the Q object, and filter the queryset with it
+        # Q objects for filtering the queryset
+        q_objects = []
+
+        # If the search parameter was provided, form the Q object for it
+        if self.search:
+            # Split the search string into individual words
+            words = []
+            for word in self.search.split():
+                w = word.strip().strip("'").strip('"').strip()
+                if w:
+                    words.append(w)
+
+            if words:
+                # Get the fields to search over
+                search_fields = [
+                    field
+                    for field, onyx_field in self.handler.resolve_fields(fields).items()
+                    if onyx_field.onyx_type == OnyxType.TEXT
+                    or onyx_field.onyx_type == OnyxType.CHOICE
+                ]
+
+                # Form the Q object for the search
+                q_search = Q()
+                for word in words:
+                    s = Q()
+                    for field in search_fields:
+                        if field == "site":
+                            s |= Q(**{f"{field}__code__icontains": word})
+                        else:
+                            s |= Q(**{f"{field}__icontains": word})
+                    q_search &= s
+
+                # Add to the list of Q objects
+                q_objects.append(q_search)
+
+        # If a valid query was provided, form the Q object for it
         if query:
-            q_object = query.build()
+            q_query = query.build()
+
+            # Add to the list of Q objects
+            q_objects.append(q_query)
+
+        # Filter the queryset with a singular Q object representing the search and query
+        if q_objects:
+            q_object = functools.reduce(operator.and_, q_objects)
 
             # A queryset is not guaranteed to return unique objects
             # Especially as a result of complex nested queries

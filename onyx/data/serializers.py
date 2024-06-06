@@ -280,26 +280,30 @@ class ProjectRecordSerializer(BaseRecordSerializer):
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
 
-        # Anonymise fields
-        if not self.instance:
-            # NOTE: This runs before unique_together checks, but AFTER unique checks
-            # TODO: This currently only allows anonymisation on create. Should it be this way?
-            for anonymised_field, prefix in self.OnyxMeta.anonymised_fields.items():
-                if data.get(anonymised_field):
-                    hasher = hashlib.sha256()
-                    hasher.update(
-                        data[anonymised_field].strip().lower().encode("utf-8")
-                    )
-                    hash = hasher.hexdigest()
+        # Retrieve site for use in anonymising fields
+        if self.instance:
+            site = self.instance.site
+        else:
+            site = data["site"]
 
-                    anonymiser, _ = Anonymiser.objects.get_or_create(
-                        project=self.context["project"],
-                        site=data["site"],
-                        field=anonymised_field,
-                        hash=hash,
-                        defaults={"prefix": prefix},
-                    )
-                    data[anonymised_field] = anonymiser.identifier
+        # Anonymise fields
+        # This runs before unique_together checks, but AFTER unique checks
+        for anonymised_field, prefix in self.OnyxMeta.anonymised_fields.items():
+            if data.get(anonymised_field):
+                hasher = hashlib.sha256()
+                hasher.update(data[anonymised_field].strip().lower().encode("utf-8"))
+                hash = hasher.hexdigest()
+
+                # TODO: This shouldn't really be run in a serializer
+                # Anonymiser objects can be unnecessarily created when data is invalid
+                anonymiser, _ = Anonymiser.objects.get_or_create(
+                    project=self.context["project"],
+                    site=site,
+                    field=anonymised_field,
+                    hash=hash,
+                    defaults={"prefix": prefix},
+                )
+                data[anonymised_field] = anonymiser.identifier
 
         return data
 

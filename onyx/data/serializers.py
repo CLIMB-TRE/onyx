@@ -288,10 +288,10 @@ class ProjectRecordSerializer(BaseRecordSerializer):
 
         # Anonymise fields
         # This runs before unique_together checks, but AFTER unique checks
-        for anonymised_field, prefix in self.OnyxMeta.anonymised_fields.items():
-            if data.get(anonymised_field):
+        for field, prefix in self.OnyxMeta.anonymised_fields.items():
+            if data.get(field):
                 hasher = hashlib.sha256()
-                hasher.update(data[anonymised_field].strip().lower().encode("utf-8"))
+                hasher.update(data[field].strip().lower().encode("utf-8"))
                 hash = hasher.hexdigest()
 
                 # TODO: This shouldn't really be run in a serializer
@@ -299,11 +299,11 @@ class ProjectRecordSerializer(BaseRecordSerializer):
                 anonymiser, _ = Anonymiser.objects.get_or_create(
                     project=self.context["project"],
                     site=site,
-                    field=anonymised_field,
+                    field=field,
                     hash=hash,
                     defaults={"prefix": prefix},
                 )
-                data[anonymised_field] = anonymiser.identifier
+                data[field] = anonymiser.identifier
 
         return data
 

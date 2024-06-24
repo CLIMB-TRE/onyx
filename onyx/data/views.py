@@ -712,7 +712,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             raise exceptions.ValidationError(errors)
 
         # Initial queryset
-        qs = init_project_queryset(
+        init_qs = init_project_queryset(
             model=self.model,
             user=request.user,
             fields=self.handler.get_fields(),
@@ -726,7 +726,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         )
 
         # Prefetch nested fields returned in response
-        qs = prefetch_nested(qs, unflatten_fields(fields))
+        qs = prefetch_nested(init_qs, unflatten_fields(fields))
 
         # Q objects for filtering the queryset
         q_objects = []
@@ -806,7 +806,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 # or the number of rows in the main table that have no related rows.
                 qs = qs.filter(
                     id__in=Subquery(
-                        qs.filter(**{f"{relation}__isnull": False}).values("id")
+                        init_qs.filter(**{f"{relation}__isnull": False}).values("id")
                     )
                 )
                 count_name = f"{relation}__count"

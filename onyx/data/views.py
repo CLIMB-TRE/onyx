@@ -726,11 +726,11 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Prefetch nested fields returned in response
         qs = prefetch_nested(init_qs, unflatten_fields(fields))
 
-        # Q objects for the user's search and query
+        # Q object for the user's search and query
         q_object = Q()
 
         # If the search parameter was provided
-        # Form the Q object for it, and add to the user Q object
+        # Form the Q object for it, and add it to the user's Q object
         if self.search:
             # Split the search string into individual words
             words = []
@@ -763,7 +763,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 q_object &= search
 
         # If a valid query was provided
-        # Form the Q object for it, and add to the user Q object
+        # Form the Q object for it, and add it to the user's Q object
         if query:
             q_object &= query.build()
 
@@ -780,7 +780,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
             if relations:
                 # Summarising over more than one related table is disallowed.
-                # Mainly because the resulting counts are unintuitive, and grow large very quickly.
+                # The resulting counts grow large very quickly.
                 if len(relations) > 1:
                     raise exceptions.ValidationError(
                         {"detail": "Cannot summarise over more than one related table."}

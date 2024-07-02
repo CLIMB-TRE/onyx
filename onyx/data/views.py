@@ -726,10 +726,11 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Prefetch nested fields returned in response
         qs = prefetch_nested(init_qs, unflatten_fields(fields))
 
-        # Q objects for the user search+query
+        # Q objects for the user's search and query
         q_object = Q()
 
-        # If the search parameter was provided, form the Q object for it
+        # If the search parameter was provided
+        # Form the Q object for it, and add to the user Q object
         if self.search:
             # Split the search string into individual words
             words = []
@@ -761,11 +762,13 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 # Add to the user Q object
                 q_object &= search
 
-        # If a valid query was provided, form the Q object for it
+        # If a valid query was provided
+        # Form the Q object for it, and add to the user Q object
         if query:
             q_object &= query.build()
 
         if self.summarise:
+            # Filter the queryset with the user's Q object
             if q_object:
                 qs = qs.filter(q_object)
 
@@ -827,10 +830,9 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 many=True,
             )
         else:
+            # Filter the queryset with the user's Q object
             if q_object:
                 qs = qs.filter(id__in=Subquery(qs.filter(q_object).values("id")))
-                # Returns duplicates on related field query but this needs formalising in tests
-                # qs = qs.filter(q_object)
 
             # Prepare paginator
             self.paginator = CursorPagination()

@@ -7,6 +7,10 @@ from ...types import OnyxType
 class TestTypesView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse("projects.types")
 
     def test_basic(self):

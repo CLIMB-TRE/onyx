@@ -10,10 +10,27 @@
                 {
                     "action": "add",
                     "fields": [
-                        "is_published",
                         "site",
                         "sample_id",
-                        "run_name",
+                        "run_name"
+                    ]
+                },
+                {
+                    "action": [
+                        "history",
+                        "change"
+                    ],
+                    "fields": [
+                        "is_suppressed"
+                    ]
+                },
+                {
+                    "action": [
+                        "add",
+                        "change"
+                    ],
+                    "fields": [
+                        "is_published",
                         "collection_month",
                         "received_month",
                         "char_max_length_20",
@@ -47,8 +64,10 @@
                         "history"
                     ],
                     "fields": [
-                        "climb_id",
                         "is_published",
+                        "is_suppressed",
+                        "is_site_restricted",
+                        "climb_id",
                         "published_date",
                         "site",
                         "sample_id",
@@ -86,9 +105,27 @@
                     ]
                 },
                 {
-                    "action": "change",
+                    "action": "delete",
+                    "fields": []
+                }
+            ]
+        },
+        {
+            "scope": "analyst",
+            "permissions": [
+                {
+                    "action": [
+                        "get",
+                        "list",
+                        "filter",
+                        "history"
+                    ],
                     "fields": [
-                        "is_published",
+                        "climb_id",
+                        "published_date",
+                        "site",
+                        "sample_id",
+                        "run_name",
                         "collection_month",
                         "received_month",
                         "char_max_length_20",
@@ -113,10 +150,6 @@
                         "records__score_c",
                         "records__test_result"
                     ]
-                },
-                {
-                    "action": "delete",
-                    "fields": []
                 }
             ]
         }

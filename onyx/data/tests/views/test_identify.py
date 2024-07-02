@@ -7,9 +7,16 @@ from data.models import Anonymiser
 from projects.testproject.models import TestModel
 
 
+# TODO: Test permissions to retrieve identifiers for users from different sites
+
+
 class TestIdentifyView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_staff)  # type: ignore
+
         self.endpoint = lambda field: reverse(
             "projects.testproject.identify.field",
             kwargs={"code": self.project.code, "field": field},

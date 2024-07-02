@@ -6,6 +6,10 @@ from ..utils import OnyxTestCase
 class TestChoicesView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = lambda field: reverse(
             "projects.testproject.choices.field",
             kwargs={"code": self.project.code, "field": field},

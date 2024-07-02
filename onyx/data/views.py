@@ -1,7 +1,5 @@
 from __future__ import annotations
 import hashlib
-import operator
-import functools
 import pydantic.validators
 from typing_extensions import Annotated
 from collections import namedtuple
@@ -728,8 +726,8 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Prefetch nested fields returned in response
         qs = prefetch_nested(init_qs, unflatten_fields(fields))
 
-        # Q objects for filtering the queryset
-        q_objects = []
+        # Q objects for the user search+query
+        q_object = Q()
 
         # If the search parameter was provided, form the Q object for it
         if self.search:
@@ -750,7 +748,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 ]
 
                 # Form the Q object for the search
-                q_search = Q()
+                search = Q()
                 for word in words:
                     s = Q()
                     for field in search_fields:
@@ -758,31 +756,19 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                             s |= Q(**{f"{field}__code__icontains": word})
                         else:
                             s |= Q(**{f"{field}__icontains": word})
-                    q_search &= s
+                    search &= s
 
-                # Add to the list of Q objects
-                q_objects.append(q_search)
+                # Add to the user Q object
+                q_object &= search
 
         # If a valid query was provided, form the Q object for it
         if query:
-            q_query = query.build()
-
-            # Add to the list of Q objects
-            q_objects.append(q_query)
-
-        # Filter the queryset with a singular Q object representing the search and query
-        if q_objects:
-            q_object = functools.reduce(operator.and_, q_objects)
-
-            # A queryset is not guaranteed to return unique objects
-            # Especially as a result of complex nested queries
-            # So a call to distinct is necessary.
-            # This (should) not affect the cursor pagination
-            # as removing duplicates is not changing any order in the result set
-            # TODO: Tests will be needed to confirm all of this
-            qs = qs.filter(q_object).distinct()
+            q_object &= query.build()
 
         if self.summarise:
+            if q_object:
+                qs = qs.filter(q_object)
+
             relations = {
                 onyx_field.field_model: summary_field
                 for summary_field, onyx_field in summary_fields.items()
@@ -827,17 +813,25 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                     }
                 )
 
+            # Annotate the summary values with the count
+            summary = summary_values.annotate(**{count_name: Count("*")}).order_by(
+                *summary_fields.keys()
+            )
+
             # Serialize the results
             serializer = SummarySerializer(
-                summary_values.annotate(**{count_name: Count("*")}).order_by(
-                    *summary_fields.keys()
-                ),
+                summary,
                 serializer_cls=self.serializer_cls,
                 onyx_fields=summary_fields,
                 count_name=count_name,
                 many=True,
             )
         else:
+            if q_object:
+                qs = qs.filter(id__in=Subquery(qs.filter(q_object).values("id")))
+                # Returns duplicates on related field query but this needs formalising in tests
+                # qs = qs.filter(q_object)
+
             # Prepare paginator
             self.paginator = CursorPagination()
             self.paginator.ordering = "created"

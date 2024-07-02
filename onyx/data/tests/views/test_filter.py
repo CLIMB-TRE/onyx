@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxDataTestCase
 from projects.testproject.models import TestModel, TestModelRecord
+from data.fields import flatten_fields
 
 
 # TODO: Tests of nested filtering for each field type
@@ -170,7 +171,32 @@ class TestFilterView(OnyxDataTestCase):
         Test including and excluding fields on a filter.
         """
 
-        pass  # TODO
+        # Get all fields
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        fields = flatten_fields(response.json()["data"])
+
+        # Test including fields
+        response = self.client.get(
+            self.endpoint, data={"include": ["run_name", "score", "submission_date"]}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            sorted(flatten_fields(response.json()["data"])),
+            ["run_name", "score", "submission_date"],
+        )
+
+        # Test excluding fields
+        response = self.client.get(
+            self.endpoint, data={"exclude": ["run_name", "score", "submission_date"]}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            sorted(flatten_fields(response.json()["data"])),
+            sorted(
+                [x for x in fields if x not in ["run_name", "score", "submission_date"]]
+            ),
+        )
 
     def test_include_exclude_bad_field(self):
         """

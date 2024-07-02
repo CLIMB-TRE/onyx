@@ -11,6 +11,10 @@ from projects.testproject.models import TestModel
 class TestHistoryView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
         self.endpoint = lambda climb_id: reverse(
             "projects.testproject.history.climb_id",
             kwargs={"code": self.project.code, "climb_id": climb_id},
@@ -32,7 +36,7 @@ class TestHistoryView(OnyxTestCase):
         self.assertEqual(response.json()["data"]["climb_id"], self.climb_id)
         self.assertEqual(len(response.json()["data"]["history"]), 1)
         self.assertEqual(
-            response.json()["data"]["history"][0]["username"], self.user.username
+            response.json()["data"]["history"][0]["username"], self.admin_user.username
         )
         self.assertEqual(
             response.json()["data"]["history"][0]["action"], Actions.ADD.label
@@ -78,7 +82,7 @@ class TestHistoryView(OnyxTestCase):
         self.assertEqual(response.json()["data"]["climb_id"], self.climb_id)
         self.assertEqual(len(response.json()["data"]["history"]), 2)
         for diff in response.json()["data"]["history"]:
-            self.assertEqual(diff["username"], self.user.username)
+            self.assertEqual(diff["username"], self.admin_user.username)
 
         self.assertEqual(
             response.json()["data"]["history"][0]["action"], Actions.ADD.label
@@ -164,7 +168,7 @@ class TestHistoryView(OnyxTestCase):
         self.assertEqual(response.json()["data"]["climb_id"], self.climb_id)
         self.assertEqual(len(response.json()["data"]["history"]), 3)
         for diff in response.json()["data"]["history"]:
-            self.assertEqual(diff["username"], self.user.username)
+            self.assertEqual(diff["username"], self.admin_user.username)
 
         self.assertEqual(
             response.json()["data"]["history"][0]["action"], Actions.ADD.label

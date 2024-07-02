@@ -5,14 +5,21 @@ from ..utils import OnyxDataTestCase
 from projects.testproject.models import TestModel, TestModelRecord
 
 
+# TODO: Tests of nested filtering for each field type
+
+
 class TestFilterView(OnyxDataTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse(
             "projects.testproject", kwargs={"code": self.project.code}
         )
 
-    def _test_filter(self, field, value, qs, lookup="", allow_empty=False):
+    def _test_filter(self, field, value, qs, lookup=""):
         """
         Test filtering a field with a value and lookup.
         """
@@ -48,7 +55,115 @@ class TestFilterView(OnyxDataTestCase):
         Test that suppressed records are not returned.
         """
 
-        pass  # TODO
+        # Test that a suppressed record is not returned
+        record = TestModel.objects.first()
+        assert record is not None
+        record.is_suppressed = True
+        record.save()
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.exclude(is_suppressed=True),
+        )
+        self.assertNotIn(
+            record.climb_id, [x["climb_id"] for x in response.json()["data"]]
+        )
+
+        # Test that a suppressed record is returned
+        # if the user has permission to view the is_suppressed field
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.all(),
+        )
+
+    def test_unpublished(self):
+        """
+        Test that unpublished records are not returned.
+        """
+
+        # Test that an unpublished record is not returned
+        record = TestModel.objects.first()
+        assert record is not None
+        record.is_published = False
+        record.save()
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.filter(is_published=True),
+        )
+        self.assertNotIn(
+            record.climb_id, [x["climb_id"] for x in response.json()["data"]]
+        )
+
+        # Test that an unpublished record is returned
+        # if the user has permission to view the is_published field
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.all(),
+        )
+
+    def test_site_restricted(self):
+        """
+        Test site-restricted permissions on records.
+        """
+
+        # Test that a site-restricted record from another site is not returned
+        record = TestModel.objects.first()
+        assert record is not None
+        record.is_site_restricted = True
+        record.site = self.extra_site
+        record.save()
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.filter(
+                Q(is_site_restricted=False)
+                | (Q(is_site_restricted=True) & Q(site=self.site))
+            ),
+        )
+        self.assertNotIn(
+            record.climb_id, [x["climb_id"] for x in response.json()["data"]]
+        )
+
+        # Test that a site-restricted record from the same site is returned
+        record.site = self.site
+        record.save()
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.filter(
+                Q(is_site_restricted=False)
+                | (Q(is_site_restricted=True) & Q(site=self.site))
+            ),
+        )
+        self.assertIn(record.climb_id, [x["climb_id"] for x in response.json()["data"]])
+
+        # Test that site restricted records from any site are returned
+        # if the user has permission to view the is_site_restricted field
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        response = self.client.get(self.endpoint)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.all(),
+        )
 
     def test_include_exclude(self):
         """
@@ -81,90 +196,133 @@ class TestFilterView(OnyxDataTestCase):
         Test filtering a text field.
         """
 
-        for lookup, value, qs in [
-            ("", "world", TestModel.objects.filter(text_option_1="world")),
-            ("exact", "world", TestModel.objects.filter(text_option_1__exact="world")),
-            ("ne", "world", TestModel.objects.exclude(text_option_1="world")),
-            (
-                "in",
-                "hello, world, hey, ,",
-                TestModel.objects.filter(
-                    text_option_1__in=["hello", "world", "hey", ""]
+        # Testing both a text field and a relation text field
+        for field, values in {
+            "text_option_1": ["hello", "world", "hey", "world world", "y", ""],
+            "records__test_result": [
+                "details",
+                "more details",
+                "other details",
+                "random details",
+                "extra details",
+                "additional details",
+                "further details",
+                "even more details",
+                "",
+            ],
+        }.items():
+            for lookup, value, qs in [
+                ("", values[0], TestModel.objects.filter(**{field: values[0]})),
+                (
+                    "exact",
+                    values[0],
+                    TestModel.objects.filter(**{f"{field}__exact": values[0]}),
                 ),
-            ),
-            (
-                "notin",
-                "hello, world, hey, ,",
-                TestModel.objects.exclude(
-                    text_option_1__in=["hello", "world", "hey", ""]
+                ("ne", values[0], TestModel.objects.exclude(**{field: values[0]})),
+                (
+                    "in",
+                    ", ".join(values[-4:]),
+                    TestModel.objects.filter(**{f"{field}__in": values[-4:]}),
                 ),
-            ),
-            (
-                "contains",
-                "orl",
-                TestModel.objects.filter(text_option_1__contains="orl"),
-            ),
-            (
-                "startswith",
-                "wor",
-                TestModel.objects.filter(text_option_1__startswith="wor"),
-            ),
-            (
-                "endswith",
-                "rld",
-                TestModel.objects.filter(text_option_1__endswith="rld"),
-            ),
-            (
-                "iexact",
-                "HELLO",
-                TestModel.objects.filter(text_option_1__iexact="HELLO"),
-            ),
-            (
-                "icontains",
-                "ELL",
-                TestModel.objects.filter(text_option_1__icontains="ELL"),
-            ),
-            (
-                "istartswith",
-                "HEL",
-                TestModel.objects.filter(text_option_1__istartswith="HEL"),
-            ),
-            (
-                "iendswith",
-                "LLO",
-                TestModel.objects.filter(text_option_1__iendswith="LLO"),
-            ),
-            ("length", 5, TestModel.objects.filter(text_option_1__length=5)),
-            (
-                "length__in",
-                "1, 3, 5",
-                TestModel.objects.filter(text_option_1__length__in=[1, 3, 5]),
-            ),
-            (
-                "length__range",
-                "3, 5",
-                TestModel.objects.filter(text_option_1__length__range=[3, 5]),
-            ),
-            ("", "", TestModel.objects.filter(text_option_1__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(text_option_1__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(text_option_1__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(text_option_1__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(text_option_1="")),
-            ("isnull", False, TestModel.objects.exclude(text_option_1="")),
-        ]:
-            self._test_filter(
-                field="text_option_1",
-                value=value,
-                qs=qs,
-                lookup=lookup,
-            )
+                (
+                    "notin",
+                    ", ".join(values[-4:]),
+                    TestModel.objects.exclude(**{f"{field}__in": values[-4:]}),
+                ),
+                (
+                    "contains",
+                    values[1][1:-1],
+                    TestModel.objects.filter(**{f"{field}__contains": values[1][1:-1]}),
+                ),
+                (
+                    "startswith",
+                    values[1][:-1],
+                    TestModel.objects.filter(
+                        **{f"{field}__startswith": values[1][:-1]}
+                    ),
+                ),
+                (
+                    "endswith",
+                    values[1][1:],
+                    TestModel.objects.filter(**{f"{field}__endswith": values[1][1:]}),
+                ),
+                (
+                    "iexact",
+                    values[2].upper(),
+                    TestModel.objects.filter(**{f"{field}__iexact": values[2].upper()}),
+                ),
+                (
+                    "icontains",
+                    values[2][1:-1].upper(),
+                    TestModel.objects.filter(
+                        **{f"{field}__icontains": values[2][1:-1].upper()}
+                    ),
+                ),
+                (
+                    "istartswith",
+                    values[2][:-1].upper(),
+                    TestModel.objects.filter(
+                        **{f"{field}__istartswith": values[2][:-1].upper()}
+                    ),
+                ),
+                (
+                    "iendswith",
+                    values[2][1:].upper(),
+                    TestModel.objects.filter(
+                        **{f"{field}__iendswith": values[2][1:].upper()}
+                    ),
+                ),
+                (
+                    "length",
+                    len(values[3]),
+                    TestModel.objects.filter(**{f"{field}__length": len(values[3])}),
+                ),
+                (
+                    "length__in",
+                    ", ".join([str(len(x)) for x in values[3:5]]),
+                    TestModel.objects.filter(
+                        **{f"{field}__length__in": [len(x) for x in values[3:5]]}
+                    ),
+                ),
+                (
+                    "length__range",
+                    ", ".join(str(x) for x in sorted([len(values[3]), len(values[5])])),
+                    TestModel.objects.filter(
+                        **{
+                            f"{field}__length__range": sorted(
+                                [len(values[3]), len(values[5])]
+                            )
+                        }
+                    ),
+                ),
+                ("", "", TestModel.objects.filter(**{f"{field}__isnull": True})),
+                ("ne", "", TestModel.objects.exclude(**{f"{field}__isnull": True})),
+                (
+                    "isnull",
+                    True,
+                    TestModel.objects.filter(**{f"{field}__isnull": True}),
+                ),
+                (
+                    "isnull",
+                    False,
+                    TestModel.objects.exclude(**{f"{field}__isnull": True}),
+                ),
+                ("isnull", True, TestModel.objects.filter(**{field: ""})),
+                ("isnull", False, TestModel.objects.exclude(**{field: ""})),
+            ]:
+                self._test_filter(
+                    field=field,
+                    value=value,
+                    qs=qs,
+                    lookup=lookup,
+                )
 
-        # Test the isnull lookup against invalid true/false values
-        for value in ["", " ", "invalid"]:
-            response = self.client.get(
-                self.endpoint, data={"text_option_1__isnull": value}
-            )
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            # Test the isnull lookup against invalid true/false values
+            for value in ["", " ", "invalid"]:
+                response = self.client.get(
+                    self.endpoint, data={f"{field}__isnull": value}
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_choice(self):
         """

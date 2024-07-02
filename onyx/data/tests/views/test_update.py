@@ -9,6 +9,10 @@ from projects.testproject.models import TestModel
 class TestUpdateView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
         self.endpoint = lambda climb_id: reverse(
             "projects.testproject.climb_id",
             kwargs={"code": self.project.code, "climb_id": climb_id},

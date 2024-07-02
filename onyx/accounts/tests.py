@@ -6,6 +6,10 @@ from internal.models import RequestHistory
 class TestProfileView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse("accounts.profile")
 
     def test_basic(self):
@@ -15,14 +19,20 @@ class TestProfileView(OnyxTestCase):
 
         response = self.client.get(self.endpoint)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["data"]["username"], self.user.username)
-        self.assertEqual(response.json()["data"]["site"], self.user.site.code)
-        self.assertEqual(response.json()["data"]["email"], self.user.email)
+        self.assertEqual(
+            response.json()["data"]["username"], self.analyst_user.username
+        )
+        self.assertEqual(response.json()["data"]["site"], self.analyst_user.site.code)
+        self.assertEqual(response.json()["data"]["email"], self.analyst_user.email)
 
 
 class TestActivityView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse("accounts.activity")
 
     def test_basic(self):

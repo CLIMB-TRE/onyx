@@ -3,6 +3,7 @@ import logging
 import itertools
 from django.core.management import call_command
 from django.conf import settings
+from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
 from ..models import Project
@@ -48,53 +49,143 @@ class OnyxTestCase(APITestCase):
         cls.site = Site.objects.get(code="testsite_1")
         cls.extra_site = Site.objects.get(code="testsite_2")
 
-        # Set up test user
-        call_command("user", "create", "testuser", "--site", cls.site.code, quiet=True)
-        call_command("user", "roles", "testuser", "--grant", "is_staff", quiet=True)
-        call_command(
-            "user", "groups", "testuser", "--grant", "testproject.admin", quiet=True
+        # Set up testproject admin staff
+        cls.admin_staff = cls.create_user(
+            "test_admin_staff",
+            cls.site,
+            roles=["is_staff"],
+            groups=["testproject.admin"],
         )
-        cls.user = User.objects.get(username="testuser")
 
-    def setUp(self):
-        self.client.force_authenticate(self.user)  # type: ignore
+        # Set up testproject admin user
+        cls.admin_user = cls.create_user(
+            "test_admin_user",
+            cls.site,
+            roles=["is_approved"],
+            groups=["testproject.admin"],
+        )
 
+        # Set up testproject analyst user
+        cls.analyst_user = cls.create_user(
+            "test_analyst_user",
+            cls.site,
+            roles=["is_approved"],
+            groups=["testproject.analyst"],
+        )
 
-class OnyxDataTestCase(OnyxTestCase):
     @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
-        for data in generate_test_data(n=100):
-            nested_records = data.pop("records", [])
-            data["site"] = cls.site
-            data["user"] = cls.user
+    def create_user(cls, username, site, roles=None, groups=None):
+        """
+        Create a user with the given username and roles/groups.
+        """
 
-            if data.get("collection_month"):
-                data["collection_month"] += "-01"
+        user = User.objects.create(username=username, site=site)
 
-            if data.get("received_month"):
-                data["received_month"] += "-01"
+        if roles:
+            for role in roles:
+                setattr(user, role, True)
 
-            record = TestModel.objects.create(**data)
-            for nested_record in nested_records:
-                nested_record["link"] = record
-                nested_record["user"] = cls.user
+        if groups:
+            for group in groups:
+                g = Group.objects.get(name=group)
+                user.groups.add(g)
 
-                if nested_record.get("test_start"):
-                    nested_record["test_start"] += "-01"
+        return user
 
-                if nested_record.get("test_end"):
-                    nested_record["test_end"] += "-01"
+    def assertEqualRecords(self, payload, instance, created: bool = False):
+        """
+        Assert that the values in a payload match the values in an instance.
+        """
 
-                TestModelRecord.objects.create(**nested_record)
+        # Assert the instance has the correct site
+        self.assertEqual(instance.site, self.site)
+
+        # Assert that the instance has the correct values as the payload
+        if not created:
+            self.assertEqual(payload.get("climb_id", ""), instance.climb_id)
+            self.assertEqual(
+                payload.get("published_date"),
+                (
+                    instance.published_date.strftime("%Y-%m-%d")
+                    if instance.published_date
+                    else None
+                ),
+            )
+
+        self.assertEqual(payload.get("sample_id", ""), instance.sample_id)
+        self.assertEqual(payload.get("run_name", ""), instance.run_name)
+        self.assertEqual(
+            payload.get("collection_month"),
+            (
+                instance.collection_month.strftime("%Y-%m")
+                if instance.collection_month
+                else None
+            ),
+        )
+        self.assertEqual(
+            payload.get("received_month"),
+            (
+                instance.received_month.strftime("%Y-%m")
+                if instance.received_month
+                else None
+            ),
+        )
+        self.assertEqual(
+            payload.get("char_max_length_20", ""), instance.char_max_length_20
+        )
+        self.assertEqual(payload.get("text_option_1", ""), instance.text_option_1)
+        self.assertEqual(payload.get("text_option_2", ""), instance.text_option_2)
+        self.assertEqual(
+            payload.get("submission_date"),
+            (
+                instance.submission_date.strftime("%Y-%m-%d")
+                if instance.submission_date
+                else None
+            ),
+        )
+        self.assertEqual(payload.get("country", ""), instance.country)
+        self.assertEqual(payload.get("region", ""), instance.region)
+        self.assertEqual(payload.get("concern"), instance.concern)
+        self.assertEqual(payload.get("tests"), instance.tests)
+        self.assertEqual(payload.get("score"), instance.score)
+        self.assertEqual(payload.get("start"), instance.start)
+        self.assertEqual(payload.get("end"), instance.end)
+
+        # If the payload has nested records, check the correctness of these
+        if payload.get("records"):
+            self.assertEqual(len(payload["records"]), instance.records.count())
+
+            for subrecord in payload["records"]:
+                subinstance = instance.records.get(test_id=subrecord.get("test_id"))
+                self.assertEqual(subrecord.get("test_id"), subinstance.test_id)
+                self.assertEqual(subrecord.get("test_pass"), subinstance.test_pass)
+                self.assertEqual(
+                    subrecord.get("test_start"),
+                    (
+                        subinstance.test_start.strftime("%Y-%m")
+                        if subinstance.test_start
+                        else None
+                    ),
+                )
+                self.assertEqual(
+                    subrecord.get("test_end"),
+                    (
+                        subinstance.test_end.strftime("%Y-%m")
+                        if subinstance.test_end
+                        else None
+                    ),
+                )
+                self.assertEqual(subrecord.get("score_a"), subinstance.score_a)
+                self.assertEqual(subrecord.get("score_b"), subinstance.score_b)
+                self.assertEqual(subrecord.get("score_c"), subinstance.score_c)
 
     def assertEqualClimbIDs(self, records, qs):
         """
-        Assert that the ClimbIDs in the records match the ClimbIDs in the queryset.
+        Assert that the CLIMB IDs in the records match the CLIMB IDs in the queryset.
         """
 
         record_values = sorted(record["climb_id"] for record in records)
-        qs_values = sorted(qs.values_list("climb_id", flat=True).distinct())
+        qs_values = sorted(qs.order_by().values_list("climb_id", flat=True).distinct())
         self.assertTrue(record_values)
         self.assertTrue(qs_values)
         self.assertEqual(
@@ -219,6 +310,11 @@ def generate_test_data(n: int):
                 "more details",
                 "other details",
                 "random details",
+                "extra details",
+                "additional details",
+                "further details",
+                "even more details",
+                "",
             ]
             for (
                 test_id,
@@ -237,6 +333,9 @@ def generate_test_data(n: int):
                 itertools.cycle(score_bs),
                 itertools.cycle(test_results),
             ):
+                # Satisfy conditional value required validator
+                if not test_result.strip():
+                    test_pass = False
 
                 x.setdefault("records", []).append(
                     {
@@ -254,83 +353,32 @@ def generate_test_data(n: int):
     return data
 
 
-def _test_record(self, payload, instance, created: bool = False):
-    """
-    Test that a payload's values match an instance.
-    """
+class OnyxDataTestCase(OnyxTestCase):
+    NUM_RECORDS = 100
 
-    # Assert the instance has the correct site
-    self.assertEqual(instance.site, self.site)
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        for data in generate_test_data(n=cls.NUM_RECORDS):
+            nested_records = data.pop("records", [])
+            data["site"] = cls.site
+            data["user"] = cls.admin_user
 
-    # Assert that the instance has the correct values as the payload
-    if not created:
-        self.assertEqual(payload.get("climb_id", ""), instance.climb_id)
-        self.assertEqual(
-            payload.get("published_date"),
-            (
-                instance.published_date.strftime("%Y-%m-%d")
-                if instance.published_date
-                else None
-            ),
-        )
+            if data.get("collection_month"):
+                data["collection_month"] += "-01"
 
-    self.assertEqual(payload.get("sample_id", ""), instance.sample_id)
-    self.assertEqual(payload.get("run_name", ""), instance.run_name)
-    self.assertEqual(
-        payload.get("collection_month"),
-        (
-            instance.collection_month.strftime("%Y-%m")
-            if instance.collection_month
-            else None
-        ),
-    )
-    self.assertEqual(
-        payload.get("received_month"),
-        instance.received_month.strftime("%Y-%m") if instance.received_month else None,
-    )
-    self.assertEqual(payload.get("char_max_length_20", ""), instance.char_max_length_20)
-    self.assertEqual(payload.get("text_option_1", ""), instance.text_option_1)
-    self.assertEqual(payload.get("text_option_2", ""), instance.text_option_2)
-    self.assertEqual(
-        payload.get("submission_date"),
-        (
-            instance.submission_date.strftime("%Y-%m-%d")
-            if instance.submission_date
-            else None
-        ),
-    )
-    self.assertEqual(payload.get("country", ""), instance.country)
-    self.assertEqual(payload.get("region", ""), instance.region)
-    self.assertEqual(payload.get("concern"), instance.concern)
-    self.assertEqual(payload.get("tests"), instance.tests)
-    self.assertEqual(payload.get("score"), instance.score)
-    self.assertEqual(payload.get("start"), instance.start)
-    self.assertEqual(payload.get("end"), instance.end)
+            if data.get("received_month"):
+                data["received_month"] += "-01"
 
-    # If the payload has nested records, check the correctness of these
-    if payload.get("records"):
-        self.assertEqual(len(payload["records"]), instance.records.count())
+            record = TestModel.objects.create(**data)
+            for nested_record in nested_records:
+                nested_record["link"] = record
+                nested_record["user"] = cls.admin_user
 
-        for subrecord in payload["records"]:
-            subinstance = instance.records.get(test_id=subrecord.get("test_id"))
-            self.assertEqual(subrecord.get("test_id"), subinstance.test_id)
-            self.assertEqual(subrecord.get("test_pass"), subinstance.test_pass)
-            self.assertEqual(
-                subrecord.get("test_start"),
-                (
-                    subinstance.test_start.strftime("%Y-%m")
-                    if subinstance.test_start
-                    else None
-                ),
-            )
-            self.assertEqual(
-                subrecord.get("test_end"),
-                (
-                    subinstance.test_end.strftime("%Y-%m")
-                    if subinstance.test_end
-                    else None
-                ),
-            )
-            self.assertEqual(subrecord.get("score_a"), subinstance.score_a)
-            self.assertEqual(subrecord.get("score_b"), subinstance.score_b)
-            self.assertEqual(subrecord.get("score_c"), subinstance.score_c)
+                if nested_record.get("test_start"):
+                    nested_record["test_start"] += "-01"
+
+                if nested_record.get("test_end"):
+                    nested_record["test_end"] += "-01"
+
+                TestModelRecord.objects.create(**nested_record)

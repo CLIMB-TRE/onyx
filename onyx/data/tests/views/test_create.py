@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.serializers import BooleanField
-from ..utils import OnyxTestCase, _test_record
+from ..utils import OnyxTestCase
 from projects.testproject.models import TestModel, TestModelRecord
 
 
@@ -53,6 +53,10 @@ default_payload = {
 class TestCreateView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
         self.endpoint = reverse(
             "projects.testproject", kwargs={"code": self.project.code}
         )
@@ -70,7 +74,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
     def test_basic_test(self):
         """
@@ -127,7 +131,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
     def test_unpermissioned_viewable_field(self):
         """
@@ -228,7 +232,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
     def test_conditional_value_required_fields(self):
         """
@@ -253,7 +257,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
     def test_nested_conditional_value_required_fields(self):
         """
@@ -278,7 +282,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
     def test_unique_together(self):
         """
@@ -295,7 +299,7 @@ class TestCreateView(OnyxTestCase):
         default_sample_id_identifier = payload["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
         default_run_name_identifier = payload["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
         payload["sample_id"] = "sample-2345"
@@ -306,7 +310,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
         payload["run_name"] = "run-2"
@@ -317,7 +321,7 @@ class TestCreateView(OnyxTestCase):
         instance = TestModel.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]
-        _test_record(self, payload, instance, created=True)
+        self.assertEqualRecords(payload, instance, created=True)
 
         payload = copy.deepcopy(default_payload)
         response = self.client.post(self.endpoint, data=payload)
@@ -523,7 +527,7 @@ class TestCreateView(OnyxTestCase):
             )
             payload["sample_id"] = response.json()["data"]["sample_id"]
             payload["run_name"] = response.json()["data"]["run_name"]
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_text in bad_texts:
@@ -572,7 +576,7 @@ class TestCreateView(OnyxTestCase):
             )
             payload["sample_id"] = response.json()["data"]["sample_id"]
             payload["run_name"] = response.json()["data"]["run_name"]
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_choice in bad_choices:
@@ -619,7 +623,7 @@ class TestCreateView(OnyxTestCase):
             )
             payload["sample_id"] = response.json()["data"]["sample_id"]
             payload["run_name"] = response.json()["data"]["run_name"]
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_int in bad_ints:
@@ -666,7 +670,7 @@ class TestCreateView(OnyxTestCase):
             )
             payload["sample_id"] = response.json()["data"]["sample_id"]
             payload["run_name"] = response.json()["data"]["run_name"]
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_float in bad_floats:
@@ -723,7 +727,7 @@ class TestCreateView(OnyxTestCase):
                 payload["collection_month"] = None
             else:
                 payload["collection_month"] = expected.strftime("%Y-%m")
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_yearmonth in bad_yearmonths:
@@ -781,7 +785,7 @@ class TestCreateView(OnyxTestCase):
                 payload["submission_date"] = None
             else:
                 payload["submission_date"] = expected.strftime("%Y-%m-%d")
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_date in bad_dates:
@@ -828,7 +832,7 @@ class TestCreateView(OnyxTestCase):
             )
             payload["sample_id"] = response.json()["data"]["sample_id"]
             payload["run_name"] = response.json()["data"]["run_name"]
-            _test_record(self, payload, instance, created=True)
+            self.assertEqualRecords(payload, instance, created=True)
             TestModel.objects.all().delete()
 
         for bad_bool in bad_bools:

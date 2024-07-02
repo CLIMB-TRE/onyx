@@ -12,6 +12,10 @@ from projects.testproject.models import TestModel
 class TestQueryView(OnyxDataTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse(
             "projects.testproject.query", kwargs={"code": self.project.code}
         )
@@ -35,24 +39,24 @@ class TestQueryView(OnyxDataTestCase):
 
         queries = [
             ({"collection_month": "2022-01"}, Q(collection_month="2022-01-01")),
-            ({"received_month": "2023-05"}, Q(received_month="2023-05-01")),
+            ({"records__test_end": "2023-05"}, Q(records__test_end="2023-05-01")),
             (
                 {
                     "&": [
                         {"collection_month": "2022-01"},
-                        {"received_month": "2023-05"},
+                        {"records__test_end": "2023-05"},
                     ]
                 },
-                Q(collection_month="2022-01-01") & Q(received_month="2023-05-01"),
+                Q(collection_month="2022-01-01") & Q(records__test_end="2023-05-01"),
             ),
             (
                 {
                     "|": [
                         {"collection_month": "2022-01"},
-                        {"received_month": "2023-05"},
+                        {"records__test_end": "2023-05"},
                     ]
                 },
-                Q(collection_month="2022-01-01") | Q(received_month="2023-05-01"),
+                Q(collection_month="2022-01-01") | Q(records__test_end="2023-05-01"),
             ),
             (
                 {
@@ -60,14 +64,17 @@ class TestQueryView(OnyxDataTestCase):
                         {"collection_month": "2022-01"},
                         {
                             "|": [
-                                {"received_month": "2023-05"},
-                                {"received_month": "2023-06"},
+                                {"records__test_end": "2023-05"},
+                                {"records__test_end": "2023-06"},
                             ]
                         },
                     ]
                 },
                 Q(collection_month="2022-01-01")
-                & (Q(received_month="2023-05-01") | Q(received_month="2023-06-01")),
+                & (
+                    Q(records__test_end="2023-05-01")
+                    | Q(records__test_end="2023-03-01")
+                ),
             ),
             (
                 {
@@ -75,14 +82,17 @@ class TestQueryView(OnyxDataTestCase):
                         {"collection_month": "2022-01"},
                         {
                             "&": [
-                                {"received_month": "2023-05"},
-                                {"received_month": "2023-06"},
+                                {"records__test_end__gt": "2023-02"},
+                                {"records__test_end__lt": "2023-05"},
                             ],
                         },
                     ]
                 },
                 Q(collection_month="2022-01-01")
-                | (Q(received_month="2023-05-01") & Q(received_month="2023-06-01")),
+                | (
+                    Q(records__test_end__gt="2023-02-01")
+                    & Q(records__test_end__lt="2023-05-01")
+                ),
             ),
             (
                 {"~": {"collection_month": "2022-01"}},
@@ -93,31 +103,31 @@ class TestQueryView(OnyxDataTestCase):
                     "~": {
                         "&": [
                             {"collection_month": "2022-01"},
-                            {"received_month": "2023-05"},
+                            {"records__test_end": "2023-05"},
                         ]
                     }
                 },
-                ~(Q(collection_month="2022-01-01") & Q(received_month="2023-05-01")),
+                ~(Q(collection_month="2022-01-01") & Q(records__test_end="2023-05-01")),
             ),
             (
                 {
                     "~": {
                         "|": [
                             {"collection_month": "2022-01"},
-                            {"received_month": "2023-05"},
+                            {"records__test_end": "2023-05"},
                         ]
                     }
                 },
-                ~(Q(collection_month="2022-01-01") | Q(received_month="2023-05-01")),
+                ~(Q(collection_month="2022-01-01") | Q(records__test_end="2023-05-01")),
             ),
             (
                 {
                     "&": [
                         {"collection_month": "2022-01"},
-                        {"~": {"received_month": "2023-05"}},
+                        {"~": {"records__test_end": "2023-06"}},
                     ]
                 },
-                Q(collection_month="2022-01-01") & ~Q(received_month="2023-05-01"),
+                Q(collection_month="2022-01-01") & ~Q(records__test_end="2023-06-01"),
             ),
             (
                 {
@@ -125,9 +135,9 @@ class TestQueryView(OnyxDataTestCase):
                         {"collection_month": "2022-01"},
                         {
                             "|": [
-                                {"received_month": "2023-05"},
-                                {"received_month": "2023-06"},
-                                {"received_month": "2023-07"},
+                                {"records__test_end": "2023-01"},
+                                {"records__test_end": "2023-03"},
+                                {"records__test_end": "2023-05"},
                             ]
                         },
                     ]
@@ -135,9 +145,9 @@ class TestQueryView(OnyxDataTestCase):
                 xor(
                     Q(collection_month="2022-01-01"),
                     (
-                        Q(received_month="2023-05-01")
-                        | Q(received_month="2023-06-01")
-                        | Q(received_month="2023-07-01")
+                        Q(records__test_end="2023-01-01")
+                        | Q(records__test_end="2023-03-01")
+                        | Q(records__test_end="2023-05-01")
                     ),
                 ),
             ),

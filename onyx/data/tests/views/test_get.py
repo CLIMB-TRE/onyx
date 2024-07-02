@@ -1,22 +1,29 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
-from ..utils import OnyxTestCase, generate_test_data, _test_record
+from ..utils import OnyxTestCase, generate_test_data
 from projects.testproject.models import TestModel
 
 
 class TestGetView(OnyxTestCase):
     def setUp(self):
         super().setUp()
-        self.endpoint = lambda climb_id: reverse(
-            "projects.testproject.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
-        )
+
+        # Authenticate as the admin user to create the data
+        self.client.force_authenticate(self.admin_user)  # type: ignore
         response = self.client.post(
             reverse("projects.testproject", kwargs={"code": self.project.code}),
             data=next(iter(generate_test_data(n=1))),
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.climb_id = response.json()["data"]["climb_id"]
+
+        # Authenticate as the analyst user to retrieve the data
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
+        self.endpoint = lambda climb_id: reverse(
+            "projects.testproject.climb_id",
+            kwargs={"code": self.project.code, "climb_id": climb_id},
+        )
 
     def test_basic(self):
         """
@@ -25,8 +32,8 @@ class TestGetView(OnyxTestCase):
 
         response = self.client.get(self.endpoint(self.climb_id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        _test_record(
-            self, response.json()["data"], TestModel.objects.get(climb_id=self.climb_id)
+        self.assertEqualRecords(
+            response.json()["data"], TestModel.objects.get(climb_id=self.climb_id)
         )
 
     def test_include(self):
@@ -68,8 +75,7 @@ class TestGetView(OnyxTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertNotIn("climb_id", response.json()["data"])
-        _test_record(
-            self,
+        self.assertEqualRecords(
             response.json()["data"],
             TestModel.objects.get(climb_id=self.climb_id),
             created=True,
@@ -82,8 +88,7 @@ class TestGetView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertNotIn("climb_id", response.json()["data"])
         self.assertNotIn("published_date", response.json()["data"])
-        _test_record(
-            self,
+        self.assertEqualRecords(
             response.json()["data"],
             TestModel.objects.get(climb_id=self.climb_id),
             created=True,

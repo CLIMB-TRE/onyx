@@ -1,12 +1,15 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase
-from ...actions import Actions
 
 
 class TestProjectsView(OnyxTestCase):
     def setUp(self):
         super().setUp()
+
+        # Authenticate as the analyst user
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
         self.endpoint = reverse("projects")
 
     def test_basic(self):
@@ -21,9 +24,12 @@ class TestProjectsView(OnyxTestCase):
             [
                 {
                     "project": "testproject",
-                    "scope": "admin",
+                    "scope": "analyst",
                     "actions": [
-                        action.label for action in Actions if action != Actions.ACCESS
+                        "get",
+                        "list",
+                        "filter",
+                        "history",
                     ],
                 }
             ],

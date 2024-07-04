@@ -556,7 +556,10 @@ class SerializerNode:
                                     **(n.serializer.validated_data | {"link": instance})
                                 )
                             )
-                bulk_create_with_history(instances, n.serializer.Meta.model)
+                if instances:
+                    bulk_create_with_history(
+                        instances, n.serializer.Meta.model, batch_size=100
+                    )
             else:
                 node._save(link=instance)
 

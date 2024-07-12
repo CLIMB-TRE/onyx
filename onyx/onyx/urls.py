@@ -25,7 +25,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("projects/", include("data.urls")),
 ] + [
-    path(f"projects/{project}/", include(f"projects.{project}.urls"))
+    path("projects/", include(f"projects.{project}.urls"))
     for project in os.environ["ONYX_PROJECTS"].split(",")
 ]
 

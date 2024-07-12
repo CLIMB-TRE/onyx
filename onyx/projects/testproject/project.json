@@ -1,250 +1,214 @@
 {
-    "code": "testproject",
-    "name": "Test Project",
-    "description": "This is a test project",
-    "content_type": "testproject.testmodel",
-    "groups": [
+  "projects": [
+    {
+      "code": "testproject",
+      "name": "Test Project",
+      "description": "This is a test project",
+      "content_type": "testproject.testmodel"
+    }
+  ],
+  "contents": [
+    {
+      "code": "testproject",
+      "groups": [
         {
-            "scope": "admin",
-            "permissions": [
-                {
-                    "action": "add",
-                    "fields": [
-                        "site",
-                        "sample_id",
-                        "run_name"
-                    ]
-                },
-                {
-                    "action": [
-                        "history",
-                        "change"
-                    ],
-                    "fields": [
-                        "is_suppressed"
-                    ]
-                },
-                {
-                    "action": [
-                        "add",
-                        "change"
-                    ],
-                    "fields": [
-                        "is_published",
-                        "collection_month",
-                        "received_month",
-                        "char_max_length_20",
-                        "text_option_1",
-                        "text_option_2",
-                        "submission_date",
-                        "country",
-                        "region",
-                        "concern",
-                        "tests",
-                        "score",
-                        "start",
-                        "end",
-                        "required_when_published",
-                        "records",
-                        "records__test_id",
-                        "records__test_pass",
-                        "records__test_start",
-                        "records__test_end",
-                        "records__score_a",
-                        "records__score_b",
-                        "records__score_c",
-                        "records__test_result"
-                    ]
-                },
-                {
-                    "action": [
-                        "get",
-                        "list",
-                        "filter",
-                        "history"
-                    ],
-                    "fields": [
-                        "is_published",
-                        "is_suppressed",
-                        "is_site_restricted",
-                        "climb_id",
-                        "published_date",
-                        "site",
-                        "sample_id",
-                        "run_name",
-                        "collection_month",
-                        "received_month",
-                        "char_max_length_20",
-                        "text_option_1",
-                        "text_option_2",
-                        "submission_date",
-                        "country",
-                        "region",
-                        "concern",
-                        "tests",
-                        "score",
-                        "start",
-                        "end",
-                        "required_when_published",
-                        "records",
-                        "records__test_id",
-                        "records__test_pass",
-                        "records__test_start",
-                        "records__test_end",
-                        "records__score_a",
-                        "records__score_b",
-                        "records__score_c",
-                        "records__test_result"
-                    ]
-                },
-                {
-                    "action": "identify",
-                    "fields": [
-                        "sample_id",
-                        "run_name"
-                    ]
-                },
-                {
-                    "action": "delete",
-                    "fields": []
-                }
-            ]
+          "scope": "admin",
+          "permissions": [
+            {
+              "action": "add",
+              "fields": ["site", "sample_id", "run_name"]
+            },
+            {
+              "action": ["history", "change"],
+              "fields": ["is_suppressed"]
+            },
+            {
+              "action": ["add", "change"],
+              "fields": [
+                "is_published",
+                "collection_month",
+                "received_month",
+                "char_max_length_20",
+                "text_option_1",
+                "text_option_2",
+                "submission_date",
+                "country",
+                "region",
+                "concern",
+                "tests",
+                "score",
+                "start",
+                "end",
+                "required_when_published",
+                "records",
+                "records__test_id",
+                "records__test_pass",
+                "records__test_start",
+                "records__test_end",
+                "records__score_a",
+                "records__score_b",
+                "records__score_c",
+                "records__test_result"
+              ]
+            },
+            {
+              "action": ["get", "list", "filter", "history"],
+              "fields": [
+                "is_published",
+                "is_suppressed",
+                "is_site_restricted",
+                "climb_id",
+                "published_date",
+                "site",
+                "sample_id",
+                "run_name",
+                "collection_month",
+                "received_month",
+                "char_max_length_20",
+                "text_option_1",
+                "text_option_2",
+                "submission_date",
+                "country",
+                "region",
+                "concern",
+                "tests",
+                "score",
+                "start",
+                "end",
+                "required_when_published",
+                "records",
+                "records__test_id",
+                "records__test_pass",
+                "records__test_start",
+                "records__test_end",
+                "records__score_a",
+                "records__score_b",
+                "records__score_c",
+                "records__test_result"
+              ]
+            },
+            {
+              "action": "identify",
+              "fields": ["sample_id", "run_name"]
+            },
+            {
+              "action": "delete",
+              "fields": []
+            }
+          ]
         },
         {
-            "scope": "analyst",
-            "permissions": [
-                {
-                    "action": [
-                        "get",
-                        "list",
-                        "filter",
-                        "history"
-                    ],
-                    "fields": [
-                        "climb_id",
-                        "published_date",
-                        "site",
-                        "sample_id",
-                        "run_name",
-                        "collection_month",
-                        "received_month",
-                        "char_max_length_20",
-                        "text_option_1",
-                        "text_option_2",
-                        "submission_date",
-                        "country",
-                        "region",
-                        "concern",
-                        "tests",
-                        "score",
-                        "start",
-                        "end",
-                        "required_when_published",
-                        "records",
-                        "records__test_id",
-                        "records__test_pass",
-                        "records__test_start",
-                        "records__test_end",
-                        "records__score_a",
-                        "records__score_b",
-                        "records__score_c",
-                        "records__test_result"
-                    ]
-                }
-            ]
+          "scope": "analyst",
+          "permissions": [
+            {
+              "action": ["get", "list", "filter", "history"],
+              "fields": [
+                "climb_id",
+                "published_date",
+                "site",
+                "sample_id",
+                "run_name",
+                "collection_month",
+                "received_month",
+                "char_max_length_20",
+                "text_option_1",
+                "text_option_2",
+                "submission_date",
+                "country",
+                "region",
+                "concern",
+                "tests",
+                "score",
+                "start",
+                "end",
+                "required_when_published",
+                "records",
+                "records__test_id",
+                "records__test_pass",
+                "records__test_start",
+                "records__test_end",
+                "records__score_a",
+                "records__score_b",
+                "records__score_c",
+                "records__test_result"
+              ]
+            }
+          ]
         }
-    ],
-    "choices": [
+      ],
+      "choices": [
         {
-            "field": "site",
-            "options": [
-                "testsite_1",
-                "testsite_2"
-            ]
+          "field": "site",
+          "options": ["testsite_1", "testsite_2"]
         },
         {
-            "field": "country",
-            "options": [
-                {
-                    "choice": "eng",
-                    "description": "England"
-                },
-                {
-                    "choice": "wales",
-                    "description": "Wales"
-                },
-                {
-                    "choice": "scot",
-                    "description": "Scotland"
-                },
-                {
-                    "choice": "ni",
-                    "description": "N. Ireland"
-                }
-            ]
+          "field": "country",
+          "options": [
+            {
+              "choice": "eng",
+              "description": "England"
+            },
+            {
+              "choice": "wales",
+              "description": "Wales"
+            },
+            {
+              "choice": "scot",
+              "description": "Scotland"
+            },
+            {
+              "choice": "ni",
+              "description": "N. Ireland"
+            }
+          ]
         },
         {
-            "field": "region",
-            "options": [
-                "ne",
-                "nw",
-                "se",
-                "sw",
-                "other"
-            ]
+          "field": "region",
+          "options": ["ne", "nw", "se", "sw", "other"]
         }
-    ],
-    "choice_constraints": [
+      ],
+      "choice_constraints": [
         {
-            "field": "country",
-            "option": "eng",
-            "constraints": [
-                {
-                    "field": "region",
-                    "options": [
-                        "ne",
-                        "nw",
-                        "se",
-                        "sw"
-                    ]
-                }
-            ]
+          "field": "country",
+          "option": "eng",
+          "constraints": [
+            {
+              "field": "region",
+              "options": ["ne", "nw", "se", "sw"]
+            }
+          ]
         },
         {
-            "field": "country",
-            "option": "wales",
-            "constraints": [
-                {
-                    "field": "region",
-                    "options": [
-                        "other"
-                    ]
-                }
-            ]
+          "field": "country",
+          "option": "wales",
+          "constraints": [
+            {
+              "field": "region",
+              "options": ["other"]
+            }
+          ]
         },
         {
-            "field": "country",
-            "option": "scot",
-            "constraints": [
-                {
-                    "field": "region",
-                    "options": [
-                        "other"
-                    ]
-                }
-            ]
+          "field": "country",
+          "option": "scot",
+          "constraints": [
+            {
+              "field": "region",
+              "options": ["other"]
+            }
+          ]
         },
         {
-            "field": "country",
-            "option": "ni",
-            "constraints": [
-                {
-                    "field": "region",
-                    "options": [
-                        "other"
-                    ]
-                }
-            ]
+          "field": "country",
+          "option": "ni",
+          "constraints": [
+            {
+              "field": "region",
+              "options": ["other"]
+            }
+          ]
         }
-    ]
+      ]
+    }
+  ]
 }

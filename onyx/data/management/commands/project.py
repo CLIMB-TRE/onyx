@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List, Union
+from typing import Optional, List
 from pydantic import BaseModel, field_validator
 from django.core.management import base
 from django.contrib.auth.models import Group, Permission
@@ -38,7 +38,7 @@ class ChoiceInfoConfig(BaseModel):
 
 class ChoiceConfig(BaseModel):
     field: str
-    options: List[Union[str, ChoiceInfoConfig]]
+    options: List[str | ChoiceInfoConfig]
 
 
 class ChoiceConstraintConfig(BaseModel):
@@ -52,16 +52,25 @@ class ProjectConfig(BaseModel):
     name: Optional[str]
     description: Optional[str]
     content_type: str
+
+
+class ContentsConfig(BaseModel):
+    code: str | List[str]
     groups: Optional[List[GroupConfig]]
     choices: Optional[List[ChoiceConfig]]
     choice_constraints: Optional[List[ChoiceConstraintConfig]]
+
+
+class Config(BaseModel):
+    projects: List[ProjectConfig]
+    contents: Optional[List[ContentsConfig]]
 
 
 class Command(base.BaseCommand):
     help = "Create/manage projects."
 
     def add_arguments(self, parser):
-        parser.add_argument("project_config")
+        parser.add_argument("config")
         parser.add_argument("--quiet", action="store_true")
 
     def print(self, *args, **kwargs):
@@ -71,14 +80,15 @@ class Command(base.BaseCommand):
     def handle(self, *args, **options):
         self.quiet = options["quiet"]
 
-        with open(options["project_config"]) as project_config_file:
-            project_config = ProjectConfig.model_validate(
-                json.load(project_config_file)
-            )
+        with open(options["config"]) as config_file:
+            config = Config.model_validate(json.load(config_file))
 
-        self.set_project(project_config)
+        for project_config in config.projects:
+            self.set_project(project_config, config.contents)
 
-    def set_project(self, project_config: ProjectConfig):
+    def set_project(
+        self, project_config: ProjectConfig, contents: Optional[List[ContentsConfig]]
+    ):
         """
         Create/update the project.
         """
@@ -87,7 +97,7 @@ class Command(base.BaseCommand):
         app, _, model = project_config.content_type.partition(".")
 
         # Create or retrieve the project
-        self.project, p_created = Project.objects.update_or_create(
+        project, p_created = Project.objects.update_or_create(
             code=project_config.code,
             defaults={
                 # If no name was provided, use the code
@@ -103,29 +113,62 @@ class Command(base.BaseCommand):
         )
 
         if p_created:
-            self.print(f"Creating project: {self.project.code}")
+            self.print(f"Creating project: {project.code}")
         else:
-            self.print(f"Updating project: {self.project.code}")
+            self.print(f"Updating project: {project.code}")
 
-        if project_config.groups:
-            self.set_groups(project_config.groups)
+        if contents:
+            groups = []
+            choices = []
+            choice_constraints = []
 
-        if project_config.choices:
-            self.set_choices(project_config.choices)
+            for content in contents:
+                if (
+                    isinstance(content.code, list)
+                    and project_config.code in content.code
+                ) or (
+                    isinstance(content.code, str)
+                    and project_config.code == content.code
+                ):
+                    if content.groups:
+                        if not groups:
+                            groups.extend(content.groups)
+                        else:
+                            for group in content.groups:
+                                for existing_group in groups:
+                                    if group.scope == existing_group.scope:
+                                        existing_group.permissions.extend(
+                                            group.permissions
+                                        )
+                                        break
+                                else:
+                                    groups.append(group)
 
-        if project_config.choice_constraints:
-            self.set_choice_constraints(project_config.choice_constraints)
+                    if content.choices:
+                        choices.extend(content.choices)
+
+                    if content.choice_constraints:
+                        choice_constraints.extend(content.choice_constraints)
+
+            if groups:
+                self.set_groups(project, groups)
+
+            if choices:
+                self.set_choices(project, choices)
+
+            if choice_constraints:
+                self.set_choice_constraints(project, choice_constraints)
 
         if p_created:
-            self.print(f"Created project: {self.project.code}")
+            self.print(f"Created project: {project.code}")
         else:
-            self.print(f"Updated project: {self.project.code}")
+            self.print(f"Updated project: {project.code}")
 
-        self.print("• Name:", self.project.name)
-        self.print("• Description:", self.project.description)
-        self.print("• Model:", self.project.content_type.model_class())
+        self.print("• Name:", project.name)
+        self.print("• Description:", project.description)
+        self.print("• Model:", project.content_type.model_class())
 
-    def set_groups(self, group_configs: List[GroupConfig]):
+    def set_groups(self, project: Project, group_configs: List[GroupConfig]):
         """
         Create/update the groups for the project.
         """
@@ -135,7 +178,7 @@ class Command(base.BaseCommand):
         for group_config in group_configs:
             # Create or retrieve underlying permissions group
             # This is based on project code and scope
-            name = f"{self.project.code}.{group_config.scope}"
+            name = f"{project.code}.{group_config.scope}"
             group, g_created = Group.objects.get_or_create(name=name)
 
             if g_created:
@@ -147,13 +190,13 @@ class Command(base.BaseCommand):
             permissions = []
 
             # Permission to access project
-            access_project_codename = f"access_{self.project.code}"
+            access_project_codename = f"access_{project.code}"
             access_project_permission, access_project_created = (
                 Permission.objects.get_or_create(
-                    content_type=self.project.content_type,
+                    content_type=project.content_type,
                     codename=access_project_codename,
                     defaults={
-                        "name": f"Can access {self.project.code}",
+                        "name": f"Can access {project.code}",
                     },
                 )
             )
@@ -172,13 +215,13 @@ class Command(base.BaseCommand):
 
                 for action in actions:
                     # Permission to action on project
-                    action_project_codename = f"{action}_{self.project.code}"
+                    action_project_codename = f"{action}_{project.code}"
                     action_project_permission, action_project_created = (
                         Permission.objects.get_or_create(
-                            content_type=self.project.content_type,
+                            content_type=project.content_type,
                             codename=action_project_codename,
                             defaults={
-                                "name": f"Can {action} {self.project.code}",
+                                "name": f"Can {action} {project.code}",
                             },
                         )
                     )
@@ -191,13 +234,13 @@ class Command(base.BaseCommand):
                         assert field, "Field cannot be empty."
 
                         # Permission to access field
-                        access_field_codename = f"access_{self.project.code}__{field}"
+                        access_field_codename = f"access_{project.code}__{field}"
                         access_field_permission, access_field_created = (
                             Permission.objects.get_or_create(
-                                content_type=self.project.content_type,
+                                content_type=project.content_type,
                                 codename=access_field_codename,
                                 defaults={
-                                    "name": f"Can access {self.project.code} {field}",
+                                    "name": f"Can access {project.code} {field}",
                                 },
                             )
                         )
@@ -206,13 +249,13 @@ class Command(base.BaseCommand):
                         permissions.append(access_field_permission)
 
                         # Permission to action on field
-                        action_field_codename = f"{action}_{self.project.code}__{field}"
+                        action_field_codename = f"{action}_{project.code}__{field}"
                         action_field_permission, action_field_created = (
                             Permission.objects.get_or_create(
-                                content_type=self.project.content_type,
+                                content_type=project.content_type,
                                 codename=action_field_codename,
                                 defaults={
-                                    "name": f"Can {action} {self.project.code} {field}",
+                                    "name": f"Can {action} {project.code} {field}",
                                 },
                             )
                         )
@@ -239,7 +282,7 @@ class Command(base.BaseCommand):
             projectgroup, pg_created = ProjectGroup.objects.update_or_create(
                 group=group,
                 defaults={
-                    "project": self.project,
+                    "project": project,
                     "scope": scope,
                     "actions": ",".join(group_actions),
                 },
@@ -254,7 +297,7 @@ class Command(base.BaseCommand):
                 )
             self.print(f"• Actions: {' | '.join(group_actions)}")
 
-    def set_choices(self, choice_configs: List[ChoiceConfig]):
+    def set_choices(self, project: Project, choice_configs: List[ChoiceConfig]):
         """
         Create/update the choices for the project.
         """
@@ -271,7 +314,7 @@ class Command(base.BaseCommand):
 
                 try:
                     instance = Choice.objects.get(
-                        project_id=self.project.code,
+                        project_id=project.code,
                         field=choice_config.field,
                         choice__iexact=choice,
                     )
@@ -281,12 +324,13 @@ class Command(base.BaseCommand):
                         instance.is_active = True
                         instance.save()
                         self.print(
-                            f"Reactivated choice: {self.project.code} | {instance.field} | {instance.choice}",
+                            f"Reactivated choice: {project.code} | {instance.field} | {instance.choice}",
                         )
                     else:
-                        self.print(
-                            f"Active choice: {self.project.code} | {instance.field} | {instance.choice}",
-                        )
+                        # self.print(
+                        #     f"Active choice: {project.code} | {instance.field} | {instance.choice}",
+                        # )
+                        pass
 
                     if instance.choice != choice:
                         # The case of the choice has changed
@@ -295,30 +339,30 @@ class Command(base.BaseCommand):
                         instance.choice = choice
                         instance.save()
                         self.print(
-                            f"Renamed choice: {self.project.code} | {instance.field} | {old} -> {instance.choice}"
+                            f"Renamed choice: {project.code} | {instance.field} | {old} -> {instance.choice}"
                         )
 
                     if instance.description != description:
                         instance.description = description
                         instance.save()
                         self.print(
-                            f"Changed choice description: {self.project.code} | {instance.field} | {instance.choice}",
+                            f"Changed choice description: {project.code} | {instance.field} | {instance.choice}",
                         )
 
                 except Choice.DoesNotExist:
                     instance = Choice.objects.create(
-                        project_id=self.project.code,
+                        project_id=project.code,
                         field=choice_config.field,
                         choice=choice,
                         description=description,
                     )
                     self.print(
-                        f"Created choice: {self.project.code} | {instance.field} | {instance.choice}",
+                        f"Created choice: {project.code} | {instance.field} | {instance.choice}",
                     )
 
             # Deactivate choices no longer in the set
             instances = Choice.objects.filter(
-                project_id=self.project.code,
+                project_id=project.code,
                 field=choice_config.field,
                 is_active=True,
             )
@@ -333,23 +377,23 @@ class Command(base.BaseCommand):
                     instance.is_active = False
                     instance.save()
                     self.print(
-                        f"Deactivated choice: {self.project.code} | {instance.field} | {instance.choice}",
+                        f"Deactivated choice: {project.code} | {instance.field} | {instance.choice}",
                     )
 
     def set_choice_constraints(
-        self, choice_constraint_configs: List[ChoiceConstraintConfig]
+        self, project: Project, choice_constraint_configs: List[ChoiceConstraintConfig]
     ):
         """
         Create/update the choice constraints for the project.
         """
 
         # Empty constraints for the project
-        for choice in Choice.objects.filter(project_id=self.project.code):
+        for choice in Choice.objects.filter(project_id=project.code):
             choice.constraints.clear()
 
         for choice_constraint_config in choice_constraint_configs:
             choice_instance = Choice.objects.get(
-                project_id=self.project.code,
+                project_id=project.code,
                 field=choice_constraint_config.field,
                 choice__iexact=choice_constraint_config.option,
             )
@@ -358,7 +402,7 @@ class Command(base.BaseCommand):
                 # Get each constraint choice instance
                 constraint_instances = [
                     Choice.objects.get(
-                        project_id=self.project.code,
+                        project_id=project.code,
                         field=constraint.field,
                         choice__iexact=constraint_option,
                     )
@@ -372,7 +416,7 @@ class Command(base.BaseCommand):
                     choice_instance.constraints.add(constraint_instance)
                     constraint_instance.constraints.add(choice_instance)
                     self.print(
-                        f"Set constraint: {self.project.code} | ({choice_instance.field}, {choice_instance.choice}) | ({constraint_instance.field}, {constraint_instance.choice})",
+                        f"Set constraint: {project.code} | ({choice_instance.field}, {choice_instance.choice}) | ({constraint_instance.field}, {constraint_instance.choice})",
                     )
 
         # Check that each constraint in a choice's constraint set also has the choice itself as a constraint

@@ -54,7 +54,7 @@ class ProjectConfig(BaseModel):
     content_type: str
 
 
-class ContentsConfig(BaseModel):
+class ProjectContentsConfig(BaseModel):
     code: str | List[str]
     groups: Optional[List[GroupConfig]]
     choices: Optional[List[ChoiceConfig]]
@@ -63,7 +63,7 @@ class ContentsConfig(BaseModel):
 
 class Config(BaseModel):
     projects: List[ProjectConfig]
-    contents: Optional[List[ContentsConfig]]
+    contents: Optional[List[ProjectContentsConfig]]
 
 
 class Command(base.BaseCommand):
@@ -87,7 +87,9 @@ class Command(base.BaseCommand):
             self.set_project(project_config, config.contents)
 
     def set_project(
-        self, project_config: ProjectConfig, contents: Optional[List[ContentsConfig]]
+        self,
+        project_config: ProjectConfig,
+        contents: Optional[List[ProjectContentsConfig]],
     ):
         """
         Create/update the project.
@@ -131,18 +133,13 @@ class Command(base.BaseCommand):
                     and project_config.code == content.code
                 ):
                     if content.groups:
-                        if not groups:
-                            groups.extend(content.groups)
-                        else:
-                            for group in content.groups:
-                                for existing_group in groups:
-                                    if group.scope == existing_group.scope:
-                                        existing_group.permissions.extend(
-                                            group.permissions
-                                        )
-                                        break
-                                else:
-                                    groups.append(group)
+                        for group in content.groups:
+                            for existing_group in groups:
+                                if group.scope == existing_group.scope:
+                                    existing_group.permissions.extend(group.permissions)
+                                    break
+                            else:
+                                groups.append(group)
 
                     if content.choices:
                         choices.extend(content.choices)
@@ -279,12 +276,19 @@ class Command(base.BaseCommand):
 
         # Create/update the corresponding projectgroup for each group
         for scope, (group, group_actions) in groups.items():
+            # Format actions
+            group_actions_set = set(group_actions)
+            actions = [
+                action for action in ACTION_LABELS if action in group_actions_set
+            ]
+            assert len(group_actions_set) == len(actions)
+
             projectgroup, pg_created = ProjectGroup.objects.update_or_create(
                 group=group,
                 defaults={
                     "project": project,
                     "scope": scope,
-                    "actions": ",".join(group_actions),
+                    "actions": ",".join(actions),
                 },
             )
             if pg_created:
@@ -295,7 +299,7 @@ class Command(base.BaseCommand):
                 self.print(
                     f"Updated project group: {projectgroup.project.code} | {projectgroup.scope}"
                 )
-            self.print(f"• Actions: {' | '.join(group_actions)}")
+            self.print(f"• Actions: {' | '.join(actions)}")
 
     def set_choices(self, project: Project, choice_configs: List[ChoiceConfig]):
         """

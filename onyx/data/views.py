@@ -9,7 +9,7 @@ from django.db.models import Count, Subquery, Q
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
@@ -124,7 +124,17 @@ class ProjectAPIView(APIView):
             {field: value}
             for field in request.query_params
             for value in request.query_params.getlist(field)
-            if field not in {"cursor", "include", "exclude", "summarise", "search"}
+            if field
+            not in {
+                "cursor",
+                "include",
+                "exclude",
+                "summarise",
+                "search",
+                "order",
+                "page",
+                "count",
+            }
         ]
 
         # Build extra query parameters
@@ -142,6 +152,12 @@ class ProjectAPIView(APIView):
 
         # Search used in filter/query
         self.search = request.query_params.get("search")
+
+        self.order = request.query_params.get("order")
+
+        self.page = request.query_params.get("page")
+
+        self.count = request.query_params.get("count")
 
         # Build request body
         try:
@@ -834,9 +850,21 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             if q_object:
                 qs = qs.filter(id__in=Subquery(qs.filter(q_object).values("id")))
 
+            if self.count:
+                # Return response with queryset count
+                return Response({"count": qs.count()})
+
             # Prepare paginator
-            self.paginator = CursorPagination()
-            self.paginator.ordering = "created"
+            if self.order or self.page:
+                self.paginator = PageNumberPagination()
+
+                if self.order:
+                    qs = qs.order_by(self.order)
+                else:
+                    qs = qs.order_by("created")
+            else:
+                self.paginator = CursorPagination()
+                self.paginator.ordering = "created"
 
             # Paginate the response
             result_page = self.paginator.paginate_queryset(qs, request)

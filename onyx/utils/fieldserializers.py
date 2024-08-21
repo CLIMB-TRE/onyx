@@ -100,7 +100,7 @@ class ChoiceField(serializers.ChoiceField):
             # If not, fetch the choices from the database
             self.choices = list(
                 Choice.objects.filter(
-                    project_id=self.context["project"],
+                    project=self.context["project"],
                     field=self.field,
                     is_active=True,
                 ).values_list(

@@ -37,7 +37,7 @@ class OnyxField:
 
     def __init__(
         self,
-        project: str,
+        project: Project,
         field_model: type[models.Model],
         field_path: str,
         lookup: str,
@@ -135,7 +135,7 @@ class FieldHandler:
     - Checks whether the user has permission to action on the resolved fields.
     """
 
-    __slots__ = "code", "model", "app_label", "action", "user", "fields"
+    __slots__ = "project", "model", "app_label", "action", "user", "fields"
 
     def __init__(
         self,
@@ -143,7 +143,7 @@ class FieldHandler:
         action: str,
         user: User,
     ) -> None:
-        self.code = project.code
+        self.project = project
         model = project.content_type.model_class()
         assert model is not None
         assert issubclass(model, ProjectRecord)
@@ -170,7 +170,7 @@ class FieldHandler:
             for permission in self.user.get_all_permissions():
                 _, action, project, field = parse_permission(permission)
 
-                if action == self.action and project == self.code and field:
+                if action == self.action and project == self.project.code and field:
                     fields.append(field)
 
             self.fields = fields
@@ -218,7 +218,7 @@ class FieldHandler:
         field_access_permission = get_permission(
             app_label=self.app_label,
             action=Actions.ACCESS.label,
-            code=self.code,
+            code=self.project.code,
             field=onyx_field.field_path,
         )
 
@@ -232,7 +232,7 @@ class FieldHandler:
         field_action_permission = get_permission(
             app_label=self.app_label,
             action=self.action,
-            code=self.code,
+            code=self.project.code,
             field=onyx_field.field_path,
         )
 
@@ -293,7 +293,7 @@ class FieldHandler:
                 # This could fail if the lookup is not allowed for the given field
 
                 onyx_field = OnyxField(
-                    project=self.code,
+                    project=self.project,
                     field_model=current_model,
                     field_path=field_path,
                     lookup=lookup,

@@ -1,7 +1,7 @@
 from typing import Any
 from django.db import models
 from datetime import datetime
-from .models import Choice
+from .models import Choice, Project
 
 
 EMPTY_VALUES = [None, ""]
@@ -129,7 +129,7 @@ def validate_choice_constraints(
     errors: dict[str, list[str]],
     data: dict[str, Any],
     choice_constraints: list[tuple[str, str]],
-    project: str,
+    project: Project,
     instance: type[models.Model] | None = None,
 ):
     """
@@ -145,7 +145,7 @@ def validate_choice_constraints(
             for constraint in choice.constraints.all()
         }
         for choice in Choice.objects.prefetch_related("constraints")
-        .filter(project_id=project)
+        .filter(project=project)
         .filter(
             field__in=set(
                 field

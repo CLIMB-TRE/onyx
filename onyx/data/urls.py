@@ -1,5 +1,5 @@
-from django.urls import path, re_path
-from django.urls.resolvers import URLPattern
+from django.urls import include, path, re_path
+from django.urls.resolvers import URLResolver
 from . import views
 from .serializers import ProjectRecordSerializer
 
@@ -25,7 +25,7 @@ urlpatterns = [
 
 def generate_project_urls(
     code: str, serializer_class: type[ProjectRecordSerializer]
-) -> list[URLPattern]:
+) -> URLResolver:
     """
     Generate the URL patterns for a project.
 
@@ -37,7 +37,7 @@ def generate_project_urls(
         A list of URL patterns.
     """
 
-    return [
+    project_patterns = [
         path(
             "",
             views.ProjectRecordsViewSet.as_view({"post": "create", "get": "list"}),
@@ -95,3 +95,5 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
     ]
+
+    return path(f"{code}/", include(project_patterns))

@@ -17,7 +17,7 @@ from data.models import BaseRecord, ProjectRecord
 __version__ = "0.1.0"
 
 
-class TestModel(ProjectRecord):
+class BaseTestModel(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
@@ -40,6 +40,7 @@ class TestModel(ProjectRecord):
     required_when_published = models.TextField(blank=True)
 
     class Meta:
+        abstract = True
         default_permissions = []
         indexes = [
             models.Index(fields=["created"]),
@@ -91,10 +92,7 @@ class TestModel(ProjectRecord):
         ]
 
 
-class TestModelRecord(BaseRecord):
-    link = models.ForeignKey(
-        TestModel, on_delete=models.CASCADE, related_name="records"
-    )
+class BaseTestModelRecord(BaseRecord):
     test_id = models.IntegerField()
     test_pass = models.BooleanField()
     test_start = models.DateField()
@@ -105,6 +103,7 @@ class TestModelRecord(BaseRecord):
     test_result = models.TextField(blank=True)
 
     class Meta:
+        abstract = True
         default_permissions = []
         indexes = [
             models.Index(fields=["created"]),
@@ -138,3 +137,17 @@ class TestModelRecord(BaseRecord):
                 required=["test_result"],
             ),
         ]
+
+
+class TestModel(BaseTestModel):
+    class Meta(BaseTestModel.Meta):
+        pass
+
+
+class TestModelRecord(BaseTestModelRecord):
+    link = models.ForeignKey(
+        TestModel, on_delete=models.CASCADE, related_name="records"
+    )
+
+    class Meta(BaseTestModelRecord.Meta):
+        pass

@@ -43,7 +43,7 @@ class ProjectGroup(models.Model):
 # TODO: Possibly some additional model, ChoiceLink, to link different names to the same set of choices?
 # At the moment, to work with the filters, the field name must match the choice
 class Choice(models.Model):
-    project = models.ForeignKey(Project, to_field="code", on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
     field = models.TextField()
     choice = models.TextField()
     description = models.TextField(blank=True)

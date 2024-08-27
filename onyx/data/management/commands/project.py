@@ -318,7 +318,7 @@ class Command(base.BaseCommand):
 
                 try:
                     instance = Choice.objects.get(
-                        project_id=project.code,
+                        project=project,
                         field=choice_config.field,
                         choice__iexact=choice,
                     )
@@ -355,7 +355,7 @@ class Command(base.BaseCommand):
 
                 except Choice.DoesNotExist:
                     instance = Choice.objects.create(
-                        project_id=project.code,
+                        project=project,
                         field=choice_config.field,
                         choice=choice,
                         description=description,
@@ -366,7 +366,7 @@ class Command(base.BaseCommand):
 
             # Deactivate choices no longer in the set
             instances = Choice.objects.filter(
-                project_id=project.code,
+                project=project,
                 field=choice_config.field,
                 is_active=True,
             )
@@ -392,12 +392,12 @@ class Command(base.BaseCommand):
         """
 
         # Empty constraints for the project
-        for choice in Choice.objects.filter(project_id=project.code):
+        for choice in Choice.objects.filter(project=project):
             choice.constraints.clear()
 
         for choice_constraint_config in choice_constraint_configs:
             choice_instance = Choice.objects.get(
-                project_id=project.code,
+                project=project,
                 field=choice_constraint_config.field,
                 choice__iexact=choice_constraint_config.option,
             )
@@ -406,7 +406,7 @@ class Command(base.BaseCommand):
                 # Get each constraint choice instance
                 constraint_instances = [
                     Choice.objects.get(
-                        project_id=project.code,
+                        project=project,
                         field=constraint.field,
                         choice__iexact=constraint_option,
                     )

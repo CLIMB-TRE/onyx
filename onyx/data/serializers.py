@@ -206,7 +206,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
                 errors=errors,
                 data=data,
                 choice_constraints=self.OnyxMeta.choice_constraints,
-                project=self.context["project"].code,
+                project=self.context["project"],
                 instance=self.instance,
             )
 

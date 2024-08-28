@@ -11,6 +11,9 @@ class Site(models.Model):
     is_active = models.BooleanField(default=True)
     projects = models.ManyToManyField("data.Project", related_name="sites")
 
+    def __str__(self):
+        return self.code
+
 
 class User(AbstractUser):
     username = LowerCharField(

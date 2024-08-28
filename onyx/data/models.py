@@ -20,6 +20,9 @@ class Project(models.Model):
     description = models.TextField(blank=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
 
+    def __str__(self):
+        return self.code
+
 
 class ProjectGroup(models.Model):
     group = models.OneToOneField(
@@ -37,6 +40,9 @@ class ProjectGroup(models.Model):
                 fields=["project", "scope"],
             ),
         ]
+
+    def __str__(self):
+        return self.group.name
 
 
 # TODO: Change project to namespace? Or omit it entirely?
@@ -60,6 +66,9 @@ class Choice(models.Model):
             ),
         ]
 
+    def __str__(self):
+        return f"{self.project.code} | {self.field} | {self.choice}"
+
 
 def generate_climb_id():
     """
@@ -79,6 +88,9 @@ def generate_climb_id():
 
 class ClimbID(models.Model):
     climb_id = UpperCharField(default=generate_climb_id, max_length=12, unique=True)
+
+    def __str__(self):
+        return self.climb_id
 
 
 class BaseRecord(models.Model):
@@ -115,6 +127,9 @@ class BaseRecord(models.Model):
                 )
 
         return errors
+
+    def __str__(self):
+        return str(self.uuid)
 
 
 class ProjectRecord(BaseRecord):
@@ -162,6 +177,9 @@ class ProjectRecord(BaseRecord):
             self.published_date = datetime.today().date()
 
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.climb_id
 
 
 class Anonymiser(models.Model):
@@ -215,3 +233,6 @@ class Anonymiser(models.Model):
             self.identifier = self.generate_identifier()
 
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.identifier

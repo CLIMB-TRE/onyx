@@ -55,3 +55,6 @@ class RequestHistory(models.Model):
     exec_time = models.IntegerField(null=True)
     date = models.DateTimeField(auto_now=True)
     error_messages = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.user.username if self.user else '-'} | {self.method} | {self.endpoint} | {self.status}"

@@ -164,6 +164,9 @@ class ProjectRecord(BaseRecord):
         default=False,
         help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
     )
+    identifiers = models.ManyToManyField(
+        "data.Anonymiser", related_name="%(class)s_records"
+    )
 
     class Meta:
         abstract = True
@@ -236,3 +239,58 @@ class Anonymiser(models.Model):
 
     def __str__(self):
         return self.identifier
+
+
+def generate_analysis_id():
+    """
+    Generate a random new Analysis ID.
+
+    The Analysis ID consists of the prefix `A-` followed by 10 random hexadecimal numbers.
+
+    This means there are `16^10 = 1,099,511,627,776` Analysis IDs to choose from.
+    """
+    analysis_id = "A-" + "".join(token_hex(5).upper())
+
+    if AnalysisID.objects.filter(analysis_id=analysis_id).exists():
+        analysis_id = generate_analysis_id()
+
+    return analysis_id
+
+
+class AnalysisID(models.Model):
+    analysis_id = UpperCharField(
+        default=generate_analysis_id, max_length=12, unique=True
+    )
+
+    def __str__(self):
+        return self.analysis_id
+
+
+class ProjectAnalysis(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    analysis_id = UpperCharField(
+        max_length=12,
+        unique=True,
+        help_text="Unique identifier for a project analysis in Onyx.",
+    )
+    published_date = models.DateField(
+        help_text="The date the project analysis was published in Onyx.",
+    )
+    name = StrippedCharField(max_length=100, unique=True)
+    identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            analysis_id = AnalysisID.objects.create()
+            self.analysis_id = analysis_id.analysis_id
+
+        if self.published_date is None:
+            self.published_date = datetime.today().date()
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.analysis_id

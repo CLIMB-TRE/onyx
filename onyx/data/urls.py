@@ -103,7 +103,7 @@ def generate_project_urls(
             [
                 re_path(
                     r"^analysis/$",
-                    views.ProjectAnalysisViewset.as_view(
+                    views.ProjectAnalysisViewSet.as_view(
                         {"post": "create", "get": "list"}
                     ),
                     name=f"projects.{code}.analysis",
@@ -115,7 +115,7 @@ def generate_project_urls(
                 ),
                 re_path(
                     r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
-                    views.ProjectAnalysisViewset.as_view(
+                    views.ProjectAnalysisViewSet.as_view(
                         {
                             "get": "retrieve",
                             "patch": "partial_update",

@@ -961,7 +961,7 @@ class ProjectRecordsViewSet(ProjectViewSet):
         return Response(data)
 
 
-class ProjectAnalysisViewset(ProjectViewSet):
+class ProjectAnalysisViewSet(ProjectViewSet):
     permission_classes = ProjectApproved + [IsSiteMember]
 
     def initial(self, request: Request, *args, **kwargs):

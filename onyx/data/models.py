@@ -18,7 +18,17 @@ class Project(models.Model):
     code = LowerCharField(max_length=50, unique=True)
     name = StrippedCharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.PROTECT,
+        related_name="project",
+    )
+    analysis_content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="analysis_project",
+    )
 
     def __str__(self):
         return self.code
@@ -164,9 +174,6 @@ class ProjectRecord(BaseRecord):
         default=False,
         help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
     )
-    identifiers = models.ManyToManyField(
-        "data.Anonymiser", related_name="%(class)s_records"
-    )
 
     class Meta:
         abstract = True
@@ -276,8 +283,17 @@ class ProjectAnalysis(models.Model):
     published_date = models.DateField(
         help_text="The date the project analysis was published in Onyx.",
     )
+    analysis_date = models.DateField(
+        null=True,
+        help_text="The date the analysis was carried out.",
+    )
     name = StrippedCharField(max_length=100, unique=True)
+    details = models.TextField(blank=True)
+    result = models.TextField(blank=True)
+    report = models.TextField(blank=True)
+    outputs = models.TextField(blank=True)
     identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
+    related_analyses = models.ManyToManyField("self", blank=True)
 
     class Meta:
         abstract = True

@@ -582,3 +582,51 @@ class SerializerNode:
             raise e.__cause__
 
         return instance
+
+
+class AnonymiserRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        project = self.context["project"]
+        queryset = Anonymiser.objects.filter(project=project)
+        return queryset
+
+
+class ProjectRecordsRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        model = self.context["model"]
+        queryset = model.objects.all()
+        return queryset
+
+
+class ProjectAnalysisRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        queryset = self.root.Meta.model.objects.all()  # type: ignore
+        return queryset
+
+
+class ProjectAnalysisSerializer(serializers.ModelSerializer):
+    """
+    Base serializer for all project analyses.
+    """
+
+    analysis_id = serializers.CharField(required=False)
+    published_date = serializers.DateField(required=False)
+    identifiers = AnonymiserRelatedField(many=True, slug_field="identifier")
+    records = ProjectRecordsRelatedField(many=True, slug_field="climb_id")
+    related_analyses = ProjectAnalysisRelatedField(many=True, slug_field="analysis_id")
+
+    class Meta:
+        model: models.Model | None = None
+        fields = [
+            "analysis_id",
+            "published_date",
+            "analysis_date",
+            "name",
+            "details",
+            "result",
+            "report",
+            "outputs",
+            "identifiers",
+            "records",
+            "related_analyses",
+        ]

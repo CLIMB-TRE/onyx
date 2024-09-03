@@ -14,14 +14,14 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
-from .models import Project, Choice, ProjectRecord, Anonymiser
+from .models import Project, Choice, ProjectRecord, Anonymiser, ProjectAnalysis
 from .serializers import (
     HistoryDiffSerializer,
     SummarySerializer,
     IdentifierSerializer,
     SerializerNode,
 )
-from .exceptions import ClimbIDNotFound, IdentifierNotFound
+from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType, OnyxLookup
@@ -73,7 +73,7 @@ class RequestBody(pydantic.RootModel):
         Annotated[
             Annotated[RequestBody, pydantic.Tag("dict")]
             | Annotated[
-                list[RequestBody],
+                list[RequestBody | str | int | float | bool | None],
                 pydantic.Tag("list"),
                 pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]),
             ]
@@ -532,8 +532,10 @@ class IdentifyView(ProjectAPIView):
         )
 
 
-class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
+class ProjectViewSet(ViewSetMixin, ProjectAPIView):
+    """
+    `ViewSet` with some additional initial setup for working with a specific project.
+    """
 
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
@@ -562,6 +564,10 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 raise exceptions.MethodNotAllowed(self.request.method)
 
         super().initial(request, *args, **kwargs)
+
+
+class ProjectRecordsViewSet(ProjectViewSet):
+    permission_classes = ProjectApproved + [IsSiteMember]
 
     def create(self, request: Request, code: str, test: bool = False) -> Response:
         """
@@ -953,3 +959,131 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
         # Return response indicating deletion
         return Response(data)
+
+
+class ProjectAnalysisViewset(ProjectViewSet):
+    permission_classes = ProjectApproved + [IsSiteMember]
+
+    def initial(self, request: Request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+
+        assert self.project.analysis_content_type is not None
+
+        # Get the project's analysis model
+        analysis_model = self.project.analysis_content_type.model_class()
+        assert analysis_model is not None
+        assert issubclass(analysis_model, ProjectAnalysis)
+        self.analysis_model = analysis_model
+
+        # Get the analysis model's serializer
+        self.analysis_serializer_cls = self.kwargs["analysis_serializer_class"]
+        self.kwargs.pop("analysis_serializer_class")
+
+    def create(self, request: Request, code: str) -> Response:
+        """
+        Create an analysis for the given project `code`.
+        """
+
+        # Validate the request data fields
+        serializer = self.analysis_serializer_cls(
+            data=self.request_data,
+            context={
+                "project": self.project,
+                "model": self.model,
+                "analysis_model": self.analysis_model,
+            },
+        )
+
+        if not serializer.is_valid():
+            raise exceptions.ValidationError(serializer.errors)
+
+        # Create the instance
+        instance = serializer.save()
+
+        # Return response indicating creation
+        return Response(
+            {"analysis_id": instance.analysis_id}, status=status.HTTP_201_CREATED
+        )
+
+    def retrieve(self, request: Request, code: str, analysis_id: int) -> Response:
+        """
+        Use the `analysis_id` to retrieve an analysis for the given project `code`.
+        """
+
+        # Get the instance
+        # If the instance does not exist, return 404
+        try:
+            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
+        except self.analysis_model.DoesNotExist:
+            raise AnalysisIdNotFound
+
+        # Serialize the result
+        serializer = self.analysis_serializer_cls(instance)
+
+        # Return response with data
+        return Response(serializer.data)
+
+    def list(self, request: Request, code: str) -> Response:
+        """
+        Filter and list analyses for the given project `code`.
+        """
+
+        # Initial queryset
+        qs = self.analysis_model.objects.all()
+
+        # Serialize the results
+        serializer = self.analysis_serializer_cls(qs, many=True)
+
+        # Return response with data
+        return Response(serializer.data)
+
+    def partial_update(self, request: Request, code: str, analysis_id: int) -> Response:
+        """
+        Use the `analysis_id` to update an analysis for the given project `code`.
+        """
+
+        # Get the instance to be updated
+        # If the instance does not exist, return 404
+        try:
+            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
+        except self.analysis_model.DoesNotExist:
+            raise AnalysisIdNotFound
+
+        # Validate the data
+        serializer = self.analysis_serializer_cls(
+            instance,
+            data=self.request_data,
+            context={
+                "project": self.project,
+                "model": self.model,
+                "analysis_model": self.analysis_model,
+            },
+            partial=True,
+        )
+
+        if not serializer.is_valid():
+            raise exceptions.ValidationError(serializer.errors)
+
+        # Update the instance
+        instance = serializer.save()
+
+        # Return response indicating update
+        return Response({"analysis_id": instance.analysis_id})
+
+    def destroy(self, request: Request, code: str, analysis_id: int) -> Response:
+        """
+        Use the `analysis_id` to permanently delete an analysis for the given project `code`.
+        """
+
+        # Get the instance to be deleted
+        # If the instance does not exist, return 404
+        try:
+            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
+        except self.analysis_model.DoesNotExist:
+            raise AnalysisIdNotFound
+
+        # Delete the instance
+        instance.delete()
+
+        # Return response indicating deletion
+        return Response({"analysis_id": analysis_id})

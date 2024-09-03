@@ -8,3 +8,7 @@ class ClimbIDNotFound(exceptions.NotFound):
 
 class IdentifierNotFound(exceptions.NotFound):
     default_detail = _("Identifier not found.")
+
+
+class AnalysisIdNotFound(exceptions.NotFound):
+    default_detail = _("Analysis ID not found.")

@@ -1,7 +1,7 @@
 from django.urls import include, path, re_path
 from django.urls.resolvers import URLResolver
 from . import views
-from .serializers import ProjectRecordSerializer
+from .serializers import ProjectRecordSerializer, ProjectAnalysisSerializer
 
 
 urlpatterns = [
@@ -24,7 +24,9 @@ urlpatterns = [
 
 
 def generate_project_urls(
-    code: str, serializer_class: type[ProjectRecordSerializer]
+    code: str,
+    serializer_class: type[ProjectRecordSerializer],
+    analysis_serializer_class: type[ProjectAnalysisSerializer] | None = None,
 ) -> URLResolver:
     """
     Generate the URL patterns for a project.
@@ -95,5 +97,39 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
     ]
+
+    if analysis_serializer_class:
+        project_patterns.extend(
+            [
+                re_path(
+                    r"^analysis/$",
+                    views.ProjectAnalysisViewset.as_view(
+                        {"post": "create", "get": "list"}
+                    ),
+                    name=f"projects.{code}.analysis",
+                    kwargs={
+                        "code": code,
+                        "serializer_class": serializer_class,
+                        "analysis_serializer_class": analysis_serializer_class,
+                    },
+                ),
+                re_path(
+                    r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+                    views.ProjectAnalysisViewset.as_view(
+                        {
+                            "get": "retrieve",
+                            "patch": "partial_update",
+                            "delete": "destroy",
+                        }
+                    ),
+                    name=f"projects.{code}.analysis.analysis_id",
+                    kwargs={
+                        "code": code,
+                        "serializer_class": serializer_class,
+                        "analysis_serializer_class": analysis_serializer_class,
+                    },
+                ),
+            ]
+        )
 
     return path(f"{code}/", include(project_patterns))

@@ -106,6 +106,14 @@ class OnyxLookup(Enum):
         "isnull",
         "The field's value must be empty.",
     )
+    CONTAINED_BY = (
+        "contained_by",
+        "The field's value must be equal to, or a subset of, the query value.",
+    )
+    OVERLAP = (
+        "overlap",
+        "The field's value must overlap with the query value.",
+    )
 
     def __init__(self, label, description) -> None:
         self.label = label
@@ -253,6 +261,23 @@ class OnyxType(Enum):
         [
             OnyxLookup.ISNULL.label,
         ],
+    )
+    ARRAY = (
+        "array",
+        "A list of values.",
+        [
+            OnyxLookup.CONTAINS.label,
+            OnyxLookup.CONTAINED_BY.label,
+            OnyxLookup.OVERLAP.label,
+            OnyxLookup.LENGTH.label,
+            OnyxLookup.LENGTH_IN.label,
+            OnyxLookup.LENGTH_RANGE.label,
+        ],
+    )
+    STRUCTURE = (
+        "structure",
+        "An arbitrary JSON structure.",
+        [],
     )
 
     def __init__(self, label, description, lookups) -> None:

@@ -14,6 +14,8 @@ from .models import Anonymiser
 
 
 # Mapping of OnyxType to Django REST Framework serializer field
+# TODO: Currently not possible to initialise with nested date and nested array fields
+# Solution would be to have serializer field instances attached to OnyxField objects
 FIELDS = {
     OnyxType.TEXT: serializers.CharField,
     OnyxType.CHOICE: serializers.CharField,
@@ -22,6 +24,8 @@ FIELDS = {
     OnyxType.DATE: lambda format: DateField(format=format),
     OnyxType.DATETIME: lambda format: serializers.DateTimeField(format=format),
     OnyxType.BOOLEAN: serializers.BooleanField,
+    OnyxType.ARRAY: lambda child: serializers.ListField(child=child),
+    OnyxType.STRUCTURE: serializers.JSONField,
 }
 
 
@@ -52,13 +56,20 @@ class HistoryDiffSerializer(serializers.Serializer):
             self.fields["from"] = serializers.CharField()
             self.fields["to"] = serializers.CharField()
         elif onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
-            # TODO: Currently this does not work for nested date fields
-            # Ideal solution would be to have serializer field instances attached to OnyxField objects
             output_format = get_date_output_format(
                 serializer_fields[onyx_field.field_name]
             )
             self.fields["from"] = FIELDS[onyx_field.onyx_type](format=output_format)
             self.fields["to"] = FIELDS[onyx_field.onyx_type](format=output_format)
+        elif onyx_field.onyx_type == OnyxType.ARRAY:
+            base_onyx_field = onyx_field.base_onyx_field
+            assert base_onyx_field is not None
+            self.fields["from"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
+            self.fields["to"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
         else:
             self.fields["from"] = FIELDS[onyx_field.onyx_type]()
             self.fields["to"] = FIELDS[onyx_field.onyx_type]()
@@ -97,6 +108,12 @@ class SummarySerializer(serializers.Serializer):
             if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type](
                     format=get_date_output_format(serializer_fields[field_name])
+                )
+            elif onyx_field.onyx_type == OnyxType.ARRAY:
+                base_onyx_field = onyx_field.base_onyx_field
+                assert base_onyx_field is not None
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type](
+                    child=FIELDS[base_onyx_field.onyx_type]()
                 )
             else:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type]()

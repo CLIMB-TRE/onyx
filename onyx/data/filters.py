@@ -346,6 +346,24 @@ FILTERS = {
     OnyxType.RELATION: {
         "isnull": StrictBooleanFilter,
     },
+    OnyxType.ARRAY: {
+        OnyxType.TEXT: {
+            "contains": CharInFilter,
+            "contained_by": CharInFilter,
+            "overlap": CharInFilter,
+            "length": StrictNumberFilter,
+            "length__in": StrictNumberInFilter,
+            "length__range": NumberRangeFilter,
+        },
+        OnyxType.INTEGER: {
+            "contains": NumberInFilter,
+            "contained_by": NumberInFilter,
+            "overlap": NumberInFilter,
+            "length": StrictNumberFilter,
+            "length__in": StrictNumberInFilter,
+            "length__range": NumberRangeFilter,
+        },
+    },
 }
 
 
@@ -358,7 +376,14 @@ class OnyxFilter(filters.FilterSet):
         # Validating the values provided by the user for the fields
         # Returning cleaned values from user inputs, using the filterset's underlying form
         for field_name, onyx_field in onyx_fields.items():
-            filter = FILTERS[onyx_field.onyx_type][onyx_field.lookup]
+            if onyx_field.onyx_type == OnyxType.ARRAY:
+                base_onyx_field = onyx_field.base_onyx_field
+                assert base_onyx_field is not None
+                filter = FILTERS[onyx_field.onyx_type][base_onyx_field.onyx_type][
+                    onyx_field.lookup
+                ]
+            else:
+                filter = FILTERS[onyx_field.onyx_type][onyx_field.lookup]
 
             if onyx_field.onyx_type == OnyxType.CHOICE:
                 choices = [(x, x) for x in onyx_field.choices]

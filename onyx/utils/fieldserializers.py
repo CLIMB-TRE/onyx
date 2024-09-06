@@ -154,3 +154,14 @@ class SiteField(ChoiceField):
 
     def to_representation(self, site):
         return site.code
+
+
+class TextInputListField(serializers.ListField):
+    def to_internal_value(self, data):
+        data = serializers.JSONField(binary=True).to_internal_value(data)
+        return super().to_internal_value(data)
+
+
+class TextInputJSONField(serializers.JSONField):
+    def to_representation(self, value):
+        return value

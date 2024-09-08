@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from django import forms
 from django.core.exceptions import ValidationError
@@ -264,6 +265,30 @@ class StrictBooleanFilter(BooleanFilter):
     field_class = StrictBooleanForm
 
 
+class StructureFieldForm(forms.CharField):
+    def clean(self, value):
+        value = super().clean(value)
+
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            raise ValidationError("Value must be a valid JSON object.")
+
+        return value
+
+
+class StrictStructureFieldForm(StrictFieldMixin, StructureFieldForm):
+    pass
+
+
+class StructureFilter(filters.Filter):
+    field_class = StructureFieldForm
+
+
+class StrictStructureFilter(StructureFilter):
+    field_class = StrictStructureFieldForm
+
+
 # Mappings from field type + lookup to filter
 FILTERS = {
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
@@ -347,22 +372,28 @@ FILTERS = {
         "isnull": StrictBooleanFilter,
     },
     OnyxType.ARRAY: {
-        OnyxType.TEXT: {
-            "contains": CharInFilter,
-            "contained_by": CharInFilter,
-            "overlap": CharInFilter,
+        OnyxType.TEXT: {lookup: CharInFilter for lookup in OnyxType.ARRAY.lookups}
+        | {
             "length": StrictNumberFilter,
             "length__in": StrictNumberInFilter,
             "length__range": NumberRangeFilter,
         },
-        OnyxType.INTEGER: {
-            "contains": NumberInFilter,
-            "contained_by": NumberInFilter,
-            "overlap": NumberInFilter,
+        OnyxType.INTEGER: {lookup: NumberInFilter for lookup in OnyxType.ARRAY.lookups}
+        | {
             "length": StrictNumberFilter,
             "length__in": StrictNumberInFilter,
             "length__range": NumberRangeFilter,
         },
+    },
+    OnyxType.STRUCTURE: {
+        lookup: StructureFilter for lookup in OnyxType.STRUCTURE.lookups
+    }
+    | {
+        "contains": StrictStructureFilter,
+        "contained_by": StrictStructureFilter,
+        "has_key": filters.CharFilter,
+        "has_keys": CharInFilter,
+        "has_any_keys": CharInFilter,
     },
 }
 

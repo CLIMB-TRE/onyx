@@ -114,6 +114,18 @@ class OnyxLookup(Enum):
         "overlap",
         "The field's value must overlap with the query value.",
     )
+    HAS_KEY = (
+        "has_key",
+        "The field's top-level keys must contain the query value.",
+    )
+    HAS_KEYS = (
+        "has_keys",
+        "The field's top-level keys must contain all of the query values.",
+    )
+    HAS_ANY_KEYS = (
+        "has_any_keys",
+        "The field's top-level keys must contain any of the query values.",
+    )
 
     def __init__(self, label, description) -> None:
         self.label = label
@@ -266,6 +278,8 @@ class OnyxType(Enum):
         "array",
         "A list of values.",
         [
+            "",
+            OnyxLookup.EXACT.label,
             OnyxLookup.CONTAINS.label,
             OnyxLookup.CONTAINED_BY.label,
             OnyxLookup.OVERLAP.label,
@@ -277,7 +291,15 @@ class OnyxType(Enum):
     STRUCTURE = (
         "structure",
         "An arbitrary JSON structure.",
-        [],
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.CONTAINS.label,
+            OnyxLookup.CONTAINED_BY.label,
+            OnyxLookup.HAS_KEY.label,
+            OnyxLookup.HAS_KEYS.label,
+            OnyxLookup.HAS_ANY_KEYS.label,
+        ],
     )
 
     def __init__(self, label, description, lookups) -> None:

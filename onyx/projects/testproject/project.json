@@ -146,7 +146,7 @@
       "choices": [
         {
           "field": "site",
-          "options": ["testsite_1", "testsite_2"]
+          "options": ["testsite_a", "testsite_b"]
         },
         {
           "field": "country",

@@ -28,33 +28,33 @@ class OnyxTestCase(APITestCase):
         call_command(
             "site",
             "create",
-            "testsite_1",
+            "testsite_a",
             "--projects",
             cls.project.code,
             "--description",
-            "Department of Testing 1",
+            "Department of Testing A",
             quiet=True,
         )
         call_command(
             "site",
             "create",
-            "testsite_2",
+            "testsite_b",
             "--projects",
             cls.project.code,
             "--description",
-            "University of Testing 2",
+            "University of Testing B",
             quiet=True,
         )
-        call_command("site", "roles", "testsite_1", "--grant", "is_active", quiet=True)
-        call_command("site", "roles", "testsite_2", "--grant", "is_active", quiet=True)
-        cls.site = Site.objects.get(code="testsite_1")
-        cls.extra_site = Site.objects.get(code="testsite_2")
+        call_command("site", "roles", "testsite_a", "--grant", "is_active", quiet=True)
+        call_command("site", "roles", "testsite_b", "--grant", "is_active", quiet=True)
+        cls.site = Site.objects.get(code="testsite_a")
+        cls.extra_site = Site.objects.get(code="testsite_b")
 
         # Set up testproject admin staff
         cls.admin_staff = cls.create_user(
             "test_admin_staff",
             cls.site,
-            roles=["is_staff"],
+            roles=["is_approved", "is_staff"],
             groups=["testproject.admin"],
         )
 
@@ -74,17 +74,26 @@ class OnyxTestCase(APITestCase):
             groups=["testproject.analyst"],
         )
 
+        # Set up testproject analyst user from the extra site
+        cls.analyst_user_extra = cls.create_user(
+            "test_analyst_user_extra",
+            cls.extra_site,
+            roles=["is_approved"],
+            groups=["testproject.analyst"],
+        )
+
     @classmethod
     def create_user(cls, username, site, roles=None, groups=None):
         """
         Create a user with the given username and roles/groups.
         """
 
-        user = User.objects.create(username=username, site=site)
-
         if roles:
-            for role in roles:
-                setattr(user, role, True)
+            roles = {role: True for role in roles}
+        else:
+            roles = {}
+
+        user = User.objects.create(username=username, site=site, **roles)
 
         if groups:
             for group in groups:

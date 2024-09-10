@@ -209,3 +209,56 @@ class TestHistoryView(OnyxTestCase):
             else:
                 self.assertEqual(change["action"], Actions.CHANGE.label)
                 self.assertEqual(change["count"], 2)
+
+    def test_non_staff_different_site_hidden_change_values(self):
+        """
+        Test that the change values are hidden when the user is from a different site.
+        """
+
+        instance = TestModel.objects.get(climb_id=self.climb_id)
+        assert instance.submission_date is not None
+        assert instance.tests is not None
+        updated_values = {
+            "submission_date": instance.submission_date + timedelta(days=1),
+            "tests": instance.tests + 1,
+            "text_option_2": instance.text_option_2 + "!",
+        }
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.climb_id",
+                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+            ),
+            data=updated_values,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance.skip_history_when_saving = True  # type: ignore
+        instance.site = self.extra_site
+        instance.save()
+        del instance.skip_history_when_saving  # type: ignore
+
+        response = self.client.get(self.endpoint(self.climb_id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"]["climb_id"], self.climb_id)
+        self.assertEqual(len(response.json()["data"]["history"]), 2)
+        for diff in response.json()["data"]["history"]:
+            self.assertEqual(diff["username"], self.admin_user.username)
+
+        self.assertEqual(
+            response.json()["data"]["history"][0]["action"], Actions.ADD.label
+        )
+        self.assertEqual(
+            response.json()["data"]["history"][1]["action"], Actions.CHANGE.label
+        )
+
+        self.assertEqual(len(response.json()["data"]["history"][1]["changes"]), 3)
+        types = {
+            "submission_date": OnyxType.DATE.label,
+            "tests": OnyxType.INTEGER.label,
+            "text_option_2": OnyxType.TEXT.label,
+        }
+        for change in response.json()["data"]["history"][1]["changes"]:
+            self.assertEqual(change["type"], types[change["field"]])
+            self.assertEqual(change["from"], "XXXX")
+            self.assertEqual(change["to"], "XXXX")

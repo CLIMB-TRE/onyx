@@ -1,3 +1,4 @@
+import json
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -807,6 +808,121 @@ class TestFilterView(OnyxDataTestCase):
         response = self.client.get(self.endpoint, data={"records": 1})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_array(self):
+        """
+        Test filtering an array field.
+        """
+
+        for lookup, value, qs in [
+            (
+                "",
+                "1, 2, 3",
+                TestModel.objects.filter(scores=[1, 2, 3]),
+            ),
+            (
+                "exact",
+                "1, 2, 3",
+                TestModel.objects.filter(scores__exact=[1, 2, 3]),
+            ),
+            (
+                "contains",
+                "1, 2",
+                TestModel.objects.filter(scores__contains=[1, 2]),
+            ),
+            (
+                "contained_by",
+                "1, 2, 3, -1",
+                TestModel.objects.filter(scores__contained_by=[1, 2, 3, -1]),
+            ),
+            (
+                "overlap",
+                "1, 2, -1",
+                TestModel.objects.filter(scores__overlap=[1, 2, -1]),
+            ),
+            (
+                "length",
+                "3",
+                TestModel.objects.filter(scores__len=3),
+            ),
+            (
+                "length__in",
+                "1, 3",
+                TestModel.objects.filter(scores__len__in=[1, 3]),
+            ),
+            (
+                "length__range",
+                "1, 3",
+                TestModel.objects.filter(scores__len__range=[1, 3]),
+            ),
+        ]:
+            self._test_filter(
+                field="scores",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+            )
+
+    def test_structure(self):
+        """
+        Test filtering a structure field.
+        """
+
+        for lookup, value, qs in [
+            (
+                "",
+                json.dumps({"hello": "world", "goodbye": "universe"}),
+                TestModel.objects.filter(
+                    structure={"hello": "world", "goodbye": "universe"}
+                ),
+            ),
+            (
+                "exact",
+                json.dumps({"hello": "world", "goodbye": "universe"}),
+                TestModel.objects.filter(
+                    structure={"hello": "world", "goodbye": "universe"}
+                ),
+            ),
+            (
+                "contains",
+                json.dumps({"goodbye": "universe"}),
+                TestModel.objects.filter(structure__contains={"goodbye": "universe"}),
+            ),
+            (
+                "contained_by",
+                json.dumps({"hello": "world", "goodbye": "universe", "extra": "field"}),
+                TestModel.objects.filter(
+                    structure__contained_by={
+                        "hello": "world",
+                        "goodbye": "universe",
+                        "extra": "field",
+                    }
+                ),
+            ),
+            (
+                "has_key",
+                "hello",
+                TestModel.objects.filter(structure__has_key="hello"),
+            ),
+            (
+                "has_keys",
+                "hello, goodbye",
+                TestModel.objects.filter(structure__has_keys=["hello", "goodbye"]),
+            ),
+            (
+                "has_any_keys",
+                "hello, goodbye, extra",
+                TestModel.objects.filter(
+                    structure__has_any_keys=["hello", "goodbye", "extra"]
+                ),
+            ),
+        ]:
+            self._test_filter(
+                field="structure",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+            )
+
     def test_empty_value(self):
         """
         Test that empty values are handled correctly for each field type.
@@ -837,6 +953,29 @@ class TestFilterView(OnyxDataTestCase):
                     response.json()["data"],
                     TestModel.objects.filter(**{f"{field}__isnull": False}),
                 )
+
+    def test_search(self):
+        """
+        Test searching for records.
+        """
+
+        response = self.client.get(self.endpoint, data={"search": "world bye"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestModel.objects.filter(
+                (
+                    Q(text_option_1__icontains="world")
+                    | Q(text_option_2__icontains="world")
+                    | Q(required_when_published__icontains="world")
+                )
+                & (
+                    Q(text_option_1__icontains="bye")
+                    | Q(text_option_2__icontains="bye")
+                    | Q(required_when_published__icontains="bye")
+                )
+            ),
+        )
 
     def test_summarise(self):
         """

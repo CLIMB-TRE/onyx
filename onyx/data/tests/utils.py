@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import itertools
 from django.core.management import call_command
@@ -194,7 +195,7 @@ class OnyxTestCase(APITestCase):
         )
 
 
-def generate_test_data(n: int):
+def generate_test_data(n: int, api_call: bool = True):
     """
     Generate test data.
     """
@@ -203,9 +204,9 @@ def generate_test_data(n: int):
     run_names = ["run-1", "run-2", "run-3"]
     collection_months = [f"2022-{i}" for i in range(1, 4)] + [None]
     received_months = [f"2023-{i}" for i in range(1, 13)]
-    char_max_length_20 = ["X" * 20, "Y" * 15, "Z" * 10]
-    text_option_1 = ["hello", "world", "hey", "world world", "y", ""]
-    text_option_2 = ["hello", "bye"]
+    char_max_length_20s = ["X" * 20, "Y" * 15, "Z" * 10]
+    text_option_1s = ["hello", "world", "hey", "world world", "y", ""]
+    text_option_2s = ["hello", "bye"]
     submission_dates = [f"2023-{i}-{j}" for i in [1, 8, 12] for j in [1, 10, 15]] + [
         None
     ]
@@ -223,6 +224,22 @@ def generate_test_data(n: int):
     starts = [1, 2, 3, 4, 5]
     ends = [6, 7, 8, 9, 10]
     required_when_publisheds = ["hello", "world"]
+    many_scores = (
+        [[1, 2, 3]] * 3
+        + [[1, 2, 3, 4]] * 4
+        + [[1, 2, 3, 4, 5]] * 5
+        + [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]] * 10
+    )
+    structures = [
+        {"hello": "world", "goodbye": "universe"},
+        {"numbers": [1, 2, 3]},
+        {"hello": "world", "numbers": [1, 2, 3]},
+    ]
+
+    if api_call:
+        many_scores = [json.dumps(x) for x in many_scores]
+        structures = [json.dumps(x) for x in structures]
+
     has_nesteds = [True, False]
     nested_ranges = [
         (1, 10),
@@ -247,11 +264,13 @@ def generate_test_data(n: int):
         submission_date,
         country,
         concern,
-        tests,
+        test,
         score,
         start,
         end,
         required_when_published,
+        scores,
+        structure,
         has_nested,
         nested_range,
     ) in enumerate(
@@ -260,9 +279,9 @@ def generate_test_data(n: int):
             itertools.cycle(run_names),
             itertools.cycle(collection_months),
             itertools.cycle(received_months),
-            itertools.cycle(char_max_length_20),
-            itertools.cycle(text_option_1),
-            itertools.cycle(text_option_2),
+            itertools.cycle(char_max_length_20s),
+            itertools.cycle(text_option_1s),
+            itertools.cycle(text_option_2s),
             itertools.cycle(submission_dates),
             itertools.cycle(countries),
             itertools.cycle(concerns),
@@ -271,6 +290,8 @@ def generate_test_data(n: int):
             itertools.cycle(starts),
             itertools.cycle(ends),
             itertools.cycle(required_when_publisheds),
+            itertools.cycle(many_scores),
+            itertools.cycle(structures),
             itertools.cycle(has_nesteds),
             itertools.cycle(nested_ranges),
         )
@@ -287,11 +308,13 @@ def generate_test_data(n: int):
             "country": country,
             "region": regions[country]() if country != "eng" else regions[country](i),
             "concern": concern,
-            "tests": tests,
+            "tests": test,
             "score": score,
             "start": start,
             "end": end,
             "required_when_published": required_when_published,
+            "scores": scores,
+            "structure": structure,
         }
 
         if has_nested:
@@ -359,7 +382,7 @@ class OnyxDataTestCase(OnyxTestCase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        for data in generate_test_data(n=cls.NUM_RECORDS):
+        for data in generate_test_data(n=cls.NUM_RECORDS, api_call=False):
             nested_records = data.pop("records", [])
             data["site"] = cls.site
             data["user"] = cls.admin_user

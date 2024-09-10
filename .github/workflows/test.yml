@@ -1,10 +1,9 @@
 name: Run tests
 
-on: [ push, pull_request ]
+on: [push, pull_request]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
@@ -24,30 +23,30 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install --user pipx
-        python -m pipx ensurepath
-        pipx install poetry==1.7.0
-        poetry config virtualenvs.in-project true
-        poetry env use ${{ matrix.python-version }}
-        poetry install --with test
-    - name: Run Tests
-      env:
-        SECRET_KEY: super-duper-secret-key
-        HOST_NAME: localhost
-        DATABASE_NAME: onyx
-        DATABASE_USER: postgres
-        DATABASE_PASSWORD: postgres
-        DATABASE_HOST: localhost
-        ONYX_PROJECTS: testproject
-      working-directory: ./onyx
-      run: |
-        poetry run coverage run --source='.' manage.py test -v 2
-        poetry run coverage report
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --user pipx
+          python -m pipx ensurepath
+          pipx install poetry==1.7.0
+          poetry config virtualenvs.in-project true
+          poetry env use ${{ matrix.python-version }}
+          poetry install --with test
+      - name: Run Tests
+        env:
+          SECRET_KEY: super-duper-secret-key
+          HOST_NAME: localhost
+          DATABASE_NAME: onyx
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_HOST: localhost
+          ONYX_PROJECTS: testproject
+        working-directory: ./onyx
+        run: |
+          poetry run coverage run --rcfile=../pyproject.toml manage.py test -v 2
+          poetry run coverage report

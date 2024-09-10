@@ -25,6 +25,10 @@ optional = true
 [tool.poetry.group.test.dependencies]
 coverage = "^7.6.1"
 
+[tool.coverage.run]
+source = ["."]
+omit = ["*/migrations/*", "*/tests/*", "*/asgi.py", "*/wsgi.py", "*/admin.py"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -30,7 +30,7 @@ source = ["."]
 omit = ["*/migrations/*", "*/tests/*", "*/asgi.py", "*/wsgi.py", "*/admin.py"]
 
 [tool.coverage.report]
-sort = ["miss"]
+sort = "-miss"
 
 [build-system]
 requires = ["poetry-core"]

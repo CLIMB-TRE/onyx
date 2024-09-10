@@ -49,4 +49,4 @@ jobs:
         working-directory: ./onyx
         run: |
           poetry run coverage run --rcfile=../pyproject.toml manage.py test -v 2
-          poetry run coverage report
+          poetry run coverage report --rcfile=../pyproject.toml

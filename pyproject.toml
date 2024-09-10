@@ -29,6 +29,9 @@ coverage = "^7.6.1"
 source = ["."]
 omit = ["*/migrations/*", "*/tests/*", "*/asgi.py", "*/wsgi.py", "*/admin.py"]
 
+[tool.coverage.report]
+sort = ["miss"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

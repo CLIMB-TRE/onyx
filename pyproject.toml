@@ -26,9 +26,17 @@ optional = true
 coverage = "^7.6.1"
 
 [tool.coverage.run]
-source = ["."]
-omit = ["*/migrations/*", "*/tests/*", "*/asgi.py", "*/wsgi.py", "*/admin.py"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/tests.py",
+    "*/asgi.py",
+    "*/wsgi.py",
+    "*/admin.py",
+    "*/manage.py",
+]
 
+source = ["."]
 [tool.coverage.report]
 sort = "-miss"
 

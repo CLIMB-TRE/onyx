@@ -650,7 +650,7 @@ class ProjectRecordsViewSet(ProjectViewSet):
         # Return response with data
         return Response(serializer.data)
 
-    def list(self, request: Request, code: str) -> Response:
+    def list(self, request: Request, code: str, count: bool = False) -> Response:
         """
         Filter and list instances for the given project `code`.
         """
@@ -839,6 +839,10 @@ class ProjectRecordsViewSet(ProjectViewSet):
             # Filter the queryset with the user's Q object
             if q_object:
                 qs = qs.filter(id__in=Subquery(qs.filter(q_object).values("id")))
+
+            # If the count option is True, return the queryset count instead of results
+            if count:
+                return Response({"count": qs.count()})
 
             # Prepare paginator
             self.paginator = CursorPagination()

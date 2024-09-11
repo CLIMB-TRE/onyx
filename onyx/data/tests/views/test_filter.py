@@ -854,6 +854,16 @@ class TestFilterView(OnyxDataTestCase):
                 "1, 3",
                 TestModel.objects.filter(scores__len__range=[1, 3]),
             ),
+            (
+                "isnull",
+                True,
+                TestModel.objects.filter(scores__len=0),
+            ),
+            (
+                "isnull",
+                False,
+                TestModel.objects.exclude(scores__len=0),
+            ),
         ]:
             self._test_filter(
                 field="scores",
@@ -914,6 +924,16 @@ class TestFilterView(OnyxDataTestCase):
                 TestModel.objects.filter(
                     structure__has_any_keys=["hello", "goodbye", "extra"]
                 ),
+            ),
+            (
+                "isnull",
+                True,
+                TestModel.objects.filter(structure={}),
+            ),
+            (
+                "isnull",
+                False,
+                TestModel.objects.exclude(structure={}),
             ),
         ]:
             self._test_filter(

@@ -277,12 +277,19 @@ class QueryBuilder:
                     )
 
             elif value.lookup == OnyxLookup.ISNULL.label:
+                if value.onyx_type == OnyxType.ARRAY:
+                    q = Q(**{f"{value.field_path}__len": 0})
+                elif value.onyx_type == OnyxType.STRUCTURE:
+                    q = Q(**{value.field_path: {}})
+                else:
+                    q = Q(**{f"{value.field_path}__{value.lookup}": True})
+
                 if value.value:
-                    return Q(**{f"{value.field_path}__{value.lookup}": True})
+                    return q
                 else:
                     # Using an exclude here causes Django to generate a much more efficient query for relational fields
                     # https://stackoverflow.com/questions/7171041/what-does-it-mean-by-select-1-from-table
-                    return ~Q(**{f"{value.field_path}__{value.lookup}": True})
+                    return ~q
 
             elif value.onyx_type == OnyxType.ARRAY and value.lookup in [
                 OnyxLookup.LENGTH.label,

@@ -286,6 +286,7 @@ class OnyxType(Enum):
             OnyxLookup.LENGTH.label,
             OnyxLookup.LENGTH_IN.label,
             OnyxLookup.LENGTH_RANGE.label,
+            OnyxLookup.ISNULL.label,
         ],
     )
     STRUCTURE = (
@@ -299,6 +300,7 @@ class OnyxType(Enum):
             OnyxLookup.HAS_KEY.label,
             OnyxLookup.HAS_KEYS.label,
             OnyxLookup.HAS_ANY_KEYS.label,
+            OnyxLookup.ISNULL.label,
         ],
     )
 

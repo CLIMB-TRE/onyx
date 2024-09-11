@@ -377,12 +377,14 @@ FILTERS = {
             "length": StrictNumberFilter,
             "length__in": StrictNumberInFilter,
             "length__range": NumberRangeFilter,
+            "isnull": StrictBooleanFilter,
         },
         OnyxType.INTEGER: {lookup: NumberInFilter for lookup in OnyxType.ARRAY.lookups}
         | {
             "length": StrictNumberFilter,
             "length__in": StrictNumberInFilter,
             "length__range": NumberRangeFilter,
+            "isnull": StrictBooleanFilter,
         },
     },
     OnyxType.STRUCTURE: {
@@ -394,6 +396,7 @@ FILTERS = {
         "has_key": filters.CharFilter,
         "has_keys": CharInFilter,
         "has_any_keys": CharInFilter,
+        "isnull": StrictBooleanFilter,
     },
 }
 

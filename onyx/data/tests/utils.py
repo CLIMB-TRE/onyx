@@ -234,12 +234,14 @@ def generate_test_data(n: int, api_call: bool = True):
     ends = [6, 7, 8, 9, 10]
     required_when_publisheds = ["hello", "world"]
     many_scores = (
-        [[1, 2, 3]] * 3
+        [[]]
+        + [[1, 2, 3]] * 3
         + [[1, 2, 3, 4]] * 4
         + [[1, 2, 3, 4, 5]] * 5
         + [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]] * 10
     )
     structures = [
+        {},
         {"hello": "world", "goodbye": "universe"},
         {"numbers": [1, 2, 3]},
         {"hello": "world", "numbers": [1, 2, 3]},

@@ -293,7 +293,9 @@ class ProjectAnalysis(models.Model):
     report = models.TextField(blank=True)
     outputs = models.TextField(blank=True)
     identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
-    related_analyses = models.ManyToManyField("self", blank=True)
+    upstream_analyses = models.ManyToManyField(
+        "self", symmetrical=False, related_name="downstream_analyses"
+    )
 
     class Meta:
         abstract = True

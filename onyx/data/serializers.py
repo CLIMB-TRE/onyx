@@ -628,9 +628,18 @@ class ProjectAnalysisSerializer(serializers.ModelSerializer):
 
     analysis_id = serializers.CharField(required=False)
     published_date = serializers.DateField(required=False)
-    identifiers = AnonymiserRelatedField(many=True, slug_field="identifier")
-    records = ProjectRecordsRelatedField(many=True, slug_field="climb_id")
-    related_analyses = ProjectAnalysisRelatedField(many=True, slug_field="analysis_id")
+    identifiers = AnonymiserRelatedField(
+        many=True, required=False, slug_field="identifier"
+    )
+    records = ProjectRecordsRelatedField(
+        many=True, required=False, slug_field="climb_id"
+    )
+    upstream_analyses = ProjectAnalysisRelatedField(
+        many=True, required=False, slug_field="analysis_id"
+    )
+    downstream_analyses = ProjectAnalysisRelatedField(
+        many=True, required=False, slug_field="analysis_id"
+    )
 
     class Meta:
         model: models.Model | None = None
@@ -645,5 +654,6 @@ class ProjectAnalysisSerializer(serializers.ModelSerializer):
             "outputs",
             "identifiers",
             "records",
-            "related_analyses",
+            "upstream_analyses",
+            "downstream_analyses",
         ]

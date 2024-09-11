@@ -67,10 +67,22 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
         path(
+            "count/",
+            views.ProjectRecordsViewSet.as_view({"get": "list"}),
+            name=f"projects.{code}.count",
+            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
+        ),
+        path(
             "query/",
             views.ProjectRecordsViewSet.as_view({"post": "list"}),
             name=f"projects.{code}.query",
             kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        path(
+            "query/count/",
+            views.ProjectRecordsViewSet.as_view({"post": "list"}),
+            name=f"projects.{code}.query.count",
+            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
         ),
         path(
             "fields/",

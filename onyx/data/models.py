@@ -64,7 +64,7 @@ class Choice(models.Model):
     choice = models.TextField()
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    constraints = models.ManyToManyField("Choice", related_name="reverse_constraints")
+    constraints = models.ManyToManyField("self")
 
     class Meta:
         indexes = [

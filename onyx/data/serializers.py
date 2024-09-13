@@ -4,13 +4,13 @@ from typing import Any
 from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from accounts.models import User
-from utils.defaults import CurrentUserSiteDefault
-from utils.fieldserializers import DateField, SiteField
+from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
+from utils.fieldserializers import DateField, SiteField, StructureField
 from utils.functions import get_date_output_format
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
-from .models import Anonymiser
+from .models import Project, Anonymiser, Analysis
 
 
 # Mapping of OnyxType to Django REST Framework serializer field
@@ -615,45 +615,57 @@ class ProjectRecordsRelatedField(serializers.SlugRelatedField):
         return queryset
 
 
-class ProjectAnalysisRelatedField(serializers.SlugRelatedField):
-    def get_queryset(self):
-        queryset = self.root.Meta.model.objects.all()  # type: ignore
-        return queryset
-
-
-class ProjectAnalysisSerializer(serializers.ModelSerializer):
+class AnalysisSerializer(serializers.ModelSerializer):
     """
-    Base serializer for all project analyses.
+    Serializer for all project analyses.
     """
 
+    project = serializers.PrimaryKeyRelatedField(
+        write_only=True, queryset=Project.objects.all(), default=CurrentProjectDefault()
+    )
     analysis_id = serializers.CharField(required=False)
     published_date = serializers.DateField(required=False)
+    experiment_details = StructureField(required=False)
+    upstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
+    downstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
     identifiers = AnonymiserRelatedField(
         many=True, required=False, slug_field="identifier"
     )
-    records = ProjectRecordsRelatedField(
-        many=True, required=False, slug_field="climb_id"
-    )
-    upstream_analyses = ProjectAnalysisRelatedField(
-        many=True, required=False, slug_field="analysis_id"
-    )
-    downstream_analyses = ProjectAnalysisRelatedField(
-        many=True, required=False, slug_field="analysis_id"
-    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["records"] = ProjectRecordsRelatedField(
+            source=f"{self.context['model'].__name__.lower()}_records",
+            many=True,
+            required=False,
+            slug_field="climb_id",
+        )
 
     class Meta:
-        model: models.Model | None = None
+        model = Analysis
         fields = [
+            "project",
             "analysis_id",
             "published_date",
             "analysis_date",
             "name",
-            "details",
+            "command_details",
+            "pipeline_details",
+            "experiment_details",
             "result",
             "report",
             "outputs",
-            "identifiers",
-            "records",
             "upstream_analyses",
             "downstream_analyses",
+            "identifiers",
         ]

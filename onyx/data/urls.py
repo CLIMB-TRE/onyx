@@ -1,7 +1,7 @@
 from django.urls import include, path, re_path
 from django.urls.resolvers import URLResolver
 from . import views
-from .serializers import ProjectRecordSerializer, ProjectAnalysisSerializer
+from .serializers import ProjectRecordSerializer
 
 
 urlpatterns = [
@@ -24,9 +24,7 @@ urlpatterns = [
 
 
 def generate_project_urls(
-    code: str,
-    serializer_class: type[ProjectRecordSerializer],
-    analysis_serializer_class: type[ProjectAnalysisSerializer] | None = None,
+    code: str, serializer_class: type[ProjectRecordSerializer]
 ) -> URLResolver:
     """
     Generate the URL patterns for a project.
@@ -108,40 +106,30 @@ def generate_project_urls(
             name=f"projects.{code}.identify.field",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
+        re_path(
+            r"^analysis/$",
+            views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
+            name=f"projects.{code}.analysis",
+            kwargs={
+                "code": code,
+                "serializer_class": serializer_class,
+            },
+        ),
+        re_path(
+            r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisViewSet.as_view(
+                {
+                    "get": "retrieve",
+                    "patch": "partial_update",
+                    "delete": "destroy",
+                }
+            ),
+            name=f"projects.{code}.analysis.analysis_id",
+            kwargs={
+                "code": code,
+                "serializer_class": serializer_class,
+            },
+        ),
     ]
-
-    if analysis_serializer_class:
-        project_patterns.extend(
-            [
-                re_path(
-                    r"^analysis/$",
-                    views.ProjectAnalysisViewSet.as_view(
-                        {"post": "create", "get": "list"}
-                    ),
-                    name=f"projects.{code}.analysis",
-                    kwargs={
-                        "code": code,
-                        "serializer_class": serializer_class,
-                        "analysis_serializer_class": analysis_serializer_class,
-                    },
-                ),
-                re_path(
-                    r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
-                    views.ProjectAnalysisViewSet.as_view(
-                        {
-                            "get": "retrieve",
-                            "patch": "partial_update",
-                            "delete": "destroy",
-                        }
-                    ),
-                    name=f"projects.{code}.analysis.analysis_id",
-                    kwargs={
-                        "code": code,
-                        "serializer_class": serializer_class,
-                        "analysis_serializer_class": analysis_serializer_class,
-                    },
-                ),
-            ]
-        )
 
     return path(f"{code}/", include(project_patterns))

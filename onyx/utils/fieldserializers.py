@@ -156,13 +156,18 @@ class SiteField(ChoiceField):
         return site.code
 
 
-class ArrayField(serializers.ListField):
+class JSONFieldMixin:
     def to_internal_value(self, data):
-        data = serializers.JSONField(binary=True).to_internal_value(data)
-        return super().to_internal_value(data)
+        data = serializers.JSONField(
+            binary=True if isinstance(data, str) else False
+        ).to_internal_value(data)
+
+        return super().to_internal_value(data)  # type: ignore
 
 
-class StructureField(serializers.DictField):
-    def to_internal_value(self, data):
-        data = serializers.JSONField(binary=True).to_internal_value(data)
-        return super().to_internal_value(data)
+class ArrayField(JSONFieldMixin, serializers.ListField):
+    pass
+
+
+class StructureField(JSONFieldMixin, serializers.DictField):
+    pass

@@ -14,12 +14,13 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
-from .models import Project, Choice, ProjectRecord, Anonymiser, ProjectAnalysis
+from .models import Project, Choice, ProjectRecord, Anonymiser, Analysis
 from .serializers import (
     HistoryDiffSerializer,
     SummarySerializer,
     IdentifierSerializer,
     SerializerNode,
+    AnalysisSerializer,
 )
 from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
@@ -965,23 +966,8 @@ class ProjectRecordsViewSet(ProjectViewSet):
         return Response(data)
 
 
-class ProjectAnalysisViewSet(ProjectViewSet):
+class AnalysisViewSet(ProjectViewSet):
     permission_classes = ProjectApproved + [IsSiteMember]
-
-    def initial(self, request: Request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-
-        assert self.project.analysis_content_type is not None
-
-        # Get the project's analysis model
-        analysis_model = self.project.analysis_content_type.model_class()
-        assert analysis_model is not None
-        assert issubclass(analysis_model, ProjectAnalysis)
-        self.analysis_model = analysis_model
-
-        # Get the analysis model's serializer
-        self.analysis_serializer_cls = self.kwargs["analysis_serializer_class"]
-        self.kwargs.pop("analysis_serializer_class")
 
     def create(self, request: Request, code: str) -> Response:
         """
@@ -989,13 +975,9 @@ class ProjectAnalysisViewSet(ProjectViewSet):
         """
 
         # Validate the request data fields
-        serializer = self.analysis_serializer_cls(
+        serializer = AnalysisSerializer(
             data=self.request_data,
-            context={
-                "project": self.project,
-                "model": self.model,
-                "analysis_model": self.analysis_model,
-            },
+            context={"project": self.project, "model": self.model},
         )
 
         if not serializer.is_valid():
@@ -1003,6 +985,7 @@ class ProjectAnalysisViewSet(ProjectViewSet):
 
         # Create the instance
         instance = serializer.save()
+        assert isinstance(instance, Analysis)
 
         # Return response indicating creation
         return Response(
@@ -1017,12 +1000,17 @@ class ProjectAnalysisViewSet(ProjectViewSet):
         # Get the instance
         # If the instance does not exist, return 404
         try:
-            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
-        except self.analysis_model.DoesNotExist:
+            instance = Analysis.objects.get(
+                project=self.project, analysis_id=analysis_id
+            )
+        except Analysis.DoesNotExist:
             raise AnalysisIdNotFound
 
         # Serialize the result
-        serializer = self.analysis_serializer_cls(instance)
+        serializer = AnalysisSerializer(
+            instance,
+            context={"project": self.project, "model": self.model},
+        )
 
         # Return response with data
         return Response(serializer.data)
@@ -1033,10 +1021,14 @@ class ProjectAnalysisViewSet(ProjectViewSet):
         """
 
         # Initial queryset
-        qs = self.analysis_model.objects.all()
+        qs = Analysis.objects.filter(project=self.project)
 
         # Serialize the results
-        serializer = self.analysis_serializer_cls(qs, many=True)
+        serializer = AnalysisSerializer(
+            qs,
+            many=True,
+            context={"project": self.project, "model": self.model},
+        )
 
         # Return response with data
         return Response(serializer.data)
@@ -1049,19 +1041,17 @@ class ProjectAnalysisViewSet(ProjectViewSet):
         # Get the instance to be updated
         # If the instance does not exist, return 404
         try:
-            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
-        except self.analysis_model.DoesNotExist:
+            instance = Analysis.objects.get(
+                project=self.project, analysis_id=analysis_id
+            )
+        except Analysis.DoesNotExist:
             raise AnalysisIdNotFound
 
         # Validate the data
-        serializer = self.analysis_serializer_cls(
+        serializer = AnalysisSerializer(
             instance,
             data=self.request_data,
-            context={
-                "project": self.project,
-                "model": self.model,
-                "analysis_model": self.analysis_model,
-            },
+            context={"project": self.project, "model": self.model},
             partial=True,
         )
 
@@ -1070,6 +1060,7 @@ class ProjectAnalysisViewSet(ProjectViewSet):
 
         # Update the instance
         instance = serializer.save()
+        assert isinstance(instance, Analysis)
 
         # Return response indicating update
         return Response({"analysis_id": instance.analysis_id})
@@ -1082,8 +1073,10 @@ class ProjectAnalysisViewSet(ProjectViewSet):
         # Get the instance to be deleted
         # If the instance does not exist, return 404
         try:
-            instance = self.analysis_model.objects.get(analysis_id=analysis_id)
-        except self.analysis_model.DoesNotExist:
+            instance = Analysis.objects.get(
+                project=self.project, analysis_id=analysis_id
+            )
+        except Analysis.DoesNotExist:
             raise AnalysisIdNotFound
 
         # Delete the instance

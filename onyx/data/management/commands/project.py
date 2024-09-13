@@ -52,7 +52,6 @@ class ProjectConfig(BaseModel):
     name: Optional[str]
     description: Optional[str]
     content_type: str
-    analysis_content_type: Optional[str]
 
 
 class ProjectContentsConfig(BaseModel):
@@ -100,29 +99,19 @@ class Command(base.BaseCommand):
         app, _, model = project_config.content_type.partition(".")
 
         # Create or retrieve the project
-        defaults = {
-            # If no name was provided, use the code
-            "name": (
-                project_config.name if project_config.name else project_config.code
-            ),
-            # If no description was provided, set as empty
-            "description": (
-                project_config.description if project_config.description else ""
-            ),
-            "content_type": ContentType.objects.get(app_label=app, model=model),
-        }
-
-        if project_config.analysis_content_type:
-            analysis_app, _, analysis_model = (
-                project_config.analysis_content_type.partition(".")
-            )
-            defaults["analysis_content_type"] = ContentType.objects.get(
-                app_label=analysis_app, model=analysis_model
-            )
-
         project, p_created = Project.objects.update_or_create(
             code=project_config.code,
-            defaults=defaults,
+            defaults={
+                # If no name was provided, use the code
+                "name": (
+                    project_config.name if project_config.name else project_config.code
+                ),
+                # If no description was provided, set as empty
+                "description": (
+                    project_config.description if project_config.description else ""
+                ),
+                "content_type": ContentType.objects.get(app_label=app, model=model),
+            },
         )
 
         if p_created:

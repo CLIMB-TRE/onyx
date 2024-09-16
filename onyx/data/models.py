@@ -18,11 +18,7 @@ class Project(models.Model):
     code = LowerCharField(max_length=50, unique=True)
     name = StrippedCharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    content_type = models.ForeignKey(
-        ContentType,
-        on_delete=models.PROTECT,
-        related_name="project",
-    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
 
     def __str__(self):
         return self.code

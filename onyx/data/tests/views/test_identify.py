@@ -27,7 +27,7 @@ class TestIdentifyView(OnyxTestCase):
         Test creating/retrieving identifiers for anonymised fields.
         """
 
-        # Create records from testsite_1 and testsite_2
+        # Create records from testsite_a and testsite_b
         test_record_1 = next(iter(generate_test_data(n=1)))
         test_record_2 = next(iter(generate_test_data(n=1)))
         test_record_2["site"] = self.extra_site.code
@@ -115,7 +115,7 @@ class TestIdentifyView(OnyxTestCase):
         self.assertEqual(output_run_name_1, output_run_name_2)
         assert TestModel.objects.count() == 2
         assert Anonymiser.objects.count() == 3
-        assert Anonymiser.objects.filter(site__code="testsite_1").count() == 3
+        assert Anonymiser.objects.filter(site__code="testsite_a").count() == 3
         assert Anonymiser.objects.filter(field="sample_id").count() == 2
         assert Anonymiser.objects.filter(field="run_name").count() == 1
         assert Anonymiser.objects.filter(identifier=output_sample_id_1).count() == 1
@@ -156,8 +156,8 @@ class TestIdentifyView(OnyxTestCase):
 
         assert TestModel.objects.count() == 2
         assert Anonymiser.objects.count() == 4
-        assert Anonymiser.objects.filter(site__code="testsite_1").count() == 2
-        assert Anonymiser.objects.filter(site__code="testsite_2").count() == 2
+        assert Anonymiser.objects.filter(site__code="testsite_a").count() == 2
+        assert Anonymiser.objects.filter(site__code="testsite_b").count() == 2
         assert Anonymiser.objects.filter(field="sample_id").count() == 2
         assert Anonymiser.objects.filter(field="run_name").count() == 2
         assert Anonymiser.objects.filter(identifier=output_sample_id_1).count() == 1

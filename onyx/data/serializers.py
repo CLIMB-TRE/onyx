@@ -4,16 +4,18 @@ from typing import Any
 from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from accounts.models import User
-from utils.defaults import CurrentUserSiteDefault
-from utils.fieldserializers import DateField, SiteField
+from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
+from utils.fieldserializers import DateField, SiteField, StructureField
 from utils.functions import get_date_output_format
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
-from .models import Anonymiser
+from .models import Project, Anonymiser, Analysis
 
 
 # Mapping of OnyxType to Django REST Framework serializer field
+# TODO: Currently not possible to initialise with nested date and nested array fields
+# Solution would be to have serializer field instances attached to OnyxField objects
 FIELDS = {
     OnyxType.TEXT: serializers.CharField,
     OnyxType.CHOICE: serializers.CharField,
@@ -22,6 +24,8 @@ FIELDS = {
     OnyxType.DATE: lambda format: DateField(format=format),
     OnyxType.DATETIME: lambda format: serializers.DateTimeField(format=format),
     OnyxType.BOOLEAN: serializers.BooleanField,
+    OnyxType.ARRAY: lambda child: serializers.ListField(child=child),
+    OnyxType.STRUCTURE: serializers.JSONField,
 }
 
 
@@ -52,13 +56,20 @@ class HistoryDiffSerializer(serializers.Serializer):
             self.fields["from"] = serializers.CharField()
             self.fields["to"] = serializers.CharField()
         elif onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
-            # TODO: Currently this does not work for nested date fields
-            # Ideal solution would be to have serializer field instances attached to OnyxField objects
             output_format = get_date_output_format(
                 serializer_fields[onyx_field.field_name]
             )
             self.fields["from"] = FIELDS[onyx_field.onyx_type](format=output_format)
             self.fields["to"] = FIELDS[onyx_field.onyx_type](format=output_format)
+        elif onyx_field.onyx_type == OnyxType.ARRAY:
+            base_onyx_field = onyx_field.base_onyx_field
+            assert base_onyx_field is not None
+            self.fields["from"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
+            self.fields["to"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
         else:
             self.fields["from"] = FIELDS[onyx_field.onyx_type]()
             self.fields["to"] = FIELDS[onyx_field.onyx_type]()
@@ -97,6 +108,12 @@ class SummarySerializer(serializers.Serializer):
             if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type](
                     format=get_date_output_format(serializer_fields[field_name])
+                )
+            elif onyx_field.onyx_type == OnyxType.ARRAY:
+                base_onyx_field = onyx_field.base_onyx_field
+                assert base_onyx_field is not None
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type](
+                    child=FIELDS[base_onyx_field.onyx_type]()
                 )
             else:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
@@ -582,3 +599,73 @@ class SerializerNode:
             raise e.__cause__
 
         return instance
+
+
+class AnonymiserRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        project = self.context["project"]
+        queryset = Anonymiser.objects.filter(project=project)
+        return queryset
+
+
+class ProjectRecordsRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        model = self.context["model"]
+        queryset = model.objects.all()
+        return queryset
+
+
+class AnalysisSerializer(serializers.ModelSerializer):
+    """
+    Serializer for all project analyses.
+    """
+
+    project = serializers.PrimaryKeyRelatedField(
+        write_only=True, queryset=Project.objects.all(), default=CurrentProjectDefault()
+    )
+    analysis_id = serializers.CharField(required=False)
+    published_date = serializers.DateField(required=False)
+    experiment_details = StructureField(required=False)
+    upstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
+    downstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
+    identifiers = AnonymiserRelatedField(
+        many=True, required=False, slug_field="identifier"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["records"] = ProjectRecordsRelatedField(
+            source=f"{self.context['model'].__name__.lower()}_records",
+            many=True,
+            required=False,
+            slug_field="climb_id",
+        )
+
+    class Meta:
+        model = Analysis
+        fields = [
+            "project",
+            "analysis_id",
+            "published_date",
+            "analysis_date",
+            "name",
+            "command_details",
+            "pipeline_details",
+            "experiment_details",
+            "result",
+            "report",
+            "outputs",
+            "upstream_analyses",
+            "downstream_analyses",
+            "identifiers",
+        ]

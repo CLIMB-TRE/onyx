@@ -65,10 +65,22 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
         path(
+            "count/",
+            views.ProjectRecordsViewSet.as_view({"get": "list"}),
+            name=f"projects.{code}.count",
+            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
+        ),
+        path(
             "query/",
             views.ProjectRecordsViewSet.as_view({"post": "list"}),
             name=f"projects.{code}.query",
             kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        path(
+            "query/count/",
+            views.ProjectRecordsViewSet.as_view({"post": "list"}),
+            name=f"projects.{code}.query.count",
+            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
         ),
         path(
             "fields/",
@@ -93,6 +105,30 @@ def generate_project_urls(
             views.IdentifyView.as_view(),
             name=f"projects.{code}.identify.field",
             kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
+            r"^analysis/$",
+            views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
+            name=f"projects.{code}.analysis",
+            kwargs={
+                "code": code,
+                "serializer_class": serializer_class,
+            },
+        ),
+        re_path(
+            r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisViewSet.as_view(
+                {
+                    "get": "retrieve",
+                    "patch": "partial_update",
+                    "delete": "destroy",
+                }
+            ),
+            name=f"projects.{code}.analysis.analysis_id",
+            kwargs={
+                "code": code,
+                "serializer_class": serializer_class,
+            },
         ),
     ]
 

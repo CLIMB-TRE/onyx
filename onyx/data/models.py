@@ -54,7 +54,7 @@ class Choice(models.Model):
     choice = models.TextField()
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    constraints = models.ManyToManyField("Choice", related_name="reverse_constraints")
+    constraints = models.ManyToManyField("self")
 
     class Meta:
         indexes = [
@@ -68,6 +68,108 @@ class Choice(models.Model):
 
     def __str__(self):
         return f"{self.project.code} | {self.field} | {self.choice}"
+
+
+class Anonymiser(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT)
+    field = LowerCharField(max_length=100)
+    prefix = UpperCharField(max_length=5)
+    hash = models.TextField()
+    identifier = UpperCharField(unique=True, max_length=20)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=[
+                    "project",
+                    "site",
+                    "field",
+                    "hash",
+                ]
+            ),
+        ]
+        constraints = [
+            unique_together(
+                fields=[
+                    "project",
+                    "site",
+                    "field",
+                    "hash",
+                ],
+            ),
+        ]
+
+    def generate_identifier(self) -> str:
+        """
+        Generate a random unique identifier.
+
+        The identifier consists of the instance's `prefix`, followed by 10 random hexadecimal numbers.
+
+        This means there are `16^10 = 1,099,511,627,776` identifiers to choose from.
+        """
+
+        identifier = self.prefix + token_hex(5).upper()
+
+        if Anonymiser.objects.filter(identifier=identifier).exists():
+            identifier = self.generate_identifier()
+
+        return identifier
+
+    def save(self, *args, **kwargs):
+        if not self.identifier:
+            self.identifier = self.generate_identifier()
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.identifier
+
+
+def generate_analysis_id():
+    """
+    Generate a random new Analysis ID.
+
+    The Analysis ID consists of the prefix `A-` followed by 10 random hexadecimal numbers.
+
+    This means there are `16^10 = 1,099,511,627,776` Analysis IDs to choose from.
+    """
+    analysis_id = "A-" + "".join(token_hex(5).upper())
+
+    if Analysis.objects.filter(analysis_id=analysis_id).exists():
+        analysis_id = generate_analysis_id()
+
+    return analysis_id
+
+
+class Analysis(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT)
+    created = models.DateTimeField(auto_now_add=True)
+    analysis_id = UpperCharField(
+        default=generate_analysis_id,
+        max_length=12,
+        unique=True,
+        help_text="Unique identifier for an analysis in Onyx.",
+    )
+    published_date = models.DateField(
+        auto_now_add=True,
+        help_text="The date the analysis was published in Onyx.",
+    )
+    analysis_date = models.DateField(help_text="The date the analysis was carried out.")
+    name = StrippedCharField(max_length=100, unique=True)
+    command_details = models.TextField(blank=True)
+    pipeline_details = models.TextField(blank=True)
+    experiment_details = models.JSONField(default=dict)
+    result = models.TextField(blank=True)
+    report = models.TextField(blank=True)
+    outputs = models.TextField(blank=True)
+    upstream_analyses = models.ManyToManyField(
+        "self", symmetrical=False, related_name="downstream_analyses"
+    )
+    identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
+
+    def __str__(self):
+        return self.analysis_id
 
 
 def generate_climb_id():
@@ -164,6 +266,11 @@ class ProjectRecord(BaseRecord):
         default=False,
         help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
     )
+    analyses = models.ManyToManyField(
+        Analysis,
+        related_name="%(class)s_records",
+        help_text="The analyses involving the record.",
+    )
 
     class Meta:
         abstract = True
@@ -180,59 +287,3 @@ class ProjectRecord(BaseRecord):
 
     def __str__(self):
         return self.climb_id
-
-
-class Anonymiser(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.PROTECT)
-    site = models.ForeignKey(Site, on_delete=models.PROTECT)
-    field = LowerCharField(max_length=100)
-    prefix = UpperCharField(max_length=5)
-    hash = models.TextField()
-    identifier = UpperCharField(unique=True, max_length=20)
-
-    class Meta:
-        indexes = [
-            models.Index(
-                fields=[
-                    "project",
-                    "site",
-                    "field",
-                    "hash",
-                ]
-            ),
-        ]
-        constraints = [
-            unique_together(
-                fields=[
-                    "project",
-                    "site",
-                    "field",
-                    "hash",
-                ],
-            ),
-        ]
-
-    def generate_identifier(self) -> str:
-        """
-        Generate a random unique identifier.
-
-        The identifier consists of the instance's `prefix`, followed by 10 random hexadecimal numbers.
-
-        This means there are `16^10 = 1,099,511,627,776` identifiers to choose from.
-        """
-
-        identifier = self.prefix + token_hex(5).upper()
-
-        if Anonymiser.objects.filter(identifier=identifier).exists():
-            identifier = self.generate_identifier()
-
-        return identifier
-
-    def save(self, *args, **kwargs):
-        if not self.identifier:
-            self.identifier = self.generate_identifier()
-
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.identifier

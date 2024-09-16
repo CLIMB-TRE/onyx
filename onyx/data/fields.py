@@ -1,5 +1,6 @@
 from typing import Any
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from rest_framework import exceptions
 from utils.fields import (
     StrippedCharField,
@@ -33,6 +34,7 @@ class OnyxField:
         "choices",
         "lookup",
         "value",
+        "base_onyx_field",
     )
 
     def __init__(
@@ -43,13 +45,24 @@ class OnyxField:
         lookup: str,
         allow_lookup: bool = False,
         value: Any = None,
+        is_base_field: bool = False,
     ):
         self.project = project
         self.field_model = field_model
         self.field_path = field_path
         self.field_name = self.field_path.split("__")[-1]
-        self.field_instance = self.field_model._meta.get_field(self.field_name)
+
+        if is_base_field:
+            base_field_instance = self.field_model._meta.get_field(
+                self.field_name
+            ).base_field  # type: ignore
+            assert isinstance(base_field_instance, models.Field)
+            self.field_instance = base_field_instance
+        else:
+            self.field_instance = self.field_model._meta.get_field(self.field_name)
+
         self.field_type = type(self.field_instance)
+        self.base_onyx_field = None
 
         # Determine the OnyxType for the field
         if self.field_type in {
@@ -85,6 +98,20 @@ class OnyxField:
 
         elif self.field_instance.is_relation:
             self.onyx_type = OnyxType.RELATION
+
+        elif self.field_type == ArrayField:
+            self.onyx_type = OnyxType.ARRAY
+            self.base_onyx_field = OnyxField(
+                project=project,
+                field_model=field_model,
+                field_path=field_path,
+                lookup="",
+                allow_lookup=False,
+                is_base_field=True,
+            )
+
+        elif self.field_type == models.JSONField:
+            self.onyx_type = OnyxType.STRUCTURE
 
         else:
             raise NotImplementedError(
@@ -316,6 +343,7 @@ class FieldHandler:
 
             else:
                 # Otherwise, it is unknown
+                # TODO: Better suggestion handling for both fields and lookups
                 break
 
         raise exceptions.ValidationError(self.field_suggestions(field))

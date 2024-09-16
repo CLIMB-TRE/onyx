@@ -106,6 +106,26 @@ class OnyxLookup(Enum):
         "isnull",
         "The field's value must be empty.",
     )
+    CONTAINED_BY = (
+        "contained_by",
+        "The field's value must be equal to, or a subset of, the query value.",
+    )
+    OVERLAP = (
+        "overlap",
+        "The field's value must overlap with the query value.",
+    )
+    HAS_KEY = (
+        "has_key",
+        "The field's top-level keys must contain the query value.",
+    )
+    HAS_KEYS = (
+        "has_keys",
+        "The field's top-level keys must contain all of the query values.",
+    )
+    HAS_ANY_KEYS = (
+        "has_any_keys",
+        "The field's top-level keys must contain any of the query values.",
+    )
 
     def __init__(self, label, description) -> None:
         self.label = label
@@ -251,6 +271,35 @@ class OnyxType(Enum):
         "relation",
         "A link to a row, or multiple rows, in another table.",
         [
+            OnyxLookup.ISNULL.label,
+        ],
+    )
+    ARRAY = (
+        "array",
+        "A list of values.",
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.CONTAINS.label,
+            OnyxLookup.CONTAINED_BY.label,
+            OnyxLookup.OVERLAP.label,
+            OnyxLookup.LENGTH.label,
+            OnyxLookup.LENGTH_IN.label,
+            OnyxLookup.LENGTH_RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
+    )
+    STRUCTURE = (
+        "structure",
+        "An arbitrary JSON structure.",
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.CONTAINS.label,
+            OnyxLookup.CONTAINED_BY.label,
+            OnyxLookup.HAS_KEY.label,
+            OnyxLookup.HAS_KEYS.label,
+            OnyxLookup.HAS_ANY_KEYS.label,
             OnyxLookup.ISNULL.label,
         ],
     )

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "onyx"
-version = "0.17.2"
+version = "0.18.0"
 description = "API for pathogen metadata."
 authors = ["Thomas Brier <t.brier@outlook.com>"]
 license = "LICENSE"
@@ -24,6 +24,21 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 coverage = "^7.6.1"
+
+[tool.coverage.run]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/tests.py",
+    "*/asgi.py",
+    "*/wsgi.py",
+    "*/admin.py",
+    "*/manage.py",
+]
+
+source = ["."]
+[tool.coverage.report]
+sort = "-miss"
 
 [build-system]
 requires = ["poetry-core"]

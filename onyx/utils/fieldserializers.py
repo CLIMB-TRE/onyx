@@ -154,3 +154,20 @@ class SiteField(ChoiceField):
 
     def to_representation(self, site):
         return site.code
+
+
+class JSONFieldMixin:
+    def to_internal_value(self, data):
+        data = serializers.JSONField(
+            binary=True if isinstance(data, str) else False
+        ).to_internal_value(data)
+
+        return super().to_internal_value(data)  # type: ignore
+
+
+class ArrayField(JSONFieldMixin, serializers.ListField):
+    pass
+
+
+class StructureField(JSONFieldMixin, serializers.DictField):
+    pass

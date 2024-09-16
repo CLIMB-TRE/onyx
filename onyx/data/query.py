@@ -11,7 +11,7 @@ from rest_framework import exceptions
 from utils.functions import pydantic_to_drf_error
 from .filters import OnyxFilter
 from .fields import FieldHandler
-from .types import OnyxLookup
+from .types import OnyxType, OnyxLookup
 
 
 class QuerySymbol(Enum):
@@ -277,12 +277,31 @@ class QueryBuilder:
                     )
 
             elif value.lookup == OnyxLookup.ISNULL.label:
+                if value.onyx_type == OnyxType.ARRAY:
+                    q = Q(**{f"{value.field_path}__len": 0})
+                elif value.onyx_type == OnyxType.STRUCTURE:
+                    q = Q(**{value.field_path: {}})
+                else:
+                    q = Q(**{f"{value.field_path}__{value.lookup}": True})
+
                 if value.value:
-                    return Q(**{f"{value.field_path}__{value.lookup}": True})
+                    return q
                 else:
                     # Using an exclude here causes Django to generate a much more efficient query for relational fields
                     # https://stackoverflow.com/questions/7171041/what-does-it-mean-by-select-1-from-table
-                    return ~Q(**{f"{value.field_path}__{value.lookup}": True})
+                    return ~q
+
+            elif value.onyx_type == OnyxType.ARRAY and value.lookup in [
+                OnyxLookup.LENGTH.label,
+                OnyxLookup.LENGTH_IN.label,
+                OnyxLookup.LENGTH_RANGE.label,
+            ]:
+                if value.lookup == OnyxLookup.LENGTH.label:
+                    return Q(**{f"{value.field_path}__len": value.value})
+                elif value.lookup == OnyxLookup.LENGTH_IN.label:
+                    return Q(**{f"{value.field_path}__len__in": value.value})
+                else:
+                    return Q(**{f"{value.field_path}__len__range": value.value})
 
             else:
                 if value.lookup:

@@ -1,3 +1,4 @@
+from rest_framework import serializers
 from utils.validators import OnyxUniqueTogetherValidator
 from utils.fieldserializers import (
     CharField,
@@ -5,6 +6,8 @@ from utils.fieldserializers import (
     FloatField,
     DateField,
     ChoiceField,
+    ArrayField,
+    StructureField,
 )
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
 from .models import TestModel, TestModelRecord
@@ -80,6 +83,10 @@ class TestModelSerializer(ProjectRecordSerializer):
     start = IntegerField()
     end = IntegerField()
     required_when_published = CharField(required=False, allow_blank=True)
+    scores = ArrayField(
+        child=serializers.IntegerField(min_value=0), required=False, max_length=10
+    )
+    structure = StructureField(required=False)
 
     class Meta:
         model = TestModel
@@ -100,6 +107,8 @@ class TestModelSerializer(ProjectRecordSerializer):
             "start",
             "end",
             "required_when_published",
+            "scores",
+            "structure",
         ]
         validators = [
             OnyxUniqueTogetherValidator(

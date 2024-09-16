@@ -40,6 +40,8 @@
                 "start",
                 "end",
                 "required_when_published",
+                "scores",
+                "structure",
                 "records",
                 "records__test_id",
                 "records__test_pass",
@@ -76,6 +78,8 @@
                 "start",
                 "end",
                 "required_when_published",
+                "scores",
+                "structure",
                 "records",
                 "records__test_id",
                 "records__test_pass",
@@ -122,6 +126,8 @@
                 "start",
                 "end",
                 "required_when_published",
+                "scores",
+                "structure",
                 "records",
                 "records__test_id",
                 "records__test_pass",
@@ -139,7 +145,7 @@
       "choices": [
         {
           "field": "site",
-          "options": ["testsite_1", "testsite_2"]
+          "options": ["testsite_a", "testsite_b"]
         },
         {
           "field": "country",

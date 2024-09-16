@@ -92,7 +92,16 @@ def generate_fields_spec(
 
         # Add default value if it exists
         if field_instance.default != models.NOT_PROVIDED:
-            field_spec["default"] = field_instance.default
+            if field_instance.default in [list, dict]:
+                field_spec["default"] = field_instance.default()
+            else:
+                field_spec["default"] = field_instance.default
+
+        # Update label if field is an array field
+        if onyx_type == OnyxType.ARRAY:
+            base_onyx_field = onyx_fields[field_path].base_onyx_field
+            assert base_onyx_field is not None
+            field_spec["type"] = f"{onyx_type.label}<{base_onyx_field.onyx_type.label}>"
 
         # Add choices if the field is a choice field
         if onyx_type == OnyxType.CHOICE and onyx_fields[field_path].choices:

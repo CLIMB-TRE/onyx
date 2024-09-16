@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from utils.fields import UpperCharField, ChoiceField
 from utils.constraints import (
     unique_together,
@@ -38,6 +39,8 @@ class BaseTestModel(ProjectRecord):
     start = models.IntegerField()
     end = models.IntegerField()
     required_when_published = models.TextField(blank=True)
+    scores = ArrayField(models.IntegerField(), default=list, size=10)
+    structure = models.JSONField(default=dict)
 
     class Meta:
         abstract = True

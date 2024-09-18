@@ -97,18 +97,18 @@ def generate_fields_spec(
             else:
                 field_spec["default"] = field_instance.default
 
-        # Update label if field is an array field
-        if onyx_type == OnyxType.ARRAY:
-            base_onyx_field = onyx_fields[field_path].base_onyx_field
-            assert base_onyx_field is not None
-            field_spec["type"] = f"{onyx_type.label}<{base_onyx_field.onyx_type.label}>"
-
         # Add choices if the field is a choice field
         if onyx_type == OnyxType.CHOICE and onyx_fields[field_path].choices:
             field_spec["values"] = sorted(onyx_fields[field_path].choices)
 
         # Add additional restrictions
         restrictions = []
+
+        # Add array type
+        if onyx_type == OnyxType.ARRAY:
+            base_onyx_field = onyx_fields[field_path].base_onyx_field
+            assert base_onyx_field is not None
+            restrictions.append(f"Array type: {base_onyx_field.onyx_type.label}")
 
         # Add date formatting information
         if onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:

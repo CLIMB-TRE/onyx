@@ -389,6 +389,7 @@ class HistoryView(ProjectAPIView):
                 "username": h.history_user.username if h.history_user else None,
                 "timestamp": h.history_date,
                 "action": actions[h.history_type],
+                "changes": [],
             }
 
             # If the history type is a change, then include the changes
@@ -396,7 +397,7 @@ class HistoryView(ProjectAPIView):
                 # Create a list of all direct changes to the instance
                 # These changes need to be serialized so the output field
                 # values are represented correctly (e.g. the correct date format)
-                diff["changes"] = [
+                diff["changes"].extend(
                     HistoryDiffSerializer(
                         {
                             "field": change.field,
@@ -412,7 +413,7 @@ class HistoryView(ProjectAPIView):
                         history[i - 1],
                         included_fields=included_fields,
                     ).changes
-                ]
+                )
 
                 # Date of the next history entry by the same user
                 next_user_history_date = None

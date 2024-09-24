@@ -143,14 +143,10 @@ class BaseTestModelRecord(BaseRecord):
 
 
 class TestModel(BaseTestModel):
-    class Meta(BaseTestModel.Meta):
-        pass
+    pass
 
 
 class TestModelRecord(BaseTestModelRecord):
     link = models.ForeignKey(
         TestModel, on_delete=models.CASCADE, related_name="records"
     )
-
-    class Meta(BaseTestModelRecord.Meta):
-        pass

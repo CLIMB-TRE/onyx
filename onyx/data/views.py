@@ -9,7 +9,7 @@ from django.db.models import Count, Subquery, Q
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
@@ -125,18 +125,33 @@ class ProjectAPIView(APIView):
             {field: value}
             for field in request.query_params
             for value in request.query_params.getlist(field)
-            if field not in {"cursor", "include", "exclude", "summarise", "search"}
+            if field
+            not in {
+                "cursor",
+                "include",
+                "exclude",
+                "summarise",
+                "search",
+                "page",
+                "order",
+            }
         ]
 
         # Build extra query parameters
-        # Cursor pagination
+        # Cursor for pagination
         self.cursor = request.query_params.get("cursor")
+
+        # Page number for pagination
+        self.page = request.query_params.get("page")
 
         # Include fields in output of get/filter/query
         self.include = list(request.query_params.getlist("include"))
 
         # Excluding fields in output of get/filter/query
         self.exclude = list(request.query_params.getlist("exclude"))
+
+        # Order of fields in filter/query
+        self.order = request.query_params.get("order")
 
         # Summary aggregate in filter/query
         self.summarise = list(request.query_params.getlist("summarise"))
@@ -674,13 +689,18 @@ class ProjectRecordsViewSet(ProjectViewSet):
         )
 
         # Validate include/exclude fields
-        include_exclude = self.include + self.exclude
-        for field in include_exclude:
+        for field in self.include + self.exclude:
             try:
-                # Lookups are not allowed for include/exclude fields
                 self.handler.resolve_field(field)
             except exceptions.ValidationError as e:
                 errors.setdefault(field, []).append(e.args[0])
+
+        # Validate order field
+        if self.order:
+            try:
+                self.handler.resolve_field(self.order.removeprefix("-"))
+            except exceptions.ValidationError as e:
+                errors.setdefault(self.order, []).append(e.args[0])
 
         # Validate the query fields
         if data:
@@ -847,8 +867,18 @@ class ProjectRecordsViewSet(ProjectViewSet):
                 return Response({"count": qs.count()})
 
             # Prepare paginator
-            self.paginator = CursorPagination()
-            self.paginator.ordering = "created"
+            if self.order or self.page:
+                self.paginator = PageNumberPagination()
+
+                if self.order:
+                    reverse = self.order.startswith("-")
+
+                    qs = qs.order_by(self.order, f"{'-' if reverse else ''}created")
+                else:
+                    qs = qs.order_by("created")
+            else:
+                self.paginator = CursorPagination()
+                self.paginator.ordering = "created"
 
             # Paginate the response
             result_page = self.paginator.paginate_queryset(qs, request)

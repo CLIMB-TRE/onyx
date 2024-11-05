@@ -1,4 +1,5 @@
 import json
+import copy
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
 from django.core.management import base
@@ -139,7 +140,7 @@ class Command(base.BaseCommand):
                                     existing_group.permissions.extend(group.permissions)
                                     break
                             else:
-                                groups.append(group)
+                                groups.append(copy.deepcopy(group))
 
                     if content.choices:
                         choices.extend(content.choices)

@@ -1,5 +1,4 @@
 import json
-import copy
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
 from django.core.management import base
@@ -121,10 +120,16 @@ class Command(base.BaseCommand):
             self.print(f"Updating project: {project.code}")
 
         if contents:
-            groups = []
+            # Mapping of scope to permissions
+            groups = {}
+
+            # List of choices
             choices = []
+
+            # List of choice constraints
             choice_constraints = []
 
+            # Iterate through the contents to gather groups, choices, and choice constraints
             for content in contents:
                 if (
                     isinstance(content.code, list)
@@ -134,13 +139,10 @@ class Command(base.BaseCommand):
                     and project_config.code == content.code
                 ):
                     if content.groups:
+                        # Create a list of permissions for a given scope,
+                        # or extend if it already exists
                         for group in content.groups:
-                            for existing_group in groups:
-                                if group.scope == existing_group.scope:
-                                    existing_group.permissions.extend(group.permissions)
-                                    break
-                            else:
-                                groups.append(copy.deepcopy(group))
+                            groups.setdefault(group.scope, []).extend(group.permissions)
 
                     if content.choices:
                         choices.extend(content.choices)
@@ -149,7 +151,13 @@ class Command(base.BaseCommand):
                         choice_constraints.extend(content.choice_constraints)
 
             if groups:
-                self.set_groups(project, groups)
+                # Convert scope/permissions mapping to GroupConfig objects
+                group_configs = [
+                    GroupConfig(scope=scope, permissions=permissions)
+                    for scope, permissions in groups.items()
+                ]
+
+                self.set_groups(project, group_configs)
 
             if choices:
                 self.set_choices(project, choices)

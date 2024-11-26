@@ -218,6 +218,51 @@ class TestFilterView(OnyxDataTestCase):
         response = self.client.get(self.endpoint, data={"exclude": "hello"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_ordering(self):
+        """
+        Test ordering records.
+        """
+
+        for field in [
+            "climb_id",
+            "site",
+            "published_date",
+            "sample_id",
+            "run_name",
+            "collection_month",
+            "submission_date",
+            "country",
+            "score",
+            "scores",
+            "structure",
+        ]:
+            response = self.client.get(self.endpoint, data={"order": field})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqualOrderedClimbIDs(
+                response.json()["data"],
+                TestModel.objects.order_by(field, "created"),
+            )
+
+            response = self.client.get(self.endpoint, data={"order": f"-{field}"})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqualOrderedClimbIDs(
+                response.json()["data"],
+                TestModel.objects.order_by(f"-{field}", "-created"),
+            )
+
+    def test_ordering_bad_field(self):
+        """
+        Test that ordering by an invalid field fails.
+        """
+
+        # Cannot provide a lookup with an ordering field
+        response = self.client.get(self.endpoint, data={"order": "site__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"order": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_text(self):
         """
         Test filtering a text field.

@@ -203,6 +203,22 @@ class OnyxTestCase(APITestCase):
             qs_values,
         )
 
+    def assertEqualOrderedClimbIDs(self, records, qs):
+        """
+        Assert that the CLIMB IDs in the records match the CLIMB IDs in the queryset.
+
+        Also asserts that the order of the records is the same as the order of the queryset.
+        """
+
+        record_values = [record["climb_id"] for record in records]
+        qs_values = list(qs.values_list("climb_id", flat=True))
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
+        self.assertEqual(
+            record_values,
+            qs_values,
+        )
+
 
 def generate_test_data(n: int, api_call: bool = True):
     """

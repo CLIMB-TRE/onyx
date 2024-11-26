@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "knox",
     "django_filters",
     "simple_history",
+    "drf_spectacular",
     "internal",
     "data",
     "accounts",
@@ -185,6 +186,7 @@ REST_FRAMEWORK = {
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
     "DEFAULT_PAGINATION_CLASS": None,
     "PAGE_SIZE": 1000,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 REST_KNOX = {

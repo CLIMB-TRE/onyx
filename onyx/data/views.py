@@ -691,6 +691,7 @@ class ProjectRecordsViewSet(ProjectViewSet):
         # Validate include/exclude fields
         for field in self.include + self.exclude:
             try:
+                # Lookups are not allowed for include/exclude fields
                 self.handler.resolve_field(field)
             except exceptions.ValidationError as e:
                 errors.setdefault(field, []).append(e.args[0])
@@ -698,6 +699,7 @@ class ProjectRecordsViewSet(ProjectViewSet):
         # Validate order field
         if self.order:
             try:
+                # Lookups are not allowed for the order field
                 self.handler.resolve_field(self.order.removeprefix("-"))
             except exceptions.ValidationError as e:
                 errors.setdefault(self.order, []).append(e.args[0])

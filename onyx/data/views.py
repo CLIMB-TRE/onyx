@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
+from accounts.models import Site
 from .models import Project, Choice, ProjectRecord, Anonymiser, Analysis
 from .serializers import (
     HistoryDiffSerializer,
@@ -334,6 +335,19 @@ class ChoicesView(ProjectAPIView):
                 "is_active",
             )
         }
+
+        # Populate site choice descriptions from the Site model description
+        if onyx_field.field_name == "site":
+            descriptions = {
+                site_code: description
+                for site_code, description in Site.objects.values_list(
+                    "code", "description"
+                )
+            }
+
+            for choice, data in choices.items():
+                if not data["description"]:
+                    data["description"] = descriptions.get(choice.lower(), "")
 
         # Return choices for the field
         return Response(choices)

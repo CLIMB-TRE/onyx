@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
+from accounts.models import Site
 from .models import Project, Choice, ProjectRecord, Anonymiser, Analysis
 from .serializers import (
     HistoryDiffSerializer,
@@ -24,6 +25,7 @@ from .serializers import (
 )
 from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
+from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
 from .types import OnyxType, OnyxLookup
 from .actions import Actions
@@ -333,6 +335,19 @@ class ChoicesView(ProjectAPIView):
                 "is_active",
             )
         }
+
+        # Populate site choice descriptions from the Site model description
+        if onyx_field.field_name == "site":
+            descriptions = {
+                site_code: description
+                for site_code, description in Site.objects.values_list(
+                    "code", "description"
+                )
+            }
+
+            for choice, data in choices.items():
+                if not data["description"]:
+                    data["description"] = descriptions.get(choice.lower(), "")
 
         # Return choices for the field
         return Response(choices)
@@ -762,35 +777,16 @@ class ProjectRecordsViewSet(ProjectViewSet):
         # If the search parameter was provided
         # Form the Q object for it, and add it to the user's Q object
         if self.search:
-            # Split the search string into individual words
-            words = []
-            for word in self.search.split():
-                w = word.strip().strip("'").strip('"').strip()
-                if w:
-                    words.append(w)
+            # Get the fields to search over
+            search_fields = [
+                field
+                for field, onyx_field in self.handler.resolve_fields(fields).items()
+                if onyx_field.onyx_type == OnyxType.TEXT
+                or onyx_field.onyx_type == OnyxType.CHOICE
+            ]
 
-            if words:
-                # Get the fields to search over
-                search_fields = [
-                    field
-                    for field, onyx_field in self.handler.resolve_fields(fields).items()
-                    if onyx_field.onyx_type == OnyxType.TEXT
-                    or onyx_field.onyx_type == OnyxType.CHOICE
-                ]
-
-                # Form the Q object for the search
-                search = Q()
-                for word in words:
-                    s = Q()
-                    for field in search_fields:
-                        if field == "site":
-                            s |= Q(**{f"{field}__code__icontains": word})
-                        else:
-                            s |= Q(**{f"{field}__icontains": word})
-                    search &= s
-
-                # Add to the user Q object
-                q_object &= search
+            # Form the Q object for the search, and add it to the user's Q object
+            q_object &= build_search(self.search, search_fields)
 
         # If a valid query was provided
         # Form the Q object for it, and add it to the user's Q object
@@ -1055,6 +1051,24 @@ class AnalysisViewSet(ProjectViewSet):
 
         # Initial queryset
         qs = Analysis.objects.filter(project=self.project)
+
+        # If the search parameter was provided
+        # Filter the queryset with the user's search
+        if self.search:
+            qs = qs.filter(
+                build_search(
+                    self.search,
+                    [
+                        "analysis_id",
+                        "name",
+                        "command_details",
+                        "pipeline_details",
+                        "result",
+                        "report",
+                        "outputs",
+                    ],
+                ),
+            )
 
         # Serialize the results
         serializer = AnalysisSerializer(

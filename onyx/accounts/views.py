@@ -122,12 +122,16 @@ class SiteUsersView(ListAPIView):
             "projectgroup__project", flat=True
         ).distinct()
 
-        users = User.objects.filter(
-            is_active=True,
-            is_approved=True,
-            site=self.request.user.site,
-            groups__projectgroup__project__in=projects,
-        ).order_by("-date_joined")
+        users = (
+            User.objects.filter(
+                is_active=True,
+                is_approved=True,
+                site=self.request.user.site,
+                groups__projectgroup__project__in=projects,
+            )
+            .distinct()
+            .order_by("-date_joined")
+        )
 
         return users
 

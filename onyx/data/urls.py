@@ -107,13 +107,16 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
+            r"^analyses/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            views.RecordAnalysesView.as_view(),
+            name=f"projects.{code}.analyses.climb_id",
+            kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
             r"^analysis/$",
             views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
             name=f"projects.{code}.analysis",
-            kwargs={
-                "code": code,
-                "serializer_class": serializer_class,
-            },
+            kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
             r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
@@ -125,10 +128,13 @@ def generate_project_urls(
                 }
             ),
             name=f"projects.{code}.analysis.analysis_id",
-            kwargs={
-                "code": code,
-                "serializer_class": serializer_class,
-            },
+            kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
+            r"^analysis/records/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisRecordsView.as_view(),
+            name=f"projects.{code}.analysis.records.analysis_id",
+            kwargs={"code": code, "serializer_class": serializer_class},
         ),
     ]
 

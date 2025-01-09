@@ -995,6 +995,46 @@ class ProjectRecordsViewSet(ProjectViewSet):
         return Response(data)
 
 
+class RecordAnalysesView(ProjectAPIView):
+    permission_classes = ProjectApproved + [IsSiteMember]
+    project_action = Actions.LIST
+
+    def get(self, request: Request, code: str, climb_id: str) -> Response:
+        """
+        Use the `climb_id` to retrieve the analyses of an instance for the given project `code`.
+        """
+
+        # Initial queryset
+        qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        )
+
+        # Check the instance exists
+        # If the instance does not exist, return 404
+        if not qs.filter(climb_id=climb_id).exists():
+            raise ClimbIDNotFound
+
+        # Filter the analyses with the instance's climb_id
+        qs = Analysis.objects.filter(
+            **{
+                "project": self.project,
+                f"{ self.model.__name__.lower()}_records__climb_id": climb_id,
+            }
+        )
+
+        # Serialize the results
+        serializer = AnalysisSerializer(
+            qs,
+            many=True,
+            context={"project": self.project, "model": self.model},
+        )
+
+        # Return response with data
+        return Response(serializer.data)
+
+
 class AnalysisViewSet(ProjectViewSet):
     permission_classes = ProjectApproved + [IsSiteMember]
 
@@ -1131,3 +1171,40 @@ class AnalysisViewSet(ProjectViewSet):
 
         # Return response indicating deletion
         return Response({"analysis_id": analysis_id})
+
+
+class AnalysisRecordsView(ProjectAPIView):
+    permission_classes = ProjectApproved + [IsSiteMember]
+    project_action = Actions.LIST
+
+    def get(self, request: Request, code: str, analysis_id: str) -> Response:
+        """
+        Use the `analysis_id` to retrieve the records of an instance for the given project `code`.
+        """
+
+        # Check the instance exists
+        # If the instance does not exist, return 404
+        if not Analysis.objects.filter(
+            project=self.project, analysis_id=analysis_id
+        ).exists():
+            raise AnalysisIdNotFound
+
+        # Initial queryset
+        qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        )
+
+        # Filter the records with the analysis_id
+        qs = qs.filter(analyses__analysis_id=analysis_id)
+
+        # Serialize the results
+        serializer = self.serializer_cls(
+            qs,
+            many=True,
+            fields=unflatten_fields(self.handler.get_fields()),
+        )
+
+        # Return response with data
+        return Response(serializer.data)

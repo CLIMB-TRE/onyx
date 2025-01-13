@@ -39,6 +39,7 @@ class ChoiceInfoConfig(BaseModel):
 class ChoiceConfig(BaseModel):
     field: str
     options: List[str | ChoiceInfoConfig]
+    override: bool = False
 
 
 class ChoiceConstraintConfig(BaseModel):
@@ -123,8 +124,8 @@ class Command(base.BaseCommand):
             # Mapping of scope to permissions
             groups = {}
 
-            # List of choices
-            choices = []
+            # Mapping of field to choice configurations
+            choice_configs = {}
 
             # List of choice constraints
             choice_constraints = []
@@ -145,7 +146,13 @@ class Command(base.BaseCommand):
                             groups.setdefault(group.scope, []).extend(group.permissions)
 
                     if content.choices:
-                        choices.extend(content.choices)
+                        for choice_config in content.choices:
+                            if choice_config.override:
+                                choice_configs[choice_config.field] = [choice_config]
+                            else:
+                                choice_configs.setdefault(
+                                    choice_config.field, []
+                                ).append(choice_config)
 
                     if content.choice_constraints:
                         choice_constraints.extend(content.choice_constraints)
@@ -159,7 +166,13 @@ class Command(base.BaseCommand):
 
                 self.set_groups(project, group_configs)
 
-            if choices:
+            if choice_configs:
+                # Convert field/ChoiceConfig mapping to list of ChoiceConfig objects
+                choices = [
+                    choice_config
+                    for choice_config_list in choice_configs.values()
+                    for choice_config in choice_config_list
+                ]
                 self.set_choices(project, choices)
 
             if choice_constraints:

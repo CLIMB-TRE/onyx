@@ -11,7 +11,7 @@ from utils.fields import (
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
-from .models import Choice, Project, ProjectRecord
+from .models import Choice, Project, PrimaryRecord
 from .types import OnyxLookup, OnyxType
 from .actions import Actions
 
@@ -173,7 +173,7 @@ class FieldHandler:
         self.project = project
         model = project.content_type.model_class()
         assert model is not None
-        assert issubclass(model, ProjectRecord)
+        assert issubclass(model, PrimaryRecord)
         self.model = model
         self.app_label = project.content_type.app_label
         self.action = action
@@ -195,6 +195,7 @@ class FieldHandler:
             fields = []
 
             for permission in self.user.get_all_permissions():
+                # TODO: Does this break if the user has a permission not in the format we expect?
                 _, action, project, field = parse_permission(permission)
 
                 if action == self.action and project == self.project.code and field:
@@ -288,6 +289,8 @@ class FieldHandler:
         Returns:
             The resolved `OnyxField` object.
         """
+
+        # TODO: Must be an easier way to achieve this
 
         # Check for trailing underscore
         # This is required because if a field ends in "__"

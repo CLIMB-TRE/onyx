@@ -40,7 +40,7 @@ class HistoryDiffSerializer(serializers.Serializer):
     def __init__(
         self,
         *args,
-        serializer_cls: type[ProjectRecordSerializer],
+        serializer_cls: type[PrimaryRecordSerializer],
         onyx_field: OnyxField,
         show_values: bool,
         **kwargs,
@@ -49,7 +49,7 @@ class HistoryDiffSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
         serlializer_instance = serializer_cls()
-        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        assert isinstance(serlializer_instance, PrimaryRecordSerializer)
         serializer_fields = serlializer_instance.get_fields()
 
         if not show_values:
@@ -92,7 +92,7 @@ class SummarySerializer(serializers.Serializer):
     def __init__(
         self,
         *args,
-        serializer_cls: type[ProjectRecordSerializer],
+        serializer_cls: type[PrimaryRecordSerializer],
         onyx_fields: dict[str, OnyxField],
         count_name: str,
         **kwargs,
@@ -101,7 +101,7 @@ class SummarySerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
         serlializer_instance = serializer_cls()
-        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        assert isinstance(serlializer_instance, PrimaryRecordSerializer)
         serializer_fields = serlializer_instance.get_fields()
 
         for field_name, onyx_field in onyx_fields.items():
@@ -272,23 +272,35 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         conditional_value_required: dict[tuple[str, Any, Any], list[str]] = {}
 
 
-class ProjectRecordSerializer(BaseRecordSerializer):
+class PrimaryRecordSerializer(BaseRecordSerializer):
     """
-    Serializer for the 'root' model of a project.
+    Serializer for the 'primary' model of a project.
     """
 
-    climb_id = serializers.CharField(required=False)
     site = SiteField(default=CurrentUserSiteDefault())
 
     class Meta:
         model: models.Model | None = None
         fields = BaseRecordSerializer.Meta.fields + [
-            "climb_id",
             "is_published",
             "published_date",
             "is_suppressed",
             "site",
             "is_site_restricted",
+        ]
+
+
+class ProjectRecordSerializer(PrimaryRecordSerializer):
+    """
+    Serializer for the 'root' model of a project.
+    """
+
+    climb_id = serializers.CharField(required=False)
+
+    class Meta:
+        model: models.Model | None = None
+        fields = PrimaryRecordSerializer.Meta.fields + [
+            "climb_id",
         ]
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):
@@ -323,6 +335,76 @@ class ProjectRecordSerializer(BaseRecordSerializer):
                 data[field] = anonymiser.identifier
 
         return data
+
+
+class AnonymiserRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        project = self.context["project"]
+        queryset = Anonymiser.objects.filter(project=project)
+        return queryset
+
+
+class ProjectRecordsRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        model = self.context["model"]
+        queryset = model.objects.all()
+        return queryset
+
+
+class AnalysisSerializer(PrimaryRecordSerializer):
+    """
+    Serializer for all project analyses.
+    """
+
+    project = serializers.PrimaryKeyRelatedField(
+        write_only=True, queryset=Project.objects.all(), default=CurrentProjectDefault()
+    )
+    analysis_id = serializers.CharField(required=False)
+    experiment_details = StructureField(required=False)
+    upstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
+    downstream_analyses = serializers.SlugRelatedField(
+        queryset=Analysis.objects.all(),
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+    )
+    identifiers = AnonymiserRelatedField(
+        many=True, required=False, slug_field="identifier"
+    )
+
+    def __init__(self, *args, fields: dict[str, Any] | None = None, **kwargs):
+        super().__init__(*args, fields=fields, **kwargs)
+
+        if fields is not None and "records" in fields:
+            self.fields["records"] = ProjectRecordsRelatedField(
+                source=f"{self.context['model'].__name__.lower()}_records",
+                many=True,
+                required=False,
+                slug_field="climb_id",
+            )
+
+    class Meta:
+        model = Analysis
+        fields = PrimaryRecordSerializer.Meta.fields + [
+            "project",
+            "analysis_id",
+            "analysis_date",
+            "name",
+            "command_details",
+            "pipeline_details",
+            "experiment_details",
+            "result",
+            "report",
+            "outputs",
+            "upstream_analyses",
+            "downstream_analyses",
+            "identifiers",
+        ]
 
 
 # TODO: Race condition testing + preventions.
@@ -599,73 +681,3 @@ class SerializerNode:
             raise e.__cause__
 
         return instance
-
-
-class AnonymiserRelatedField(serializers.SlugRelatedField):
-    def get_queryset(self):
-        project = self.context["project"]
-        queryset = Anonymiser.objects.filter(project=project)
-        return queryset
-
-
-class ProjectRecordsRelatedField(serializers.SlugRelatedField):
-    def get_queryset(self):
-        model = self.context["model"]
-        queryset = model.objects.all()
-        return queryset
-
-
-class AnalysisSerializer(serializers.ModelSerializer):
-    """
-    Serializer for all project analyses.
-    """
-
-    project = serializers.PrimaryKeyRelatedField(
-        write_only=True, queryset=Project.objects.all(), default=CurrentProjectDefault()
-    )
-    analysis_id = serializers.CharField(required=False)
-    published_date = serializers.DateField(required=False)
-    experiment_details = StructureField(required=False)
-    upstream_analyses = serializers.SlugRelatedField(
-        queryset=Analysis.objects.all(),
-        many=True,
-        required=False,
-        slug_field="analysis_id",
-    )
-    downstream_analyses = serializers.SlugRelatedField(
-        queryset=Analysis.objects.all(),
-        many=True,
-        required=False,
-        slug_field="analysis_id",
-    )
-    identifiers = AnonymiserRelatedField(
-        many=True, required=False, slug_field="identifier"
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["records"] = ProjectRecordsRelatedField(
-            source=f"{self.context['model'].__name__.lower()}_records",
-            many=True,
-            required=False,
-            slug_field="climb_id",
-        )
-
-    class Meta:
-        model = Analysis
-        fields = [
-            "project",
-            "analysis_id",
-            "published_date",
-            "analysis_date",
-            "name",
-            "command_details",
-            "pipeline_details",
-            "experiment_details",
-            "result",
-            "report",
-            "outputs",
-            "upstream_analyses",
-            "downstream_analyses",
-            "identifiers",
-        ]

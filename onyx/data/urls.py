@@ -112,11 +112,17 @@ def generate_project_urls(
             name=f"projects.{code}.analyses.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
-        re_path(
-            r"^analysis/$",
+        path(
+            "analysis/",
             views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
             name=f"projects.{code}.analysis",
             kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        path(
+            "analysis/count/",
+            views.AnalysisViewSet.as_view({"get": "list"}),
+            name=f"projects.{code}.analysis.count",
+            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
         ),
         re_path(
             r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",

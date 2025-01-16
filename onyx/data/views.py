@@ -1043,10 +1043,14 @@ class AnalysisViewSet(ProjectViewSet):
         Create an analysis for the given project `code`.
         """
 
-        # Validate the request data fields
+        # Validate the data
         serializer = AnalysisSerializer(
             data=self.request_data,
-            context={"project": self.project, "model": self.model},
+            context={
+                "project": self.project,
+                "request": self.request,
+                "model": self.model,
+            },
         )
 
         if not serializer.is_valid():
@@ -1066,12 +1070,34 @@ class AnalysisViewSet(ProjectViewSet):
         Use the `analysis_id` to retrieve an analysis for the given project `code`.
         """
 
+        fields = [
+            "analysis_id",
+            "published_date",
+            "analysis_date",
+            "name",
+            "command_details",
+            "pipeline_details",
+            "experiment_details",
+            "result",
+            "report",
+            "outputs",
+            "upstream_analyses",
+            "downstream_analyses",
+            "identifiers",
+            "records",
+        ]
+
+        # Initial queryset
+        qs = init_project_queryset(
+            model=Analysis,
+            user=request.user,
+            fields=fields,
+        )
+
         # Get the instance
         # If the instance does not exist, return 404
         try:
-            instance = Analysis.objects.get(
-                project=self.project, analysis_id=analysis_id
-            )
+            instance = qs.get(project=self.project, analysis_id=analysis_id)
         except Analysis.DoesNotExist:
             raise AnalysisIdNotFound
 
@@ -1079,42 +1105,73 @@ class AnalysisViewSet(ProjectViewSet):
         serializer = AnalysisSerializer(
             instance,
             context={"project": self.project, "model": self.model},
+            fields=unflatten_fields(fields),
         )
 
         # Return response with data
         return Response(serializer.data)
 
-    def list(self, request: Request, code: str) -> Response:
+    def list(self, request: Request, code: str, count: bool = False) -> Response:
         """
         Filter and list analyses for the given project `code`.
         """
 
+        fields = [
+            "analysis_id",
+            "analysis_date",
+            "published_date",
+            "name",
+            "result",
+            "report",
+            "outputs",
+        ]
+
         # Initial queryset
-        qs = Analysis.objects.filter(project=self.project)
+        qs = init_project_queryset(
+            model=Analysis,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        ).filter(project=self.project)
+
+        # Fields returned in response
+        fields = include_exclude_fields(
+            fields=fields,
+            include=self.include,
+            exclude=self.exclude,
+        )
 
         # If the search parameter was provided
         # Filter the queryset with the user's search
         if self.search:
-            qs = qs.filter(
-                build_search(
-                    self.search,
-                    [
-                        "analysis_id",
-                        "name",
-                        "command_details",
-                        "pipeline_details",
-                        "result",
-                        "report",
-                        "outputs",
-                    ],
-                ),
-            )
+            qs = qs.filter(build_search(self.search, fields))
+
+        # If the count option is True, return the queryset count instead of results
+        if count:
+            return Response({"count": qs.count()})
+
+        # Prepare paginator
+        if self.order or self.page:
+            self.paginator = PageNumberPagination()
+
+            if self.order:
+                reverse = self.order.startswith("-")
+
+                qs = qs.order_by(self.order, f"{'-' if reverse else ''}created")
+            else:
+                qs = qs.order_by("created")
+        else:
+            self.paginator = CursorPagination()
+            self.paginator.ordering = "created"
+
+        # Paginate the response
+        result_page = self.paginator.paginate_queryset(qs, request)
 
         # Serialize the results
         serializer = AnalysisSerializer(
-            qs,
+            result_page,
             many=True,
             context={"project": self.project, "model": self.model},
+            fields=unflatten_fields(fields),
         )
 
         # Return response with data

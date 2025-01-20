@@ -3,6 +3,7 @@ from enum import Enum
 
 class Actions(Enum):
     ACCESS = ("access", "access")
+    NO_ACCESS = ("no_access", "no access")
     GET = ("get", "get a record from")
     LIST = ("list", "list records from")
     FILTER = ("filter", "filter records from")

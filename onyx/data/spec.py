@@ -94,7 +94,7 @@ def generate_fields_spec(
         if field_instance.default != models.NOT_PROVIDED:
             if field_instance.default in [list, dict]:
                 field_spec["default"] = field_instance.default()
-            else:
+            elif type(field_instance.default) in [str, int, float, bool]:
                 field_spec["default"] = field_instance.default
 
         # Add choices if the field is a choice field

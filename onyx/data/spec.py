@@ -91,7 +91,11 @@ def generate_fields_spec(
         }
 
         # Add default value if it exists
-        if field_instance.default != models.NOT_PROVIDED:
+        if (
+            # ManyToMany fields don't have a default attribute
+            hasattr(field_instance, "default")
+            and field_instance.default != models.NOT_PROVIDED
+        ):
             if field_instance.default in [list, dict]:
                 field_spec["default"] = field_instance.default()
             elif type(field_instance.default) in [str, int, float, bool]:

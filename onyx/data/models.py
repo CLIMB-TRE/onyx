@@ -166,6 +166,10 @@ class BaseRecord(models.Model):
 
 
 class PrimaryRecord(BaseRecord):
+    @classmethod
+    def version(cls):
+        return "N/A"
+
     is_published = models.BooleanField(
         default=True,
         help_text="Indicator for whether a project record has been published.",

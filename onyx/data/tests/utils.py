@@ -16,13 +16,14 @@ class OnyxTestCase(APITestCase):
     def setUpTestData(cls):
         logging.disable(logging.CRITICAL)
 
-        # Set up test project
+        # Set up test project and analysis project
         call_command(
             "project",
             os.path.join(settings.BASE_DIR, "projects/testproject/project.json"),
             quiet=True,
         )
         cls.project = Project.objects.get(code="testproject")
+        cls.analysis_project = Project.objects.get(code="testproject-analysis")
 
         # Set up test sites
         call_command(
@@ -31,6 +32,7 @@ class OnyxTestCase(APITestCase):
             "testsite_a",
             "--projects",
             cls.project.code,
+            cls.analysis_project.code,
             "--description",
             "Department of Testing A",
             quiet=True,
@@ -41,6 +43,7 @@ class OnyxTestCase(APITestCase):
             "testsite_b",
             "--projects",
             cls.project.code,
+            cls.analysis_project.code,
             "--description",
             "University of Testing B",
             quiet=True,
@@ -55,7 +58,7 @@ class OnyxTestCase(APITestCase):
             "test_admin_staff",
             cls.site,
             roles=["is_approved", "is_staff"],
-            groups=["testproject.admin"],
+            groups=["testproject.admin", "testproject-analysis.admin"],
         )
 
         # Set up testproject admin user
@@ -63,7 +66,7 @@ class OnyxTestCase(APITestCase):
             "test_admin_user",
             cls.site,
             roles=["is_approved"],
-            groups=["testproject.admin"],
+            groups=["testproject.admin", "testproject-analysis.admin"],
         )
 
         # Set up testproject analyst user
@@ -71,7 +74,7 @@ class OnyxTestCase(APITestCase):
             "test_analyst_user",
             cls.site,
             roles=["is_approved"],
-            groups=["testproject.analyst"],
+            groups=["testproject.analyst", "testproject-analysis.analyst"],
         )
 
         # Set up testproject analyst user from the extra site
@@ -79,7 +82,7 @@ class OnyxTestCase(APITestCase):
             "test_analyst_user_extra",
             cls.extra_site,
             roles=["is_approved"],
-            groups=["testproject.analyst"],
+            groups=["testproject.analyst", "testproject-analysis.analyst"],
         )
 
     @classmethod

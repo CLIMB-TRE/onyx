@@ -289,6 +289,9 @@ class PrimaryRecordSerializer(BaseRecordSerializer):
             "is_site_restricted",
         ]
 
+    class OnyxMeta(BaseRecordSerializer.OnyxMeta):
+        anonymised_fields: dict[str, str] = {}
+
 
 class ProjectRecordSerializer(PrimaryRecordSerializer):
     """
@@ -302,9 +305,6 @@ class ProjectRecordSerializer(PrimaryRecordSerializer):
         fields = PrimaryRecordSerializer.Meta.fields + [
             "climb_id",
         ]
-
-    class OnyxMeta(BaseRecordSerializer.OnyxMeta):
-        anonymised_fields: dict[str, str] = {}
 
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
@@ -346,7 +346,7 @@ class AnonymiserRelatedField(serializers.SlugRelatedField):
 
 class ProjectRecordsRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
-        model = self.context["model"]
+        model = self.context["project"].content_type.model_class()
         queryset = model.objects.all()
         return queryset
 
@@ -382,7 +382,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
 
         if fields is not None and "records" in fields:
             self.fields["records"] = ProjectRecordsRelatedField(
-                source=f"{self.context['model'].__name__.lower()}_records",
+                source=f"{self.context['project'].content_type.model_class().__name__.lower()}_records",
                 many=True,
                 required=False,
                 slug_field="climb_id",

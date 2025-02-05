@@ -1,7 +1,7 @@
 from django.urls import include, path, re_path
 from django.urls.resolvers import URLResolver
 from . import views
-from .serializers import ProjectRecordSerializer
+from .serializers import ProjectRecordSerializer, AnalysisSerializer
 
 
 urlpatterns = [
@@ -37,7 +37,11 @@ def generate_project_urls(
         A list of URL patterns.
     """
 
+    analysis_code = f"{code}-analysis"
+    analysis_serializer_class = AnalysisSerializer
+
     project_patterns = [
+        # CRUD operations
         path(
             "",
             views.ProjectRecordsViewSet.as_view({"post": "create", "get": "list"}),
@@ -82,6 +86,7 @@ def generate_project_urls(
             name=f"projects.{code}.query.count",
             kwargs={"code": code, "serializer_class": serializer_class, "count": True},
         ),
+        # Fields and choices
         path(
             "fields/",
             views.FieldsView.as_view(),
@@ -94,9 +99,10 @@ def generate_project_urls(
             name=f"projects.{code}.choices.field",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
+        # History, identify and analyses
         re_path(
             r"^history/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
-            views.HistoryView.as_view(),
+            views.ProjectRecordHistoryView.as_view(),
             name=f"projects.{code}.history.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
@@ -110,37 +116,73 @@ def generate_project_urls(
             r"^analyses/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
             views.RecordAnalysesView.as_view(),
             name=f"projects.{code}.analyses.climb_id",
-            kwargs={"code": code, "serializer_class": serializer_class},
+            kwargs={"code": code, "serializer_class": analysis_serializer_class},
         ),
+        # Analysis CRUD operations
         path(
             "analysis/",
             views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
             name=f"projects.{code}.analysis",
-            kwargs={"code": code, "serializer_class": serializer_class},
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+            },
+        ),
+        re_path(
+            r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisViewSet.as_view(
+                {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
+            ),
+            name=f"projects.{code}.analysis.analysis_id",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+            },
         ),
         path(
             "analysis/count/",
             views.AnalysisViewSet.as_view({"get": "list"}),
             name=f"projects.{code}.analysis.count",
-            kwargs={"code": code, "serializer_class": serializer_class, "count": True},
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+                "count": True,
+            },
+        ),
+        # Analysis fields and choices
+        path(
+            "analysis/fields/",
+            views.FieldsView.as_view(),
+            name=f"projects.{code}.analysis.fields",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+            },
         ),
         re_path(
-            r"^analysis/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
-            views.AnalysisViewSet.as_view(
-                {
-                    "get": "retrieve",
-                    "patch": "partial_update",
-                    "delete": "destroy",
-                }
-            ),
-            name=f"projects.{code}.analysis.analysis_id",
-            kwargs={"code": code, "serializer_class": serializer_class},
+            r"^analysis/choices/(?P<field>[a-zA-Z0-9_]*)/$",
+            views.ChoicesView.as_view(),
+            name=f"projects.{code}.analysis.choices.field",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+            },
+        ),
+        # Analysis history and records
+        re_path(
+            r"^analysis/history/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisHistoryView.as_view(),
+            name=f"projects.{code}.analysis.history.analysis_id",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+            },
         ),
         re_path(
             r"^analysis/records/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
             views.AnalysisRecordsView.as_view(),
             name=f"projects.{code}.analysis.records.analysis_id",
-            kwargs={"code": code, "serializer_class": serializer_class},
+            kwargs={"code": analysis_code, "serializer_class": serializer_class},
         ),
     ]
 

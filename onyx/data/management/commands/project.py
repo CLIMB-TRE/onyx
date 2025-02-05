@@ -11,6 +11,108 @@ from ...actions import Actions
 ACTION_LABELS = [action.label for action in Actions]
 
 
+ANALYSIS_PROJECT_TEMPLATE = {
+    "groups": [
+        {
+            "scope": "admin",
+            "permissions": [
+                {
+                    "action": "add",
+                    "fields": ["site"],
+                },
+                {
+                    "action": ["history", "change"],
+                    "fields": ["is_suppressed"],
+                },
+                {
+                    "action": ["add", "change"],
+                    "fields": [
+                        "is_published",
+                        "analysis_date",
+                        "name",
+                        "command_details",
+                        "pipeline_details",
+                        "experiment_details",
+                        "result",
+                        "report",
+                        "outputs",
+                        # "upstream_analyses",
+                        # "downstream_analyses",
+                        # "identifiers",
+                    ],
+                },
+                {
+                    "action": ["get", "list", "filter", "history"],
+                    "fields": [
+                        "is_published",
+                        "published_date",
+                        "site",
+                        "analysis_id",
+                        "analysis_date",
+                        "name",
+                        "report",
+                        "outputs",
+                    ],
+                },
+                {
+                    "action": ["get", "filter", "history"],
+                    "fields": [
+                        "command_details",
+                        "pipeline_details",
+                        "experiment_details",
+                        "result",
+                    ],
+                },
+                {
+                    "action": ["get", "history"],
+                    "fields": [
+                        # "upstream_analyses",
+                        # "downstream_analyses",
+                        # "identifiers",
+                    ],
+                },
+            ],
+        },
+        {
+            "scope": "analyst",
+            "permissions": [
+                {
+                    "action": ["get", "list", "filter", "history"],
+                    "fields": [
+                        "published_date",
+                        "site",
+                        "analysis_id",
+                        "analysis_date",
+                        "name",
+                        "report",
+                        "outputs",
+                    ],
+                },
+                {
+                    "action": ["get", "filter", "history"],
+                    "fields": [
+                        "command_details",
+                        "pipeline_details",
+                        "experiment_details",
+                        "result",
+                    ],
+                },
+                {
+                    "action": ["get", "history"],
+                    "fields": [
+                        # "upstream_analyses",
+                        # "downstream_analyses",
+                        # "identifiers",
+                    ],
+                },
+            ],
+        },
+    ],
+    "choices": [],
+    "choice_constraints": [],
+}
+
+
 class PermissionConfig(BaseModel):
     action: str | List[str]
     fields: List[str]
@@ -150,6 +252,7 @@ class Command(base.BaseCommand):
                     if content.choice_constraints:
                         choice_constraints.extend(content.choice_constraints)
 
+            # Set the groups, choices, and choice constraints for the project
             if groups:
                 # Convert scope/permissions mapping to GroupConfig objects
                 group_configs = [
@@ -165,6 +268,9 @@ class Command(base.BaseCommand):
             if choice_constraints:
                 self.set_choice_constraints(project, choice_constraints)
 
+        # Create/update the analysis project
+        self.set_analysis_project(project)
+
         if p_created:
             self.print(f"Created project: {project.code}")
         else:
@@ -173,6 +279,50 @@ class Command(base.BaseCommand):
         self.print("• Name:", project.name)
         self.print("• Description:", project.description)
         self.print("• Model:", project.content_type.model_class())
+
+    def set_analysis_project(self, project: Project):
+        """
+        Create/update the analysis project.
+        """
+
+        # Create or retrieve the analysis project
+        analysis_project, a_p_created = Project.objects.update_or_create(
+            code=f"{project.code}-analysis",
+            defaults={
+                "name": f"{project.name} Analysis",
+                "description": f"Analyses for the {project.name} project.",
+                "content_type": ContentType.objects.get(
+                    app_label="data", model="analysis"
+                ),
+            },
+        )
+
+        if a_p_created:
+            self.print(f"Creating analysis project: {analysis_project.code}")
+        else:
+            self.print(f"Updating analysis project: {analysis_project.code}")
+
+        # Get the analysis project contents
+        analysis_contents = ProjectContentsConfig(
+            code=analysis_project.code, **ANALYSIS_PROJECT_TEMPLATE
+        )
+
+        # Set the groups, choices, and choice constraints for the analysis project
+        if analysis_contents.groups:
+            self.set_groups(analysis_project, analysis_contents.groups)
+
+        if analysis_contents.choices:
+            self.set_choices(analysis_project, analysis_contents.choices)
+
+        if analysis_contents.choice_constraints:
+            self.set_choice_constraints(
+                analysis_project, analysis_contents.choice_constraints
+            )
+
+        if a_p_created:
+            self.print(f"Created analysis project: {analysis_project.code}")
+        else:
+            self.print(f"Updated analysis project: {analysis_project.code}")
 
     def set_groups(self, project: Project, group_configs: List[GroupConfig]):
         """

@@ -19,7 +19,7 @@ class TestCreateAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
 
         self.endpoint = reverse(
-            "projects.testproject.analysis", kwargs={"code": self.project.code}
+            "projects.testproject.analysis", kwargs={"code": self.analysis_project.code}
         )
 
     def test_basic(self):
@@ -41,7 +41,8 @@ class TestGetAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
         response = self.client.post(
             reverse(
-                "projects.testproject.analysis", kwargs={"code": self.project.code}
+                "projects.testproject.analysis",
+                kwargs={"code": self.analysis_project.code},
             ),
             data=copy.deepcopy(default_payload),
         )
@@ -53,7 +54,7 @@ class TestGetAnalysisView(OnyxTestCase):
 
         self.endpoint = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
         )
 
     def test_basic(self):
@@ -83,7 +84,8 @@ class TestListAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
         response = self.client.post(
             reverse(
-                "projects.testproject.analysis", kwargs={"code": self.project.code}
+                "projects.testproject.analysis",
+                kwargs={"code": self.analysis_project.code},
             ),
             data=copy.deepcopy(default_payload),
         )
@@ -93,7 +95,7 @@ class TestListAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.analyst_user)  # type: ignore
 
         self.endpoint = reverse(
-            "projects.testproject.analysis", kwargs={"code": self.project.code}
+            "projects.testproject.analysis", kwargs={"code": self.analysis_project.code}
         )
 
     def test_basic(self):
@@ -114,12 +116,13 @@ class TestUpdateAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
         self.endpoint = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
         )
 
         response = self.client.post(
             reverse(
-                "projects.testproject.analysis", kwargs={"code": self.project.code}
+                "projects.testproject.analysis",
+                kwargs={"code": self.analysis_project.code},
             ),
             data=copy.deepcopy(default_payload),
         )
@@ -155,6 +158,7 @@ class TestUpdateAnalysisView(OnyxTestCase):
 
 
 class TestDeleteAnalysisView(OnyxTestCase):
+    # TODO: Keep analyses as undeletable?
     def setUp(self):
         super().setUp()
 
@@ -162,12 +166,13 @@ class TestDeleteAnalysisView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
         self.endpoint = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
         )
 
         response = self.client.post(
             reverse(
-                "projects.testproject.analysis", kwargs={"code": self.project.code}
+                "projects.testproject.analysis",
+                kwargs={"code": self.analysis_project.code},
             ),
             data=copy.deepcopy(default_payload),
         )
@@ -180,8 +185,8 @@ class TestDeleteAnalysisView(OnyxTestCase):
         """
 
         response = self.client.delete(self.endpoint(self.analysis_id))
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(Analysis.objects.filter(analysis_id=self.analysis_id).exists())
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # self.assertFalse(Analysis.objects.filter(analysis_id=self.analysis_id).exists())
 
     def test_analysis_id_not_found(self):
         """
@@ -191,5 +196,5 @@ class TestDeleteAnalysisView(OnyxTestCase):
         prefix, postfix = self.analysis_id.split("-")
         analysis_id_not_found = "-".join([prefix, postfix[::-1]])
         response = self.client.delete(self.endpoint(analysis_id_not_found))
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertTrue(Analysis.objects.filter(analysis_id=self.analysis_id).exists())
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # self.assertTrue(Analysis.objects.filter(analysis_id=self.analysis_id).exists())

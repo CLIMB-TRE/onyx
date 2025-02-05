@@ -66,6 +66,7 @@ class OnyxField:
 
         # Determine the OnyxType for the field
         if self.field_type in {
+            models.UUIDField,
             models.CharField,
             models.TextField,
             StrippedCharField,
@@ -119,7 +120,10 @@ class OnyxField:
             )
 
         # Determine the field description
-        if isinstance(self.field_instance, models.ManyToOneRel):
+        # TODO: Proper support for Many-to-many relations
+        if isinstance(self.field_instance, models.ManyToOneRel) or isinstance(
+            self.field_instance, models.ManyToManyRel
+        ):
             self.description = self.field_instance.field.help_text
         else:
             self.description = self.field_instance.help_text
@@ -196,6 +200,7 @@ class FieldHandler:
 
             for permission in self.user.get_all_permissions():
                 # TODO: Does this break if the user has a permission not in the format we expect?
+                # TODO: Should this be comparing app_label?
                 _, action, project, field = parse_permission(permission)
 
                 if action == self.action and project == self.project.code and field:

@@ -15,13 +15,12 @@ from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from accounts.models import Site
-from .models import Project, Choice, PrimaryRecord, Anonymiser, Analysis
+from .models import Project, Choice, PrimaryRecord, Anonymiser
 from .serializers import (
     HistoryDiffSerializer,
     SummarySerializer,
     IdentifierSerializer,
     SerializerNode,
-    AnalysisSerializer,
 )
 from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
@@ -38,23 +37,45 @@ from .fields import (
 )
 
 
+def get_project_and_model(code: str) -> tuple[Project, type[PrimaryRecord]]:
+    """
+    Get the project and model for the given code.
+
+    Args:
+        code: The project code.
+
+    Returns:
+        The project and model.
+    """
+
+    # Get the project
+    project = Project.objects.get(code__iexact=code)
+
+    # Get the project's model
+    model = project.content_type.model_class()
+    assert model is not None
+    assert issubclass(model, PrimaryRecord)
+
+    return project, model
+
+
 def get_discriminator_value(obj):
-    if type(obj) == dict:
+    if type(obj) is dict:
         return "dict"
 
-    elif type(obj) == list:
+    elif type(obj) is list:
         return "list"
 
-    elif type(obj) == str:
+    elif type(obj) is str:
         return "str"
 
-    elif type(obj) == int:
+    elif type(obj) is int:
         return "int"
 
-    elif type(obj) == float:
+    elif type(obj) is float:
         return "float"
 
-    elif type(obj) == bool:
+    elif type(obj) is bool:
         return "bool"
 
     elif obj is None:
@@ -106,14 +127,8 @@ class PrimaryRecordAPIView(APIView):
 
         super().initial(request, *args, **kwargs)
 
-        # Get the project
-        self.project = Project.objects.get(code__iexact=kwargs["code"])
-
-        # Get the project's model
-        model = self.project.content_type.model_class()
-        assert model is not None
-        assert issubclass(model, PrimaryRecord)
-        self.model = model
+        # Get the project and model
+        self.project, self.model = get_project_and_model(self.kwargs["code"])
 
         # Get the model's serializer
         self.serializer_cls = self.kwargs["serializer_class"]
@@ -222,7 +237,7 @@ class ProjectsView(APIView):
         project_groups = []
         for project, scope, actions_str in (
             request.user.groups.filter(projectgroup__isnull=False)
-            .exclude(projectgroup__project__code__endswith="-analysis")
+            .exclude(projectgroup__project__data_project__isnull=False)
             .values_list(
                 "projectgroup__project__code",
                 "projectgroup__scope",
@@ -425,7 +440,11 @@ class HistoryView(PrimaryRecordAPIView):
 
         # Non-nested fields to include in the history
         included_fields = [
-            field for field in self.serializer_cls.Meta.fields if field in fields
+            field
+            for field in self.serializer_cls.Meta.fields
+            # ManyToMany fields are non-nested and classed as relations, so should not be included in the history
+            # TODO: Should ManyToMany fields have a dedicated OnyxType?
+            if field in fields and not fields[field].onyx_type == OnyxType.RELATION
         ]
 
         # Nested fields to include in the history
@@ -1029,37 +1048,54 @@ class RecordAnalysesView(PrimaryRecordAPIView):
     permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.LIST
 
+    def initial(self, request: Request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+
+        # Get the analysis project and model
+        analysis_project = self.project.analysis_project  #  type: ignore
+        assert analysis_project is not None
+        self.analysis_project, self.analysis_model = get_project_and_model(
+            analysis_project.code
+        )
+
+        # Get the analysis model's serializer
+        self.analysis_serializer_cls = self.kwargs["analysis_serializer_class"]
+        self.kwargs.pop("analysis_serializer_class")
+
+        # Initialise field handler for the analysis project, action and user
+        self.analysis_handler = FieldHandler(
+            project=self.analysis_project,
+            action=self.project_action.label,
+            user=request.user,
+        )
+
     def get(self, request: Request, code: str, climb_id: str) -> Response:
         """
         Use the `climb_id` to retrieve the analyses of an instance for the given project `code`.
         """
 
-        # TODO: Record-analysis related views need handlers for both
-        # Initial queryset
-        record_qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
-
         # Check the instance exists
         # If the instance does not exist, return 404
-        if not record_qs.filter(climb_id=climb_id).exists():
+        if not self.qs.filter(climb_id=climb_id).exists():
             raise self.NotFound
 
         # Filter the analyses with the instance's climb_id
-        analysis_qs = Analysis.objects.filter(
+        analysis_qs = init_project_queryset(
+            model=self.analysis_model,
+            user=request.user,
+            fields=self.analysis_handler.get_fields(),
+        ).filter(
             **{
-                "project": self.project,
-                f"{ self.model.__name__.lower()}_records__climb_id": climb_id,
+                "project__code": self.analysis_project.code,
+                f"{self.project.code}_records__climb_id": climb_id,
             }
         )
 
         # Serialize the results
-        serializer = AnalysisSerializer(
+        serializer = self.analysis_serializer_cls(
             analysis_qs,
             many=True,
-            context=self.context,
+            fields=unflatten_fields(self.analysis_handler.get_fields()),
         )
 
         # Return response with data
@@ -1070,44 +1106,49 @@ class AnalysisRecordsView(AnalysisAPIView):
     permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.LIST
 
+    def initial(self, request: Request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+
+        # Get the record project and model
+        data_project = self.project.data_project
+        assert data_project is not None
+        self.records_project, self.records_model = get_project_and_model(
+            data_project.code
+        )
+
+        # Get the record model's serializer
+        self.records_serializer_cls = self.kwargs["records_serializer_class"]
+        self.kwargs.pop("records_serializer_class")
+
+        # Initialise field handler for the records project, action and user
+        self.records_handler = FieldHandler(
+            project=self.records_project,
+            action=self.project_action.label,
+            user=request.user,
+        )
+
     def get(self, request: Request, code: str, analysis_id: str) -> Response:
         """
         Use the `analysis_id` to retrieve the records of an instance for the given project `code`.
         """
 
-        # TODO: Record-analysis related views need handlers for both
-        # Initial analysis queryset
-        analysis_qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        ).filter(project=self.project)
-
         # Check the instance exists
         # If the instance does not exist, return 404
-        if not analysis_qs.filter(analysis_id=analysis_id).exists():
-            raise AnalysisIdNotFound
+        if not self.qs.filter(analysis_id=analysis_id).exists():
+            raise self.NotFound
 
-        # Initial record queryset
-        project_model = self.project.content_type.model_class()
-        assert project_model is not None
-        assert issubclass(project_model, PrimaryRecord)
-
-        record_qs = init_project_queryset(
-            model=project_model,
+        # Filter the records with the instance's analysis_id
+        records_qs = init_project_queryset(
+            model=self.records_model,
             user=request.user,
-            # TODO: wrong handler here
-            fields=self.handler.get_fields(),
-        )
-
-        # Filter the records with instance's analysis_id
-        record_qs = record_qs.filter(analyses__analysis_id=analysis_id)
+            fields=self.records_handler.get_fields(),
+        ).filter(analyses__analysis_id=analysis_id)
 
         # Serialize the results
-        serializer = self.serializer_cls(
-            record_qs,
+        serializer = self.records_serializer_cls(
+            records_qs,
             many=True,
-            fields=unflatten_fields(self.handler.get_fields()),
+            fields=unflatten_fields(["climb_id", "published_date", "site"]),
         )
 
         # Return response with data

@@ -13,12 +13,12 @@ urlpatterns = [
     path(
         "types/",
         views.TypesView.as_view(),
-        name=f"projects.types",
+        name="projects.types",
     ),
     path(
         "lookups/",
         views.LookupsView.as_view(),
-        name=f"projects.lookups",
+        name="projects.lookups",
     ),
 ]
 
@@ -116,7 +116,11 @@ def generate_project_urls(
             r"^analyses/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
             views.RecordAnalysesView.as_view(),
             name=f"projects.{code}.analyses.climb_id",
-            kwargs={"code": code, "serializer_class": analysis_serializer_class},
+            kwargs={
+                "code": code,
+                "serializer_class": serializer_class,
+                "analysis_serializer_class": analysis_serializer_class,
+            },
         ),
         # Analysis CRUD operations
         path(
@@ -182,7 +186,11 @@ def generate_project_urls(
             r"^analysis/records/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
             views.AnalysisRecordsView.as_view(),
             name=f"projects.{code}.analysis.records.analysis_id",
-            kwargs={"code": analysis_code, "serializer_class": serializer_class},
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+                "records_serializer_class": serializer_class,
+            },
         ),
     ]
 

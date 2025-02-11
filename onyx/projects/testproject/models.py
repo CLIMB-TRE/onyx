@@ -18,7 +18,7 @@ from data.models import BaseRecord, ProjectRecord
 __version__ = "0.1.0"
 
 
-class BaseTestModel(ProjectRecord):
+class BaseTestProject(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
@@ -95,7 +95,7 @@ class BaseTestModel(ProjectRecord):
         ]
 
 
-class BaseTestModelRecord(BaseRecord):
+class BaseTestProjectRecord(BaseRecord):
     test_id = models.IntegerField()
     test_pass = models.BooleanField()
     test_start = models.DateField()
@@ -142,11 +142,11 @@ class BaseTestModelRecord(BaseRecord):
         ]
 
 
-class TestModel(BaseTestModel):
+class TestProject(BaseTestProject):
     pass
 
 
-class TestModelRecord(BaseTestModelRecord):
+class TestProjectRecord(BaseTestProjectRecord):
     link = models.ForeignKey(
-        TestModel, on_delete=models.CASCADE, related_name="records"
+        TestProject, on_delete=models.CASCADE, related_name="records"
     )

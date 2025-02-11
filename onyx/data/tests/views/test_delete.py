@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 # TODO: Tests for delete endpoint
@@ -30,7 +30,7 @@ class TestDeleteView(OnyxTestCase):
 
         response = self.client.delete(self.endpoint(self.climb_id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(TestModel.objects.filter(climb_id=self.climb_id).exists())
+        self.assertFalse(TestProject.objects.filter(climb_id=self.climb_id).exists())
 
     def test_climb_id_not_found(self):
         """
@@ -41,4 +41,4 @@ class TestDeleteView(OnyxTestCase):
         climb_id_not_found = "-".join([prefix, postfix[::-1]])
         response = self.client.delete(self.endpoint(climb_id_not_found))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertTrue(TestModel.objects.filter(climb_id=self.climb_id).exists())
+        self.assertTrue(TestProject.objects.filter(climb_id=self.climb_id).exists())

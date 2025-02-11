@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxDataTestCase
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 # TODO: Tests for query endpoint
@@ -29,7 +29,7 @@ class TestQueryView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.all(),
+            TestProject.objects.all(),
         )
 
     def test_operators(self):
@@ -157,7 +157,7 @@ class TestQueryView(OnyxDataTestCase):
             response = self.client.post(self.endpoint, data=query)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqualClimbIDs(
-                response.json()["data"], TestModel.objects.filter(expected)
+                response.json()["data"], TestProject.objects.filter(expected)
             )
 
     def test_empty_value(self):
@@ -180,7 +180,7 @@ class TestQueryView(OnyxDataTestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqualClimbIDs(
                     response.json()["data"],
-                    TestModel.objects.filter(**{f"{field}__isnull": True}),
+                    TestProject.objects.filter(**{f"{field}__isnull": True}),
                 )
 
                 # Not equal to empty
@@ -188,5 +188,5 @@ class TestQueryView(OnyxDataTestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqualClimbIDs(
                     response.json()["data"],
-                    TestModel.objects.filter(**{f"{field}__isnull": False}),
+                    TestProject.objects.filter(**{f"{field}__isnull": False}),
                 )

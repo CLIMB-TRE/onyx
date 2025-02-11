@@ -10,10 +10,10 @@ from utils.fieldserializers import (
     StructureField,
 )
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
-from .models import TestModel, TestModelRecord
+from .models import TestProject, TestProjectRecord
 
 
-class TestModelRecordSerializer(BaseRecordSerializer):
+class TestProjectRecordSerializer(BaseRecordSerializer):
     test_id = IntegerField()
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
@@ -23,7 +23,7 @@ class TestModelRecordSerializer(BaseRecordSerializer):
     test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = TestModelRecord
+        model = TestProjectRecord
         fields = BaseRecordSerializer.Meta.fields + [
             "test_id",
             "test_pass",
@@ -52,7 +52,7 @@ class TestModelRecordSerializer(BaseRecordSerializer):
         )
 
 
-class TestModelSerializer(ProjectRecordSerializer):
+class TestProjectSerializer(ProjectRecordSerializer):
     sample_id = CharField(max_length=50)
     run_name = CharField(max_length=100)
     collection_month = DateField(
@@ -89,7 +89,7 @@ class TestModelSerializer(ProjectRecordSerializer):
     structure = StructureField(required=False)
 
     class Meta:
-        model = TestModel
+        model = TestProject
         fields = ProjectRecordSerializer.Meta.fields + [
             "sample_id",
             "run_name",
@@ -112,14 +112,14 @@ class TestModelSerializer(ProjectRecordSerializer):
         ]
         validators = [
             OnyxUniqueTogetherValidator(
-                queryset=TestModel.objects.all(),
+                queryset=TestProject.objects.all(),
                 fields=["sample_id", "run_name"],
             )
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):
         relations = ProjectRecordSerializer.OnyxMeta.relations | {
-            "records": TestModelRecordSerializer,
+            "records": TestProjectRecordSerializer,
         }
         relation_options = ProjectRecordSerializer.OnyxMeta.relation_options | {
             "records": {

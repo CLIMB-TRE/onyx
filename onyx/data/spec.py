@@ -36,6 +36,7 @@ def generate_fields_spec(
         The annotated dictionary of fields.
     """
 
+    # TODO: Analysis {project}_records field doesn't work
     fields_spec = {}
 
     serializer_instance = serializer()

@@ -8,7 +8,7 @@ from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
 from ..models import Project
-from projects.testproject.models import TestModel, TestModelRecord
+from projects.testproject.models import TestProject, TestProjectRecord
 
 
 class OnyxTestCase(APITestCase):
@@ -423,7 +423,7 @@ class OnyxDataTestCase(OnyxTestCase):
             if data.get("received_month"):
                 data["received_month"] += "-01"
 
-            record = TestModel.objects.create(**data)
+            record = TestProject.objects.create(**data)
             for nested_record in nested_records:
                 nested_record["link"] = record
                 nested_record["user"] = cls.admin_user
@@ -434,4 +434,4 @@ class OnyxDataTestCase(OnyxTestCase):
                 if nested_record.get("test_end"):
                     nested_record["test_end"] += "-01"
 
-                TestModelRecord.objects.create(**nested_record)
+                TestProjectRecord.objects.create(**nested_record)

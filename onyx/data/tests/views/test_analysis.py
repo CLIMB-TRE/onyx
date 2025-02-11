@@ -1,17 +1,24 @@
 import copy
+import random
 from rest_framework import status
 from rest_framework.reverse import reverse
-from ..utils import OnyxTestCase
+from ..utils import OnyxDataTestCase
 from ...models import Analysis
+from projects.testproject.models import TestProject
 
 
 default_payload = {
     "name": "Test Analysis",
     "analysis_date": "2024-01-01",
+    "testproject_records": [],
 }
 
 
-class TestCreateAnalysisView(OnyxTestCase):
+class OnyxAnalysisTestCase(OnyxDataTestCase):
+    NUM_RECORDS = 10
+
+
+class TestCreateAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
         super().setUp()
 
@@ -27,13 +34,18 @@ class TestCreateAnalysisView(OnyxTestCase):
         Test creating an analysis.
         """
 
+        # TODO: Test identifiers, upstream and downstream analyses
+        # Assign random subsample of records
+        records = random.sample(list(TestProject.objects.all()), self.NUM_RECORDS)
         payload = copy.deepcopy(default_payload)
+        payload["testproject_records"] = [record.climb_id for record in records]
+
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert Analysis.objects.count() == 1
 
 
-class TestGetAnalysisView(OnyxTestCase):
+class TestGetAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
         super().setUp()
 
@@ -76,7 +88,7 @@ class TestGetAnalysisView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-class TestListAnalysisView(OnyxTestCase):
+class TestFilterAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
         super().setUp()
 
@@ -108,7 +120,7 @@ class TestListAnalysisView(OnyxTestCase):
         self.assertEqual(len(response.json()["data"]), 1)
 
 
-class TestUpdateAnalysisView(OnyxTestCase):
+class TestUpdateAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
         super().setUp()
 
@@ -157,7 +169,7 @@ class TestUpdateAnalysisView(OnyxTestCase):
         self.assertFalse(Analysis.objects.filter(name=updated_values["name"]).exists())
 
 
-class TestDeleteAnalysisView(OnyxTestCase):
+class TestDeleteAnalysisView(OnyxAnalysisTestCase):
     # TODO: Keep analyses as undeletable?
     def setUp(self):
         super().setUp()

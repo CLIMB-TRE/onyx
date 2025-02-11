@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 class TestGetView(OnyxTestCase):
@@ -33,7 +33,7 @@ class TestGetView(OnyxTestCase):
         response = self.client.get(self.endpoint(self.climb_id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualRecords(
-            response.json()["data"], TestModel.objects.get(climb_id=self.climb_id)
+            response.json()["data"], TestProject.objects.get(climb_id=self.climb_id)
         )
 
     def test_include(self):
@@ -51,7 +51,7 @@ class TestGetView(OnyxTestCase):
             self.endpoint(self.climb_id),
             data={"include": ["climb_id", "published_date"]},
         )
-        record = TestModel.objects.get(climb_id=self.climb_id)
+        record = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.json()["data"],
@@ -77,7 +77,7 @@ class TestGetView(OnyxTestCase):
         self.assertNotIn("climb_id", response.json()["data"])
         self.assertEqualRecords(
             response.json()["data"],
-            TestModel.objects.get(climb_id=self.climb_id),
+            TestProject.objects.get(climb_id=self.climb_id),
             created=True,
         )
 
@@ -90,7 +90,7 @@ class TestGetView(OnyxTestCase):
         self.assertNotIn("published_date", response.json()["data"])
         self.assertEqualRecords(
             response.json()["data"],
-            TestModel.objects.get(climb_id=self.climb_id),
+            TestProject.objects.get(climb_id=self.climb_id),
             created=True,
         )
 
@@ -109,7 +109,7 @@ class TestGetView(OnyxTestCase):
         Test failure to retrieve a record that has been suppressed.
         """
 
-        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance = TestProject.objects.get(climb_id=self.climb_id)
         instance.is_suppressed = True
         instance.save()
 

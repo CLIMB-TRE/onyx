@@ -19,6 +19,9 @@ class Project(models.Model):
     name = StrippedCharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
+    data_project = models.OneToOneField(
+        "Project", on_delete=models.PROTECT, null=True, related_name="analysis_project"
+    )
 
     def __str__(self):
         return self.code
@@ -146,7 +149,7 @@ class BaseRecord(models.Model):
             if field.name in OnyxLookup.lookups():
                 errors.append(
                     checks.Error(
-                        f"Field names must not match existing lookups.",
+                        "Field names must not match existing lookups.",
                         obj=field,
                     )
                 )
@@ -154,7 +157,7 @@ class BaseRecord(models.Model):
             elif field.name == "count":
                 errors.append(
                     checks.Error(
-                        f"Field name cannot be 'count' as this is reserved.",
+                        "Field name cannot be 'count' as this is reserved.",
                         obj=field,
                     )
                 )

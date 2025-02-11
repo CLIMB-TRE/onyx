@@ -346,7 +346,7 @@ class AnonymiserRelatedField(serializers.SlugRelatedField):
 
 class ProjectRecordsRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
-        model = self.context["project"].content_type.model_class()
+        model = self.context["project"].data_project.content_type.model_class()
         queryset = model.objects.all()
         return queryset
 
@@ -380,13 +380,16 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     def __init__(self, *args, fields: dict[str, Any] | None = None, **kwargs):
         super().__init__(*args, fields=fields, **kwargs)
 
-        if fields is not None and "records" in fields:
-            self.fields["records"] = ProjectRecordsRelatedField(
-                source=f"{self.context['project'].content_type.model_class().__name__.lower()}_records",
-                many=True,
-                required=False,
-                slug_field="climb_id",
-            )
+        if self.context.get("project"):
+            # TODO: Very confusing
+            records_field = f"{self.context['project'].data_project.code}_records"
+
+            if (fields is None) or (fields is not None and records_field in fields):
+                self.fields[records_field] = ProjectRecordsRelatedField(
+                    many=True,
+                    required=False,
+                    slug_field="climb_id",
+                )
 
     class Meta:
         model = Analysis

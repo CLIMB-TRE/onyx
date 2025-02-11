@@ -304,7 +304,6 @@ class Command(base.BaseCommand):
                     app_label="data", model="analysis"
                 ),
                 "data_project": project,
-                "is_analysis_project": True,
             },
         )
 

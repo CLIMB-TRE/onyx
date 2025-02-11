@@ -318,6 +318,7 @@ class Command(base.BaseCommand):
         )
 
         # Set the groups, choices, and choice constraints for the analysis project
+        # TODO: How to do choices for e.g. site?
         if analysis_contents.groups:
             self.set_groups(analysis_project, analysis_contents.groups)
 

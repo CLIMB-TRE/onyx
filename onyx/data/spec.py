@@ -66,7 +66,7 @@ def generate_fields_spec(
 
         # If the field is required when is_published = True, override required status
         for (f, v, _), reqs in serializer.OnyxMeta.conditional_value_required.items():
-            if f == "is_published" and v == True and field in reqs:
+            if f == "is_published" and v and field in reqs:
                 required = True
                 break
         else:

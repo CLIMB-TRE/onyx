@@ -66,6 +66,13 @@ def analysis_project_template(project: str):
                         ],
                     },
                     {
+                        "action": ["filter"],
+                        "fields": [
+                            "upstream_analyses__analysis_id",
+                            "downstream_analyses__analysis_id",
+                        ],
+                    },
+                    {
                         "action": ["get", "history"],
                         "fields": [
                             "upstream_analyses",

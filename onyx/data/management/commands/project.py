@@ -11,119 +11,6 @@ from ...actions import Actions
 ACTION_LABELS = [action.label for action in Actions]
 
 
-def analysis_project_template(project: str):
-    return {
-        "groups": [
-            {
-                "scope": "admin",
-                "permissions": [
-                    {
-                        "action": "add",
-                        "fields": ["site"],
-                    },
-                    {
-                        "action": ["history", "change"],
-                        "fields": ["is_suppressed"],
-                    },
-                    {
-                        "action": ["add", "change"],
-                        "fields": [
-                            "is_published",
-                            "analysis_date",
-                            "name",
-                            "command_details",
-                            "pipeline_details",
-                            "experiment_details",
-                            "result",
-                            "report",
-                            "outputs",
-                            "upstream_analyses",
-                            "downstream_analyses",
-                            "identifiers",
-                            f"{project}_records",
-                        ],
-                    },
-                    {
-                        "action": ["get", "list", "filter", "history"],
-                        "fields": [
-                            "is_published",
-                            "published_date",
-                            "site",
-                            "analysis_id",
-                            "analysis_date",
-                            "name",
-                            "report",
-                            "outputs",
-                        ],
-                    },
-                    {
-                        "action": ["get", "filter", "history"],
-                        "fields": [
-                            "command_details",
-                            "pipeline_details",
-                            "experiment_details",
-                            "result",
-                        ],
-                    },
-                    {
-                        "action": ["filter"],
-                        "fields": [
-                            "upstream_analyses__analysis_id",
-                            "downstream_analyses__analysis_id",
-                        ],
-                    },
-                    {
-                        "action": ["get", "history"],
-                        "fields": [
-                            "upstream_analyses",
-                            "downstream_analyses",
-                            "identifiers",
-                            f"{project}_records",
-                        ],
-                    },
-                ],
-            },
-            {
-                "scope": "analyst",
-                "permissions": [
-                    {
-                        "action": ["get", "list", "filter", "history"],
-                        "fields": [
-                            "published_date",
-                            "site",
-                            "analysis_id",
-                            "analysis_date",
-                            "name",
-                            "report",
-                            "outputs",
-                        ],
-                    },
-                    {
-                        "action": ["get", "filter", "history"],
-                        "fields": [
-                            "command_details",
-                            "pipeline_details",
-                            "experiment_details",
-                            "result",
-                        ],
-                    },
-                    {
-                        "action": ["get", "history"],
-                        "fields": [
-                            "upstream_analyses",
-                            "downstream_analyses",
-                            "identifiers",
-                            f"{project}_records",
-                        ],
-                    },
-                ],
-            },
-        ],
-        "choices": [],
-        "choice_constraints": [],
-    }
-
-
 class PermissionConfig(BaseModel):
     action: str | List[str]
     fields: List[str]
@@ -178,6 +65,125 @@ class ProjectContentsConfig(BaseModel):
 class Config(BaseModel):
     projects: List[ProjectConfig]
     contents: Optional[List[ProjectContentsConfig]]
+
+
+def analysis_project_template(project: str):
+    return {
+        "groups": [
+            {
+                "scope": "admin",
+                "permissions": [
+                    {
+                        "action": "add",
+                        "fields": ["site"],
+                    },
+                    {
+                        "action": ["history", "change"],
+                        "fields": ["is_suppressed"],
+                    },
+                    {
+                        "action": ["add", "change"],
+                        "fields": [
+                            "is_published",
+                            "analysis_date",
+                            "name",
+                            "command_details",
+                            "pipeline_details",
+                            "experiment_details",
+                            "result",
+                            "report",
+                            "outputs",
+                            "upstream_analyses",
+                            "identifiers",
+                            f"{project}_records",
+                        ],
+                    },
+                    {
+                        "action": ["get", "list", "filter", "history"],
+                        "fields": [
+                            "is_published",
+                            "published_date",
+                            "site",
+                            "analysis_id",
+                            "analysis_date",
+                            "name",
+                            "report",
+                            "outputs",
+                        ],
+                    },
+                    {
+                        "action": ["get", "filter", "history"],
+                        "fields": [
+                            "command_details",
+                            "pipeline_details",
+                            "experiment_details",
+                            "result",
+                        ],
+                    },
+                    {
+                        "action": "filter",
+                        "fields": [
+                            "upstream_analyses__analysis_id",
+                            "downstream_analyses__analysis_id",
+                        ],
+                    },
+                    {
+                        "action": "get",
+                        "fields": [
+                            "upstream_analyses",
+                            "downstream_analyses",
+                            "identifiers",
+                            f"{project}_records",
+                        ],
+                    },
+                ],
+            },
+            {
+                "scope": "analyst",
+                "permissions": [
+                    {
+                        "action": ["get", "list", "filter", "history"],
+                        "fields": [
+                            "published_date",
+                            "site",
+                            "analysis_id",
+                            "analysis_date",
+                            "name",
+                            "report",
+                            "outputs",
+                        ],
+                    },
+                    {
+                        "action": ["get", "filter", "history"],
+                        "fields": [
+                            "command_details",
+                            "pipeline_details",
+                            "experiment_details",
+                            "result",
+                        ],
+                    },
+                    {
+                        "action": "filter",
+                        "fields": [
+                            "upstream_analyses__analysis_id",
+                            "downstream_analyses__analysis_id",
+                        ],
+                    },
+                    {
+                        "action": "get",
+                        "fields": [
+                            "upstream_analyses",
+                            "downstream_analyses",
+                            "identifiers",
+                            f"{project}_records",
+                        ],
+                    },
+                ],
+            },
+        ],
+        "choices": [],
+        "choice_constraints": [],
+    }
 
 
 class Command(base.BaseCommand):
@@ -338,17 +344,18 @@ class Command(base.BaseCommand):
         )
 
         # Set the groups, choices, and choice constraints for the analysis project
-        # TODO: How to do choices for e.g. site?
         if analysis_contents.groups:
             self.set_groups(analysis_project, analysis_contents.groups)
 
-        if analysis_contents.choices:
-            self.set_choices(analysis_project, analysis_contents.choices)
-
-        if analysis_contents.choice_constraints:
-            self.set_choice_constraints(
-                analysis_project, analysis_contents.choice_constraints
-            )
+        # The site choices for the analysis project are the same as the data project
+        sites = list(
+            Choice.objects.filter(
+                project=project,
+                field="site",
+            ).values_list("choice", flat=True)
+        )
+        choices = [ChoiceConfig(field="site", options=sites)]
+        self.set_choices(analysis_project, choices)
 
         if a_p_created:
             self.print(f"Created analysis project: {analysis_project.code}")

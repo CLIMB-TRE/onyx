@@ -21,6 +21,7 @@ class CharField(serializers.CharField):
             "N/A",
             "N.A.",
             "N.A",
+            "NAN",
             "EMPTY",
             "NULL",
             "NONE",

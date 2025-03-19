@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import empty
 from django.utils.translation import gettext_lazy as _
 from data.models import Choice
 from accounts.models import Site
@@ -61,7 +62,7 @@ class FloatField(serializers.FloatField):
 
 
 class DateField(serializers.DateField):
-    def __init__(self, format: str, input_formats=None, **kwargs):
+    def __init__(self, format: type[empty] | str = empty, input_formats=None, **kwargs):
         super().__init__(
             format,  #  type: ignore
             input_formats=input_formats,

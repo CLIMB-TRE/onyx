@@ -1,26 +1,13 @@
 from rest_framework import serializers
 from utils.validators import OnyxUniqueTogetherValidator
-from utils.fieldserializers import (
-    CharField,
-    IntegerField,
-    FloatField,
-    DateField,
-    ChoiceField,
-    ArrayField,
-    StructureField,
-)
+from utils.fieldserializers import DateField, ArrayField, StructureField
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
 from .models import TestProject, TestProjectRecord
 
 
 class TestProjectRecordSerializer(BaseRecordSerializer):
-    test_id = IntegerField()
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
-    score_a = FloatField(required=False, allow_null=True)
-    score_b = FloatField(required=False, allow_null=True)
-    score_c = FloatField(required=False, allow_null=True)
-    test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
         model = TestProjectRecord
@@ -53,8 +40,6 @@ class TestProjectRecordSerializer(BaseRecordSerializer):
 
 
 class TestProjectSerializer(ProjectRecordSerializer):
-    sample_id = CharField(max_length=50)
-    run_name = CharField(max_length=100)
     collection_month = DateField(
         "%Y-%m",
         input_formats=["%Y-%m"],
@@ -67,22 +52,12 @@ class TestProjectSerializer(ProjectRecordSerializer):
         required=False,
         allow_null=True,
     )
-    char_max_length_20 = CharField(max_length=20, required=False, allow_blank=True)
-    text_option_1 = CharField(required=False, allow_blank=True)
-    text_option_2 = CharField(required=False, allow_blank=True)
     submission_date = DateField(
         "%Y-%m-%d",
         input_formats=["%Y-%m-%d"],
         required=False,
         allow_null=True,
     )
-    country = ChoiceField("country", required=False, allow_blank=True)
-    region = ChoiceField("region", required=False, allow_blank=True)
-    tests = IntegerField(required=False, allow_null=True)
-    score = FloatField(required=False, allow_null=True)
-    start = IntegerField()
-    end = IntegerField()
-    required_when_published = CharField(required=False, allow_blank=True)
     scores = ArrayField(
         child=serializers.IntegerField(min_value=0), required=False, max_length=10
     )

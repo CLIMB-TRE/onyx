@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 
 class StrippedCharField(models.CharField):
@@ -43,7 +42,11 @@ class YearMonthField(models.DateField):
 
 
 class ChoiceField(models.TextField):
-    pass
+    def __init__(self, **kwargs):
+        # Ensures the ModelSerializer validates the field as a choice field
+        if "choices" not in kwargs:
+            kwargs["choices"] = [("choice", "Choice")]
+        super().__init__(**kwargs)
 
 
 class SiteField(models.ForeignKey):

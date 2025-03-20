@@ -80,10 +80,6 @@ class DateField(serializers.DateField):
 class ChoiceField(serializers.ChoiceField):
     default_error_messages = {"invalid_choice": _("{suggestions}")}
 
-    def __init__(self, field, **kwargs):
-        self.field = field
-        super().__init__([], **kwargs)
-
     def validate_empty_values(self, data):
         if data is None:
             data = ""
@@ -94,7 +90,7 @@ class ChoiceField(serializers.ChoiceField):
         data = str(data).strip().lower()
 
         # Check if the choices for this field have been cached in the context
-        choices = self.context.setdefault("choices", {}).get(self.field)
+        choices = self.context.setdefault("choices", {}).get(self.field_name)
 
         if choices:
             self.choices = choices
@@ -103,7 +99,7 @@ class ChoiceField(serializers.ChoiceField):
             self.choices = list(
                 Choice.objects.filter(
                     project=self.context["project"],
-                    field=self.field,
+                    field=self.field_name,
                     is_active=True,
                 ).values_list(
                     "choice",
@@ -112,7 +108,7 @@ class ChoiceField(serializers.ChoiceField):
             )
 
             # Cache the choices in the context
-            self.context["choices"][self.field] = self.choices
+            self.context["choices"][self.field_name] = self.choices
 
         self.choice_map = {choice.lower().strip(): choice for choice in self.choices}
 
@@ -143,7 +139,10 @@ class SiteField(ChoiceField):
     }
 
     def __init__(self, **kwargs):
-        super().__init__("site", **kwargs)
+        # Choices are a required argument on initialisation
+        # The SiteField model field does not provide any
+        kwargs["choices"] = [("choice", "Choice")]
+        super().__init__(**kwargs)
 
     def to_internal_value(self, data):
         value = super().to_internal_value(data)

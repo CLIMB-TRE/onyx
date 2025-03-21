@@ -9,7 +9,7 @@ from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
-from utils.constraints import unique_together
+from utils.constraints import unique_together, optional_value_group
 from simple_history.models import HistoricalRecords
 from .types import OnyxLookup
 
@@ -224,24 +224,104 @@ def generate_analysis_id():
 
 class Analysis(PrimaryRecord):
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
+
+    # Overview
     analysis_id = UpperCharField(
         default=generate_analysis_id,
         max_length=12,
         unique=True,
         help_text="Unique identifier for an analysis in Onyx.",
     )
-    analysis_date = models.DateField(help_text="The date the analysis was carried out.")
-    name = StrippedCharField(max_length=100, unique=True)
-    command_details = models.TextField(blank=True)
-    pipeline_details = models.TextField(blank=True)
-    experiment_details = models.JSONField(default=dict)
-    result = models.TextField(blank=True)
-    report = models.TextField(blank=True)
-    outputs = models.TextField(blank=True)
-    upstream_analyses = models.ManyToManyField(
-        "self", symmetrical=False, related_name="downstream_analyses"
+    analysis_date = models.DateField(
+        help_text="The date the analysis was carried out.",
     )
-    identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
+    name = StrippedCharField(
+        max_length=50,
+        help_text="Name for the analysis, unique to the project.",
+    )
+    description = models.CharField(
+        blank=True,
+        max_length=500,
+        help_text="Description of the analysis.",
+    )
+
+    # Execution
+    pipeline_name = models.CharField(
+        max_length=50,
+        help_text="Name of the pipeline used for the analysis.",
+    )
+    pipeline_url = models.CharField(
+        blank=True,
+        max_length=100,
+        help_text="URL to the pipeline used for the analysis.",
+    )
+    pipeline_version = models.CharField(
+        max_length=10,
+        help_text="Version of the pipeline used for the analysis.",
+    )
+    pipeline_command = models.CharField(
+        blank=True,
+        max_length=100,
+        help_text="Command used to run the pipeline for the analysis.",
+    )
+    methods = models.JSONField(
+        default=dict,
+        help_text="Structured details of the experiment run and its inputs.",
+    )
+
+    # Results
+    result = models.CharField(
+        max_length=100,
+        help_text="Key findings of the analysis.",
+    )
+    result_metrics = models.JSONField(
+        default=dict,
+        help_text="Structured output metrics from the result of the analysis.",
+    )
+    report = models.CharField(
+        blank=True,
+        max_length=200,
+        help_text="HTML report produced from the analysis.",
+    )
+    outputs = models.CharField(
+        blank=True,
+        max_length=200,
+        help_text="Directory of outputs produced from the analysis.",
+    )
+
+    # Relationships
+    upstream_analyses = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        related_name="downstream_analyses",
+        help_text="The analyses that this analysis depends on.",
+    )
+    identifiers = models.ManyToManyField(
+        Anonymiser,
+        related_name="analyses",
+        help_text="Key identifiers involved in the analysis.",
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=[
+                    "project",
+                    "analysis_id",
+                    "analysis_date",
+                    "name",
+                    "result",
+                ]
+            ),
+        ]
+        constraints = [
+            unique_together(
+                fields=["project", "name"],
+            ),
+            optional_value_group(
+                fields=["report", "outputs"],
+            ),
+        ]
 
     def __str__(self):
         return self.analysis_id

@@ -10,6 +10,10 @@ from projects.testproject.models import TestProject
 default_payload = {
     "name": "Test Analysis",
     "analysis_date": "2024-01-01",
+    "pipeline_name": "Test Pipeline",
+    "pipeline_version": "0.1.0",
+    "result": "Test Result",
+    "report": "s3://test-bucket/test-report.html",
     "testproject_records": [],
 }
 

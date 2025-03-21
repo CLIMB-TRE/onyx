@@ -5,8 +5,17 @@ from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from accounts.models import User
 from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
-from utils.fieldserializers import DateField, SiteField, StructureField
+from utils.fieldserializers import (
+    CharField,
+    IntegerField,
+    FloatField,
+    DateField,
+    ChoiceField,
+    SiteField,
+    StructureField,
+)
 from utils.functions import get_date_output_format
+from utils.validators import OnyxUniqueTogetherValidator
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
@@ -126,6 +135,18 @@ class BaseRecordSerializer(serializers.ModelSerializer):
     """
     Base serializer for all project data.
     """
+
+    # Override ModelSerializer serializer_field_mapping to allow for custom field types
+    # https://www.django-rest-framework.org/api-guide/serializers/#customizing-field-mappings
+    serializer_field_mapping = {
+        **serializers.ModelSerializer.serializer_field_mapping,
+        models.CharField: CharField,
+        models.DateField: DateField,
+        models.FloatField: FloatField,
+        models.IntegerField: IntegerField,
+        models.TextField: CharField,
+    }
+    serializer_choice_field = ChoiceField
 
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), default=serializers.CurrentUserDefault()
@@ -356,11 +377,18 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     Serializer for all project analyses.
     """
 
+    site = SiteField(
+        default=CurrentUserSiteDefault(),
+        help_text="Site that uploaded the analysis.",
+    )
     project = serializers.PrimaryKeyRelatedField(
-        write_only=True, queryset=Project.objects.all(), default=CurrentProjectDefault()
+        write_only=True,
+        queryset=Project.objects.filter(data_project__isnull=False),
+        default=CurrentProjectDefault(),
     )
     analysis_id = serializers.CharField(required=False)
-    experiment_details = StructureField(required=False)
+    methods = StructureField(required=False)
+    result_metrics = StructureField(required=False)
     upstream_analyses = serializers.SlugRelatedField(
         queryset=Analysis.objects.all(),
         many=True,
@@ -389,6 +417,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
                     many=True,
                     required=False,
                     slug_field="climb_id",
+                    help_text="The records associated with this analysis.",
                 )
 
     class Meta:
@@ -398,16 +427,32 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             "analysis_id",
             "analysis_date",
             "name",
-            "command_details",
-            "pipeline_details",
-            "experiment_details",
+            "description",
+            "pipeline_name",
+            "pipeline_url",
+            "pipeline_version",
+            "pipeline_command",
+            "methods",
             "result",
+            "result_metrics",
             "report",
             "outputs",
             "upstream_analyses",
             "downstream_analyses",
             "identifiers",
         ]
+        validators = [
+            OnyxUniqueTogetherValidator(
+                queryset=Analysis.objects.all(),
+                fields=["project", "name"],
+            )
+        ]
+
+    class OnyxMeta(PrimaryRecordSerializer.OnyxMeta):
+        optional_value_groups = (
+            PrimaryRecordSerializer.OnyxMeta.optional_value_groups
+            + [["report", "outputs"]]
+        )
 
 
 # TODO: Race condition testing + preventions.

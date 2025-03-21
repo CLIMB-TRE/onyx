@@ -35,6 +35,7 @@ class OnyxField:
         "lookup",
         "value",
         "base_onyx_field",
+        "many_to_many",
     )
 
     def __init__(
@@ -46,6 +47,7 @@ class OnyxField:
         allow_lookup: bool = False,
         value: Any = None,
         is_base_field: bool = False,
+        many_to_many: bool = False,
     ):
         self.project = project
         self.field_model = field_model
@@ -63,6 +65,7 @@ class OnyxField:
 
         self.field_type = type(self.field_instance)
         self.base_onyx_field = None
+        self.many_to_many = many_to_many
 
         # Determine the OnyxType for the field
         if self.field_type in {
@@ -311,6 +314,7 @@ class FieldHandler:
         # If there are multiple components, these should specify
         # a chain of relations through multiple models
         components = field.split("__")
+        many_to_many = False
         for i, component in enumerate(components):
             # If the current component is not known on the current model
             # Then add to unknown fields
@@ -333,6 +337,7 @@ class FieldHandler:
                     field_path=field_path,
                     lookup=lookup,
                     allow_lookup=allow_lookup,
+                    many_to_many=many_to_many,
                 )
 
                 # Check that the user can perform the given action on this field
@@ -348,6 +353,10 @@ class FieldHandler:
                 current_model = component_instance.related_model
                 assert current_model is not None
                 model_fields = {x.name: x for x in current_model._meta.get_fields()}
+
+                # Mark OnyxField as many-to-many if one of the components is a ManyToManyField
+                if component_instance.many_to_many:
+                    many_to_many = True
 
             else:
                 # Otherwise, it is unknown

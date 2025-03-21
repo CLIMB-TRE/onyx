@@ -116,6 +116,7 @@ class PrimaryRecordAPIView(APIView):
     `APIView` with some additional initial setup for working with Primary Records.
     """
 
+    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.NO_ACCESS
     id_field = "climb_id"
     NotFound = ClimbIDNotFound
@@ -310,7 +311,6 @@ class LookupsView(APIView):
 
 
 class FieldsView(PrimaryRecordAPIView):
-    permission_classes = ProjectApproved
     project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str) -> Response:
@@ -356,7 +356,6 @@ class FieldsView(PrimaryRecordAPIView):
 
 
 class ChoicesView(PrimaryRecordAPIView):
-    permission_classes = ProjectApproved
     project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str, field: str) -> Response:
@@ -408,7 +407,6 @@ class ChoicesView(PrimaryRecordAPIView):
 
 
 class HistoryView(PrimaryRecordAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.HISTORY
 
     def get(self, request: Request, code: str, id_value: str) -> Response:
@@ -565,7 +563,6 @@ class AnalysisHistoryView(HistoryView, AnalysisAPIView):
 
 
 class IdentifyView(PrimaryRecordAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.IDENTIFY
 
     def post(self, request: Request, code: str, field: str) -> Response:
@@ -626,8 +623,6 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
     """
     `ViewSet` with some additional initial setup for working with Primary Records.
     """
-
-    permission_classes = ProjectApproved + [IsSiteMember]
 
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
@@ -834,6 +829,11 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
             q_object &= query.build()
 
         if self.summarise:
+            if any(onyx_field.many_to_many for onyx_field in summary_fields.values()):
+                raise exceptions.ValidationError(
+                    {"detail": "Cannot summarise over many-to-many fields."}
+                )
+
             # Filter the queryset with the user's Q object
             if q_object:
                 qs = qs.filter(q_object)
@@ -1046,7 +1046,6 @@ class AnalysisViewSet(PrimaryRecordViewSet, AnalysisAPIView):
 
 
 class RecordAnalysesView(PrimaryRecordAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.LIST
 
     def initial(self, request: Request, *args, **kwargs):
@@ -1104,7 +1103,6 @@ class RecordAnalysesView(PrimaryRecordAPIView):
 
 
 class AnalysisRecordsView(AnalysisAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.LIST
 
     def initial(self, request: Request, *args, **kwargs):

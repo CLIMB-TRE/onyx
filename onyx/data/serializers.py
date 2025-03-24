@@ -295,7 +295,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
 
 class PrimaryRecordSerializer(BaseRecordSerializer):
     """
-    Serializer for the 'primary' model of a project.
+    Base serializer for records and analyses in a project.
     """
 
     site = SiteField(default=CurrentUserSiteDefault())
@@ -316,10 +316,10 @@ class PrimaryRecordSerializer(BaseRecordSerializer):
 
 class ProjectRecordSerializer(PrimaryRecordSerializer):
     """
-    Serializer for the 'root' model of a project.
+    Serializer for all project records, on the 'root' model of a project.
     """
 
-    climb_id = serializers.CharField(required=False)
+    climb_id = CharField(required=False)
 
     class Meta:
         model: models.Model | None = None
@@ -377,16 +377,12 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     Serializer for all project analyses.
     """
 
-    site = SiteField(
-        default=CurrentUserSiteDefault(),
-        help_text="Site that uploaded the analysis.",
-    )
     project = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=Project.objects.filter(data_project__isnull=False),
         default=CurrentProjectDefault(),
     )
-    analysis_id = serializers.CharField(required=False)
+    analysis_id = CharField(required=False)
     methods = StructureField(required=False)
     result_metrics = StructureField(required=False)
     upstream_analyses = serializers.SlugRelatedField(
@@ -400,6 +396,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
         many=True,
         required=False,
         slug_field="analysis_id",
+        help_text="The analyses that depend on this analysis.",
     )
     identifiers = AnonymiserRelatedField(
         many=True, required=False, slug_field="identifier"
@@ -409,7 +406,6 @@ class AnalysisSerializer(PrimaryRecordSerializer):
         super().__init__(*args, fields=fields, **kwargs)
 
         if self.context.get("project"):
-            # TODO: Very confusing
             records_field = f"{self.context['project'].data_project.code}_records"
 
             if (fields is None) or (fields is not None and records_field in fields):

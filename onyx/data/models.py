@@ -175,25 +175,25 @@ class PrimaryRecord(BaseRecord):
 
     is_published = models.BooleanField(
         default=True,
-        help_text="Indicator for whether a project record has been published.",
+        help_text="Indicator for whether an object has been published.",
     )
     published_date = models.DateField(
         null=True,
-        help_text="The date the project record was published in Onyx.",
+        help_text="The date the object was published in Onyx.",
     )
     is_suppressed = models.BooleanField(
         default=False,
-        help_text="Indicator for whether a project record has been hidden from users.",
+        help_text="Indicator for whether an object has been hidden from users.",
     )
     site = SiteField(
         Site,
         to_field="code",
         on_delete=models.PROTECT,
-        help_text="Site that uploaded the record.",
+        help_text="Site that uploaded the object.",
     )
     is_site_restricted = models.BooleanField(
         default=False,
-        help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
+        help_text="Indicator for whether an object has been hidden from users not within the object's site.",
     )
 
     class Meta:

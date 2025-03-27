@@ -342,6 +342,7 @@ class FieldsView(PrimaryRecordAPIView):
             onyx_fields=onyx_fields,
             actions_map=actions_map,
             serializer=self.serializer_cls,
+            context=self.context,
         )
 
         # Return response with project information and fields

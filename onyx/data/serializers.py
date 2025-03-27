@@ -413,7 +413,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
                     many=True,
                     required=False,
                     slug_field="climb_id",
-                    help_text="The records associated with this analysis.",
+                    help_text="The records this analysis was produced from.",
                 )
 
     class Meta:

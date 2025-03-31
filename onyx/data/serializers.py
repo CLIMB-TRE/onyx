@@ -360,8 +360,8 @@ class ProjectRecordSerializer(PrimaryRecordSerializer):
 
 class AnonymiserRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
-        project = self.context["project"]
-        queryset = Anonymiser.objects.filter(project=project)
+        data_project = self.context["project"].data_project
+        queryset = Anonymiser.objects.filter(project=data_project)
         return queryset
 
 
@@ -377,6 +377,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     Serializer for all project analyses.
     """
 
+    # TODO: Use analysis project or data project?
     project = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=Project.objects.filter(data_project__isnull=False),

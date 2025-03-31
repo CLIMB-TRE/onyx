@@ -48,6 +48,27 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert Analysis.objects.count() == 1
 
+    def test_basic_test(self):
+        """
+        Test the test creation of an analysis.
+        """
+
+        # Assign random subsample of records
+        records = random.sample(list(TestProject.objects.all()), self.NUM_RECORDS)
+        payload = copy.deepcopy(default_payload)
+        payload["testproject_records"] = [record.climb_id for record in records]
+
+        response = self.client.post(
+            reverse(
+                "projects.testproject.analysis.test",
+                kwargs={"code": self.analysis_project.code},
+            ),
+            data=payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 0
+        self.assertEqual(response.json()["data"], {})
+
 
 class TestGetAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
@@ -157,6 +178,36 @@ class TestUpdateAnalysisView(OnyxAnalysisTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         updated_instance = Analysis.objects.get(analysis_id=self.analysis_id)
         self.assertEqual(updated_instance.name, updated_values["name"])
+
+    def test_basic_test(self):
+        """
+        Test the test update of an analysis by analysis ID.
+        """
+
+        instance = Analysis.objects.get(analysis_id=self.analysis_id)
+        original_values = {
+            "result": instance.result,
+            "report": instance.report,
+        }
+        updated_values = {
+            "result": instance.result + "!",
+            "report": instance.report + "!",
+        }
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.analysis.test.analysis_id",
+                kwargs={
+                    "code": self.analysis_project.code,
+                    "analysis_id": self.analysis_id,
+                },
+            ),
+            data=updated_values,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], {})
+        updated_instance = Analysis.objects.get(analysis_id=self.analysis_id)
+        self.assertEqual(updated_instance.result, original_values["result"])
+        self.assertEqual(updated_instance.report, original_values["report"])
 
     def test_analysis_id_not_found(self):
         """

@@ -144,6 +144,26 @@ def generate_project_urls(
             },
         ),
         path(
+            "analysis/test/",
+            views.AnalysisViewSet.as_view({"post": "create"}),
+            name=f"projects.{code}.analysis.test",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+                "test": True,
+            },
+        ),
+        re_path(
+            r"^analysis/test/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
+            views.AnalysisViewSet.as_view({"patch": "partial_update"}),
+            name=f"projects.{code}.analysis.test.analysis_id",
+            kwargs={
+                "code": analysis_code,
+                "serializer_class": analysis_serializer_class,
+                "test": True,
+            },
+        ),
+        path(
             "analysis/count/",
             views.AnalysisViewSet.as_view({"get": "list"}),
             name=f"projects.{code}.analysis.count",

@@ -147,6 +147,31 @@ def analysis_project_template(project: str):
                 ],
             },
             {
+                "scope": "uploader",
+                "permissions": [
+                    {
+                        "action": ["add", "change"],
+                        "fields": [
+                            "analysis_date",
+                            "name",
+                            "description",
+                            "pipeline_name",
+                            "pipeline_url",
+                            "pipeline_version",
+                            "pipeline_command",
+                            "methods",
+                            "result",
+                            "result_metrics",
+                            "report",
+                            "outputs",
+                            "upstream_analyses",
+                            "identifiers",
+                            f"{project}_records",
+                        ],
+                    },
+                ],
+            },
+            {
                 "scope": "analyst",
                 "permissions": [
                     {

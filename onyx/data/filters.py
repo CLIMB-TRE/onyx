@@ -397,6 +397,9 @@ FILTERS = {
         "has_any_keys": CharInFilter,
         "isnull": StrictBooleanFilter,
     },
+    OnyxType.IDENTIFIERS: {
+        "isnull": StrictBooleanFilter,
+    },
 }
 
 

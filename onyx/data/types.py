@@ -303,6 +303,13 @@ class OnyxType(Enum):
             OnyxLookup.ISNULL.label,
         ],
     )
+    IDENTIFIERS = (
+        "identifiers",
+        "A link to a list of identifiers.",
+        [
+            OnyxLookup.ISNULL.label,
+        ],
+    )
 
     def __init__(self, label, description, lookups) -> None:
         self.label = label

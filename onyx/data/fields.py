@@ -100,6 +100,9 @@ class OnyxField:
         elif self.field_type == models.BooleanField:
             self.onyx_type = OnyxType.BOOLEAN
 
+        elif self.field_instance.many_to_many:
+            self.onyx_type = OnyxType.IDENTIFIERS
+
         elif self.field_instance.is_relation:
             self.onyx_type = OnyxType.RELATION
 
@@ -123,9 +126,11 @@ class OnyxField:
             )
 
         # Determine the field description
-        # TODO: Proper support for Many-to-many relations
-        if isinstance(self.field_instance, models.ManyToOneRel) or isinstance(
-            self.field_instance, models.ManyToManyRel
+        if (
+            # many-to-one and one-to-many
+            isinstance(self.field_instance, models.ManyToOneRel)
+            # many-to-many
+            or isinstance(self.field_instance, models.ManyToManyRel)
         ):
             self.description = self.field_instance.field.help_text
         else:

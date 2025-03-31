@@ -129,19 +129,19 @@ def analysis_project_template(project: str):
                         ],
                     },
                     {
-                        "action": "filter",
-                        "fields": [
-                            "upstream_analyses__analysis_id",
-                            "downstream_analyses__analysis_id",
-                        ],
-                    },
-                    {
-                        "action": "get",
+                        "action": ["get", "filter"],
                         "fields": [
                             "upstream_analyses",
                             "downstream_analyses",
                             "identifiers",
                             f"{project}_records",
+                        ],
+                    },
+                    {
+                        "action": "filter",
+                        "fields": [
+                            "upstream_analyses__analysis_id",
+                            "downstream_analyses__analysis_id",
                         ],
                     },
                 ],
@@ -175,19 +175,19 @@ def analysis_project_template(project: str):
                         ],
                     },
                     {
-                        "action": "filter",
-                        "fields": [
-                            "upstream_analyses__analysis_id",
-                            "downstream_analyses__analysis_id",
-                        ],
-                    },
-                    {
-                        "action": "get",
+                        "action": ["get", "filter"],
                         "fields": [
                             "upstream_analyses",
                             "downstream_analyses",
                             "identifiers",
                             f"{project}_records",
+                        ],
+                    },
+                    {
+                        "action": "filter",
+                        "fields": [
+                            "upstream_analyses__analysis_id",
+                            "downstream_analyses__analysis_id",
                         ],
                     },
                 ],

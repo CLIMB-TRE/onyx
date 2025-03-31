@@ -299,7 +299,7 @@ class Analysis(PrimaryRecord):
     identifiers = models.ManyToManyField(
         Anonymiser,
         related_name="analyses",
-        help_text="Key identifiers involved in the analysis.",
+        help_text="Key anonymised identifiers involved in the analysis. This does not include the CLIMB ID (for these, see the {project}_records field).",
     )
 
     class Meta:

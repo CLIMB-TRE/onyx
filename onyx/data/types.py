@@ -305,7 +305,7 @@ class OnyxType(Enum):
     )
     IDENTIFIERS = (
         "identifiers",
-        "A link to a list of identifiers.",
+        "A many-to-many linkage with another table, captured in a set of identifiers.",
         [
             OnyxLookup.ISNULL.label,
         ],

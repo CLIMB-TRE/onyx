@@ -59,6 +59,21 @@ class OnyxAnalysisTestCase(OnyxDataTestCase):
             kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
         )
 
+        self.HISTORY = lambda analysis_id: reverse(
+            "projects.testproject.analysis.history.analysis_id",
+            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+        )
+
+        self.RECORD_ANALYSES = lambda climb_id: reverse(
+            "projects.testproject.analyses.climb_id",
+            kwargs={"code": self.project.code, "climb_id": climb_id},
+        )
+
+        self.ANALYSIS_RECORDS = lambda analysis_id: reverse(
+            "projects.testproject.analysis.records.analysis_id",
+            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+        )
+
 
 class TestCreateAnalysisView(OnyxAnalysisTestCase):
     def setUp(self):
@@ -182,6 +197,8 @@ class TestGetAnalysisView(OnyxAnalysisTestCase):
 
         # Authenticate as the admin user to create the data
         self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
         response = self.client.post(self.CREATE, data=copy.deepcopy(default_payload))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.analysis_id = response.json()["data"]["analysis_id"]
@@ -214,6 +231,8 @@ class TestFilterAnalysisView(OnyxAnalysisTestCase):
 
         # Authenticate as the admin user to create the data
         self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
         response = self.client.post(self.CREATE, data=copy.deepcopy(default_payload))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -236,6 +255,8 @@ class TestUpdateAnalysisView(OnyxAnalysisTestCase):
 
         # Authenticate as the admin user
         self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
         response = self.client.post(self.CREATE, data=copy.deepcopy(default_payload))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.analysis_id = response.json()["data"]["analysis_id"]
@@ -296,6 +317,8 @@ class TestDeleteAnalysisView(OnyxAnalysisTestCase):
 
         # Authenticate as the admin user
         self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
         response = self.client.post(self.CREATE, data=copy.deepcopy(default_payload))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.analysis_id = response.json()["data"]["analysis_id"]
@@ -321,9 +344,122 @@ class TestDeleteAnalysisView(OnyxAnalysisTestCase):
         # self.assertTrue(Analysis.objects.filter(analysis_id=self.analysis_id).exists())
 
 
+class TestAnalysisHistoryView(OnyxAnalysisTestCase):
+    def setUp(self):
+        super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
+        response = self.client.post(self.CREATE, data=copy.deepcopy(default_payload))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.analysis_id = response.json()["data"]["analysis_id"]
+
+    def test_basic(self):
+        """
+        Test getting the history of an analysis by analysis ID.
+        """
+
+        response = self.client.get(self.HISTORY(self.analysis_id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_analysis_id_not_found(self):
+        """
+        Test getting the history of an analysis by analysis ID that does not exist.
+        """
+
+        prefix, postfix = self.analysis_id.split("-")
+        analysis_id_not_found = "-".join([prefix, postfix[::-1]])
+        response = self.client.get(self.HISTORY(analysis_id_not_found))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 class TestRecordAnalysesView(OnyxAnalysisTestCase):
-    pass  # TODO: Implement tests for record analyses
+    def setUp(self):
+        super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Get the target record CLIMB ID
+        record = TestProject.objects.first()
+        assert record is not None
+        self.climb_id = record.climb_id
+
+        # Create test payloads
+        analysis_ids = []
+        for i in range(self.NUM_RECORDS):
+            payload = copy.deepcopy(default_payload)
+            payload["name"] += f" #{i}"
+            payload["testproject_records"] = [self.climb_id]
+            response = self.client.post(self.CREATE, data=payload)
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+            analysis_ids.append(response.json()["data"]["analysis_id"])
+        self.analysis_ids = set(analysis_ids)
+
+    def test_basic(self):
+        """
+        Test getting the analyses of a record by CLIMB ID.
+        """
+
+        response = self.client.get(self.RECORD_ANALYSES(self.climb_id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            {analysis["analysis_id"] for analysis in response.json()["data"]},
+            self.analysis_ids,
+        )
+
+    def test_climb_id_not_found(self):
+        """
+        Test getting the analyses of a record by CLIMB ID that does not exist.
+        """
+
+        prefix, postfix = self.climb_id.split("-")
+        climb_id_not_found = "-".join([prefix, postfix[::-1]])
+        response = self.client.get(self.RECORD_ANALYSES(climb_id_not_found))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class TestAnalysisRecordsView(OnyxAnalysisTestCase):
-    pass  # TODO: Implement tests for analysis records
+    def setUp(self):
+        super().setUp()
+
+        # Authenticate as the admin user
+        self.client.force_authenticate(self.admin_user)  # type: ignore
+
+        # Create a test payload
+        self.payload = copy.deepcopy(default_payload)
+        climb_ids = [
+            record.climb_id
+            for record in random.sample(
+                list(TestProject.objects.all()), self.NUM_RECORDS // 2
+            )
+        ]
+        self.payload["testproject_records"] = climb_ids
+        self.climb_ids = set(climb_ids)
+        response = self.client.post(self.CREATE, data=self.payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.analysis_id = response.json()["data"]["analysis_id"]
+
+    def test_basic(self):
+        """
+        Test getting the records of an analysis by analysis ID.
+        """
+
+        response = self.client.get(self.ANALYSIS_RECORDS(self.analysis_id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            {record["climb_id"] for record in response.json()["data"]},
+            self.climb_ids,
+        )
+
+    def test_analysis_id_not_found(self):
+        """
+        Test getting the records of an analysis by analysis ID that does not exist.
+        """
+
+        prefix, postfix = self.analysis_id.split("-")
+        analysis_id_not_found = "-".join([prefix, postfix[::-1]])
+        response = self.client.get(self.ANALYSIS_RECORDS(analysis_id_not_found))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

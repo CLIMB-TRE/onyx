@@ -151,7 +151,7 @@ class TestCreateView(OnyxTestCase):
         """
 
         payload = copy.deepcopy(default_payload)
-        payload["is_suppressed"] = "helloooo"
+        payload["uuid"] = "helloooo"  # UUID is not accessible anywhere
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert TestProject.objects.count() == 0

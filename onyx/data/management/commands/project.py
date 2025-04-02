@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from ...models import Project, ProjectGroup, Choice
 from ...actions import Actions
+from ...objects import OnyxObject
 
 
 ACTION_LABELS = [action.label for action in Actions]
@@ -67,11 +68,11 @@ class Config(BaseModel):
     contents: Optional[List[ProjectContentsConfig]]
 
 
-def analysis_project_template(project: str):
+def get_analysis_template(project: str):
     return {
         "groups": [
             {
-                "scope": "admin",
+                "scope": "analysis-admin",
                 "permissions": [
                     {
                         "action": "add",
@@ -147,7 +148,7 @@ def analysis_project_template(project: str):
                 ],
             },
             {
-                "scope": "uploader",
+                "scope": "analysis-uploader",
                 "permissions": [
                     {
                         "action": ["add", "change"],
@@ -172,7 +173,7 @@ def analysis_project_template(project: str):
                 ],
             },
             {
-                "scope": "analyst",
+                "scope": "analysis-analyst",
                 "permissions": [
                     {
                         "action": ["get", "list", "filter", "history"],
@@ -326,7 +327,11 @@ class Command(base.BaseCommand):
                     for scope, permissions in groups.items()
                 ]
 
-                self.set_groups(project, group_configs)
+                self.set_groups(
+                    project=project,
+                    object_type=OnyxObject.RECORD.label,
+                    group_configs=group_configs,
+                )
 
             if choice_configs:
                 # Convert field/ChoiceConfig mapping to list of ChoiceConfig objects
@@ -340,8 +345,18 @@ class Command(base.BaseCommand):
             if choice_constraints:
                 self.set_choice_constraints(project, choice_constraints)
 
-        # Create/update the analysis project
-        self.set_analysis_project(project)
+        # Create/update the analysis groups
+        analysis_contents = ProjectContentsConfig(
+            code=project.code, **get_analysis_template(project.code)
+        )
+
+        # Set the groups, choices, and choice constraints for the analysis
+        if analysis_contents.groups:
+            self.set_groups(
+                project=project,
+                object_type=OnyxObject.ANALYSIS.label,
+                group_configs=analysis_contents.groups,
+            )
 
         if p_created:
             self.print(f"Created project: {project.code}")
@@ -352,54 +367,9 @@ class Command(base.BaseCommand):
         self.print("• Description:", project.description)
         self.print("• Model:", project.content_type.model_class())
 
-    def set_analysis_project(self, project: Project):
-        """
-        Create/update the analysis project.
-        """
-
-        # Create or retrieve the analysis project
-        analysis_project, a_p_created = Project.objects.update_or_create(
-            code=f"{project.code}-analysis",
-            defaults={
-                "name": f"{project.name} Analysis",
-                "description": f"Analyses for the {project.name} project.",
-                "content_type": ContentType.objects.get(
-                    app_label="data", model="analysis"
-                ),
-                "data_project": project,
-            },
-        )
-
-        if a_p_created:
-            self.print(f"Creating analysis project: {analysis_project.code}")
-        else:
-            self.print(f"Updating analysis project: {analysis_project.code}")
-
-        # Get the analysis project contents
-        analysis_contents = ProjectContentsConfig(
-            code=analysis_project.code, **analysis_project_template(project.code)
-        )
-
-        # Set the groups, choices, and choice constraints for the analysis project
-        if analysis_contents.groups:
-            self.set_groups(analysis_project, analysis_contents.groups)
-
-        # The site choices for the analysis project are the same as the data project
-        sites = list(
-            Choice.objects.filter(
-                project=project,
-                field="site",
-            ).values_list("choice", flat=True)
-        )
-        choices = [ChoiceConfig(field="site", options=sites)]
-        self.set_choices(analysis_project, choices)
-
-        if a_p_created:
-            self.print(f"Created analysis project: {analysis_project.code}")
-        else:
-            self.print(f"Updated analysis project: {analysis_project.code}")
-
-    def set_groups(self, project: Project, group_configs: List[GroupConfig]):
+    def set_groups(
+        self, project: Project, object_type: str, group_configs: List[GroupConfig]
+    ):
         """
         Create/update the groups for the project.
         """
@@ -421,13 +391,13 @@ class Command(base.BaseCommand):
             permissions = []
 
             # Permission to access project
-            access_project_codename = f"access_{project.code}"
+            access_project_codename = f"access_{project.code}_{object_type}"
             access_project_permission, access_project_created = (
-                Permission.objects.get_or_create(
+                Permission.objects.update_or_create(
                     content_type=project.content_type,
                     codename=access_project_codename,
                     defaults={
-                        "name": f"Can access {project.code}",
+                        "name": f"Can access {project.code} {object_type}",
                     },
                 )
             )
@@ -446,13 +416,13 @@ class Command(base.BaseCommand):
 
                 for action in actions:
                     # Permission to action on project
-                    action_project_codename = f"{action}_{project.code}"
+                    action_project_codename = f"{action}_{project.code}_{object_type}"
                     action_project_permission, action_project_created = (
-                        Permission.objects.get_or_create(
+                        Permission.objects.update_or_create(
                             content_type=project.content_type,
                             codename=action_project_codename,
                             defaults={
-                                "name": f"Can {action} {project.code}",
+                                "name": f"Can {action} {project.code} {object_type}",
                             },
                         )
                     )
@@ -465,13 +435,15 @@ class Command(base.BaseCommand):
                         assert field, "Field cannot be empty."
 
                         # Permission to access field
-                        access_field_codename = f"access_{project.code}__{field}"
+                        access_field_codename = (
+                            f"access_{project.code}_{object_type}__{field}"
+                        )
                         access_field_permission, access_field_created = (
-                            Permission.objects.get_or_create(
+                            Permission.objects.update_or_create(
                                 content_type=project.content_type,
                                 codename=access_field_codename,
                                 defaults={
-                                    "name": f"Can access {project.code} {field}",
+                                    "name": f"Can access {project.code} {object_type} {field}",
                                 },
                             )
                         )
@@ -480,13 +452,15 @@ class Command(base.BaseCommand):
                         permissions.append(access_field_permission)
 
                         # Permission to action on field
-                        action_field_codename = f"{action}_{project.code}__{field}"
+                        action_field_codename = (
+                            f"{action}_{project.code}_{object_type}__{field}"
+                        )
                         action_field_permission, action_field_created = (
-                            Permission.objects.get_or_create(
+                            Permission.objects.update_or_create(
                                 content_type=project.content_type,
                                 codename=action_field_codename,
                                 defaults={
-                                    "name": f"Can {action} {project.code} {field}",
+                                    "name": f"Can {action} {project.code} {object_type} {field}",
                                 },
                             )
                         )

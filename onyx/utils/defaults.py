@@ -8,11 +8,11 @@ class CurrentUserSiteDefault:
         return "%s()" % self.__class__.__name__
 
 
-class CurrentDataProjectDefault:
+class CurrentProjectDefault:
     requires_context = True
 
     def __call__(self, serializer_field):
-        return serializer_field.context["project"].data_project
+        return serializer_field.context["project"]
 
     def __repr__(self):
         return "%s()" % self.__class__.__name__

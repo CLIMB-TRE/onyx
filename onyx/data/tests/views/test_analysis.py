@@ -26,42 +26,42 @@ class OnyxAnalysisTestCase(OnyxDataTestCase):
 
         self.CREATE = reverse(
             "projects.testproject.analysis",
-            kwargs={"code": self.analysis_project.code},
+            kwargs={"code": self.project.code},
         )
 
         self.TEST_CREATE = reverse(
             "projects.testproject.analysis.test",
-            kwargs={"code": self.analysis_project.code},
+            kwargs={"code": self.project.code},
         )
 
         self.GET = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
         self.FILTER = reverse(
             "projects.testproject.analysis",
-            kwargs={"code": self.analysis_project.code},
+            kwargs={"code": self.project.code},
         )
 
         self.UPDATE = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
         self.TEST_UPDATE = lambda analysis_id: reverse(
             "projects.testproject.analysis.test.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
         self.DELETE = lambda analysis_id: reverse(
             "projects.testproject.analysis.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
         self.HISTORY = lambda analysis_id: reverse(
             "projects.testproject.analysis.history.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
         self.RECORD_ANALYSES = lambda climb_id: reverse(
@@ -71,7 +71,7 @@ class OnyxAnalysisTestCase(OnyxDataTestCase):
 
         self.ANALYSIS_RECORDS = lambda analysis_id: reverse(
             "projects.testproject.analysis.records.analysis_id",
-            kwargs={"code": self.analysis_project.code, "analysis_id": analysis_id},
+            kwargs={"code": self.project.code, "analysis_id": analysis_id},
         )
 
 
@@ -83,7 +83,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
 
         # Create test identifier
-        self.data_project_identifier = Anonymiser.objects.create(
+        identifier = Anonymiser.objects.create(
             project=self.project,
             site=self.site,
             field="test_field",
@@ -95,7 +95,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         self.payload = copy.deepcopy(default_payload)
         records = random.sample(list(TestProject.objects.all()), self.NUM_RECORDS // 2)
         self.payload["testproject_records"] = [record.climb_id for record in records]
-        self.payload["identifiers"] = [self.data_project_identifier.identifier]
+        self.payload["identifiers"] = [identifier.identifier]
 
     def test_basic(self):
         """
@@ -175,17 +175,16 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         Test creating an analysis with an invalid identifier.
         """
 
-        # Create test identifier from the analysis project
-        # This is invalid because the identifier is from its own project
-        # When it should be from the data project
-        self.analysis_project_identifier = Anonymiser.objects.create(
-            project=self.analysis_project,
+        # Create test identifier from the extra project
+        # This is invalid because the identifier is from a different project
+        identifier = Anonymiser.objects.create(
+            project=self.extra_project,
             site=self.site,
             field="test_field",
             hash="test_hash",
             prefix="I-",
         )
-        self.payload["identifiers"].append(self.analysis_project_identifier.identifier)
+        self.payload["identifiers"].append(identifier.identifier)
         response = self.client.post(self.TEST_CREATE, data=self.payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert Analysis.objects.count() == 0

@@ -5,6 +5,9 @@ from projects.testproject.models import TestProject
 
 
 # TODO: Tests for delete endpoint
+# TODO: Test failing to delete a record in a different site
+
+
 class TestDeleteView(OnyxTestCase):
     def setUp(self):
         super().setUp()

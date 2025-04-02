@@ -174,21 +174,29 @@ class FieldHandler:
     - Checks whether the user has permission to action on the resolved fields.
     """
 
-    __slots__ = "project", "model", "app_label", "action", "user", "fields"
+    __slots__ = (
+        "app_label",
+        "project",
+        "action",
+        "object_type",
+        "model",
+        "user",
+        "fields",
+    )
 
     def __init__(
         self,
         project: Project,
         action: str,
+        object_type: str,
+        model: type[PrimaryRecord],
         user: User,
     ) -> None:
-        self.project = project
-        model = project.content_type.model_class()
-        assert model is not None
-        assert issubclass(model, PrimaryRecord)
-        self.model = model
         self.app_label = project.content_type.app_label
+        self.project = project
         self.action = action
+        self.object_type = object_type
+        self.model = model
         self.user = user
         self.fields = None
 
@@ -209,9 +217,14 @@ class FieldHandler:
             for permission in self.user.get_all_permissions():
                 # TODO: Does this break if the user has a permission not in the format we expect?
                 # TODO: Should this be comparing app_label?
-                _, action, project, field = parse_permission(permission)
+                _, action, project, object_type, field = parse_permission(permission)
 
-                if action == self.action and project == self.project.code and field:
+                if (
+                    action == self.action
+                    and project == self.project.code
+                    and object_type == self.object_type
+                    and field
+                ):
                     fields.append(field)
 
             self.fields = fields
@@ -260,6 +273,7 @@ class FieldHandler:
             app_label=self.app_label,
             action=Actions.ACCESS.label,
             code=self.project.code,
+            object_type=self.object_type,
             field=onyx_field.field_path,
         )
 
@@ -274,6 +288,7 @@ class FieldHandler:
             app_label=self.app_label,
             action=self.action,
             code=self.project.code,
+            object_type=self.object_type,
             field=onyx_field.field_path,
         )
 

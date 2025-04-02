@@ -15,7 +15,7 @@ from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
 from accounts.models import Site
-from .models import Project, Choice, PrimaryRecord, Anonymiser
+from .models import Project, Choice, Anonymiser, PrimaryRecord, Analysis
 from .serializers import (
     HistoryDiffSerializer,
     SummarySerializer,
@@ -26,6 +26,7 @@ from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
 from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
+from .objects import OnyxObject
 from .types import OnyxType, OnyxLookup
 from .actions import Actions
 from .spec import generate_fields_spec
@@ -118,6 +119,7 @@ class PrimaryRecordAPIView(APIView):
 
     permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.NO_ACCESS
+    object_type = OnyxObject.RECORD
     id_field = "climb_id"
     NotFound = ClimbIDNotFound
 
@@ -142,6 +144,8 @@ class PrimaryRecordAPIView(APIView):
         self.handler = FieldHandler(
             project=self.project,
             action=self.project_action.label,
+            object_type=self.object_type.label,
+            model=self.model,
             user=request.user,
         )
 
@@ -203,11 +207,13 @@ class PrimaryRecordAPIView(APIView):
 
 
 class ProjectRecordAPIView(PrimaryRecordAPIView):
+    object_type = OnyxObject.RECORD
     id_field = "climb_id"
     NotFound = ClimbIDNotFound
 
 
 class AnalysisAPIView(PrimaryRecordAPIView):
+    object_type = OnyxObject.ANALYSIS
     id_field = "analysis_id"
     NotFound = AnalysisIdNotFound
 
@@ -218,12 +224,25 @@ class AnalysisAPIView(PrimaryRecordAPIView):
 
         super().initial(request, *args, **kwargs)
 
-        # Override initial queryset to filter by project
+        # Assign the analysis model
+        self.model = Analysis
+
+        # Override field handler with correct model
+        self.handler = FieldHandler(
+            project=self.project,
+            action=self.project_action.label,
+            object_type=self.object_type.label,
+            model=self.model,
+            user=request.user,
+        )
+
+        # Override initial queryset with correct model,
+        # filtered by project
         self.qs = init_project_queryset(
             model=self.model,
             user=request.user,
             fields=self.handler.get_fields(),
-        ).filter(project=self.project.data_project)
+        ).filter(project=self.project)
 
 
 class ProjectsView(APIView):
@@ -238,7 +257,6 @@ class ProjectsView(APIView):
         project_groups = []
         for project, scope, actions_str in (
             request.user.groups.filter(projectgroup__isnull=False)
-            .exclude(projectgroup__project__data_project__isnull=False)
             .values_list(
                 "projectgroup__project__code",
                 "projectgroup__scope",
@@ -324,11 +342,12 @@ class FieldsView(PrimaryRecordAPIView):
         # Get all actions for each field (excluding access)
         actions_map = {}
         for permission in request.user.get_all_permissions():
-            _, action, project, field = parse_permission(permission)
+            _, action, project, object_type, field = parse_permission(permission)
 
             if (
                 action != Actions.ACCESS.label
                 and project == self.project.code
+                and object_type == self.object_type.label
                 and field in fields
             ):
                 actions_map.setdefault(field, []).append(action)
@@ -354,6 +373,16 @@ class FieldsView(PrimaryRecordAPIView):
                 "fields": fields_spec,
             }
         )
+
+
+class ProjectRecordFieldsView(FieldsView, ProjectRecordAPIView):
+    def get(self, request: Request, code: str) -> Response:
+        return super().get(request, code)
+
+
+class AnalysisFieldsView(FieldsView, AnalysisAPIView):
+    def get(self, request: Request, code: str) -> Response:
+        return super().get(request, code)
 
 
 class ChoicesView(PrimaryRecordAPIView):
@@ -405,6 +434,16 @@ class ChoicesView(PrimaryRecordAPIView):
 
         # Return choices for the field
         return Response(choices)
+
+
+class ProjectRecordChoicesView(ChoicesView, ProjectRecordAPIView):
+    def get(self, request: Request, code: str, field: str) -> Response:
+        return super().get(request, code, field)
+
+
+class AnalysisChoicesView(ChoicesView, AnalysisAPIView):
+    def get(self, request: Request, code: str, field: str) -> Response:
+        return super().get(request, code, field)
 
 
 class HistoryView(PrimaryRecordAPIView):
@@ -553,7 +592,7 @@ class HistoryView(PrimaryRecordAPIView):
         return Response({self.id_field: id_value, "history": diffs})
 
 
-class ProjectRecordHistoryView(HistoryView):
+class ProjectRecordHistoryView(HistoryView, ProjectRecordAPIView):
     def get(self, request: Request, code: str, climb_id: str) -> Response:
         return super().get(request, code, climb_id)
 
@@ -563,7 +602,9 @@ class AnalysisHistoryView(HistoryView, AnalysisAPIView):
         return super().get(request, code, analysis_id)
 
 
-class IdentifyView(PrimaryRecordAPIView):
+# TODO: Anonymiser does not accept a content type parameter
+# So can only really be used for records at this point
+class IdentifyView(ProjectRecordAPIView):
     project_action = Actions.IDENTIFY
 
     def post(self, request: Request, code: str, field: str) -> Response:
@@ -743,6 +784,8 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         filter_handler = FieldHandler(
             project=self.project,
             action=Actions.FILTER.label,
+            object_type=self.object_type.label,
+            model=self.model,
             user=request.user,
         )
 
@@ -1020,7 +1063,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         return Response(data)
 
 
-class ProjectRecordsViewSet(PrimaryRecordViewSet):
+class ProjectRecordsViewSet(PrimaryRecordViewSet, ProjectRecordAPIView):
     def retrieve(self, request: Request, code: str, climb_id: str) -> Response:
         return super().retrieve(request, code, climb_id)
 
@@ -1046,46 +1089,40 @@ class AnalysisViewSet(PrimaryRecordViewSet, AnalysisAPIView):
         return super().destroy(request, code, analysis_id)
 
 
-class RecordAnalysesView(PrimaryRecordAPIView):
+class RecordAnalysesView(AnalysisAPIView):
     project_action = Actions.LIST
-
-    def initial(self, request: Request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-
-        # Get the analysis project and model
-        analysis_project = self.project.analysis_project  #  type: ignore
-        assert analysis_project is not None
-        self.analysis_project, self.analysis_model = get_project_and_model(
-            analysis_project.code
-        )
-
-        # Get the analysis model's serializer
-        self.analysis_serializer_cls = self.kwargs["analysis_serializer_class"]
-        self.kwargs.pop("analysis_serializer_class")
-
-        # Initialise field handler for the analysis project, action and user
-        self.analysis_handler = FieldHandler(
-            project=self.analysis_project,
-            action=self.project_action.label,
-            user=request.user,
-        )
 
     def get(self, request: Request, code: str, climb_id: str) -> Response:
         """
         Use the `climb_id` to retrieve the analyses of an instance for the given project `code`.
         """
 
+        # Get the record model
+        _, record_model = get_project_and_model(self.project.code)
+
+        # Initialise record field handler
+        record_handler = FieldHandler(
+            project=self.project,
+            action=Actions.GET.label,
+            object_type=OnyxObject.RECORD.label,
+            model=record_model,
+            user=request.user,
+        )
+
+        # Initial record queryset
+        record_qs = init_project_queryset(
+            model=record_model,
+            user=request.user,
+            fields=record_handler.get_fields(),
+        )
+
         # Check the instance exists
         # If the instance does not exist, return 404
-        if not self.qs.filter(climb_id=climb_id).exists():
+        if not record_qs.filter(climb_id=climb_id).exists():
             raise self.NotFound
 
         # Filter the analyses with the instance's climb_id
-        analysis_qs = init_project_queryset(
-            model=self.analysis_model,
-            user=request.user,
-            fields=self.analysis_handler.get_fields(),
-        ).filter(
+        qs = self.qs.filter(
             **{
                 "project__code": self.project.code,
                 f"{self.project.code}_records__climb_id": climb_id,
@@ -1093,60 +1130,51 @@ class RecordAnalysesView(PrimaryRecordAPIView):
         )
 
         # Serialize the results
-        serializer = self.analysis_serializer_cls(
-            analysis_qs,
+        serializer = self.serializer_cls(
+            qs,
             many=True,
-            fields=unflatten_fields(self.analysis_handler.get_fields()),
+            fields=unflatten_fields(self.handler.get_fields()),
         )
 
         # Return response with data
         return Response(serializer.data)
 
 
-class AnalysisRecordsView(AnalysisAPIView):
+class AnalysisRecordsView(ProjectRecordAPIView):
     project_action = Actions.LIST
-
-    def initial(self, request: Request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-
-        # Get the record project and model
-        data_project = self.project.data_project
-        assert data_project is not None
-        self.records_project, self.records_model = get_project_and_model(
-            data_project.code
-        )
-
-        # Get the record model's serializer
-        self.records_serializer_cls = self.kwargs["records_serializer_class"]
-        self.kwargs.pop("records_serializer_class")
-
-        # Initialise field handler for the records project, action and user
-        self.records_handler = FieldHandler(
-            project=self.records_project,
-            action=self.project_action.label,
-            user=request.user,
-        )
 
     def get(self, request: Request, code: str, analysis_id: str) -> Response:
         """
         Use the `analysis_id` to retrieve the records of an instance for the given project `code`.
         """
 
+        # Initialise analysis field handler
+        analysis_handler = FieldHandler(
+            project=self.project,
+            action=Actions.GET.label,
+            object_type=OnyxObject.ANALYSIS.label,
+            model=Analysis,
+            user=request.user,
+        )
+
+        # Initial analysis queryset
+        analysis_qs = init_project_queryset(
+            model=Analysis,
+            user=request.user,
+            fields=analysis_handler.get_fields(),
+        )
+
         # Check the instance exists
         # If the instance does not exist, return 404
-        if not self.qs.filter(analysis_id=analysis_id).exists():
+        if not analysis_qs.filter(analysis_id=analysis_id).exists():
             raise self.NotFound
 
         # Filter the records with the instance's analysis_id
-        records_qs = init_project_queryset(
-            model=self.records_model,
-            user=request.user,
-            fields=self.records_handler.get_fields(),
-        ).filter(analyses__analysis_id=analysis_id)
+        qs = self.qs.filter(analyses__analysis_id=analysis_id)
 
         # Serialize the results
-        serializer = self.records_serializer_cls(
-            records_qs,
+        serializer = self.serializer_cls(
+            qs,
             many=True,
             fields=unflatten_fields(["climb_id", "published_date", "site"]),
         )

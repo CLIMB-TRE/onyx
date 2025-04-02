@@ -46,6 +46,7 @@ def get_permission(
     app_label: str,
     action: str,
     code: str,
+    object_type,
     field: str | None = None,
 ):
     """
@@ -61,23 +62,23 @@ def get_permission(
     """
 
     if field:
-        return f"{app_label}.{action}_{code}__{field}"
+        return f"{app_label}.{action}_{code}_{object_type}__{field}"
     else:
-        return f"{app_label}.{action}_{code}"
+        return f"{app_label}.{action}_{code}_{object_type}"
 
 
-def parse_permission(permission: str) -> tuple[str, str, str, str]:
+def parse_permission(permission: str) -> tuple[str, str, str, str, str]:
     """
     Parses a permission string into its components.
 
-    Returns a tuple containing the `app_label`, `action`, `code`, and `field`.
+    Returns a tuple containing the `app_label`, `action`, `code`, `object_type` and `field`.
     """
 
     app_label, codename = permission.split(".")
-    action_project, _, field_path = codename.partition("__")
-    action, project = action_project.split("_")
+    action_project_object, _, field_path = codename.partition("__")
+    action, project, object_type = action_project_object.split("_")
 
-    return app_label, action, project, field_path
+    return app_label, action, project, object_type, field_path
 
 
 def strtobool(val):

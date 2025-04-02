@@ -6,6 +6,9 @@ from projects.testproject.models import TestProject
 
 
 # TODO: Tests for update endpoint
+# TODO: Test failing to update a record in a different site
+
+
 class TestUpdateView(OnyxTestCase):
     def setUp(self):
         super().setUp()

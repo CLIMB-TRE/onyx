@@ -19,9 +19,6 @@ class Project(models.Model):
     name = StrippedCharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
-    data_project = models.OneToOneField(
-        "Project", on_delete=models.PROTECT, null=True, related_name="analysis_project"
-    )
 
     def __str__(self):
         return self.code

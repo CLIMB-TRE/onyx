@@ -92,7 +92,7 @@ class IsSiteMember(permissions.BasePermission):
 
 class IsProjectApproved(permissions.BasePermission):
     """
-    Allows access only to users who can perform the view's `project_action` on the project they are accessing.
+    Allows access only to users who can perform the view's `project_action` on the `object_type` for the project they are accessing.
     """
 
     def has_permission(self, request: Request, view):
@@ -107,6 +107,7 @@ class IsProjectApproved(permissions.BasePermission):
             app_label=project.content_type.app_label,
             action=Actions.ACCESS.label,
             code=project.code,
+            object_type=view.object_type.label,
         )
         if not request.user.has_perm(project_access_permission):
             raise exceptions.NotFound
@@ -123,9 +124,10 @@ class IsProjectApproved(permissions.BasePermission):
             app_label=project.content_type.app_label,
             action=view.project_action.label,
             code=project.code,
+            object_type=view.object_type.label,
         )
         if not request.user.has_perm(project_action_permission):
-            self.message = f"You do not have permission to {view.project_action.description} the {project.name} project."
+            self.message = f"You do not have permission to {view.project_action.description} {view.object_type.plural} in the {project.name} project."
             return False
 
         # If the user has permission to access and perform the action on the project, then they have permission

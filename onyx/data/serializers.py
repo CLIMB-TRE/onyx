@@ -4,7 +4,7 @@ from typing import Any
 from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from accounts.models import User
-from utils.defaults import CurrentUserSiteDefault, CurrentDataProjectDefault
+from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
 from utils.fieldserializers import (
     CharField,
     IntegerField,
@@ -360,14 +360,13 @@ class ProjectRecordSerializer(PrimaryRecordSerializer):
 
 class AnonymiserRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
-        data_project = self.context["project"].data_project
-        queryset = Anonymiser.objects.filter(project=data_project)
+        queryset = Anonymiser.objects.filter(project=self.context["project"])
         return queryset
 
 
 class ProjectRecordsRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
-        model = self.context["project"].data_project.content_type.model_class()
+        model = self.context["project"].content_type.model_class()
         queryset = model.objects.all()
         return queryset
 
@@ -379,8 +378,8 @@ class AnalysisSerializer(PrimaryRecordSerializer):
 
     project = serializers.PrimaryKeyRelatedField(
         write_only=True,
-        queryset=Project.objects.filter(data_project__isnull=True),
-        default=CurrentDataProjectDefault(),
+        queryset=Project.objects.all(),
+        default=CurrentProjectDefault(),
     )
     analysis_id = CharField(required=False)
     methods = StructureField(required=False)
@@ -406,7 +405,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
         super().__init__(*args, fields=fields, **kwargs)
 
         if self.context.get("project"):
-            records_field = f"{self.context['project'].data_project.code}_records"
+            records_field = f"{self.context['project'].code}_records"
 
             if (fields is None) or (fields is not None and records_field in fields):
                 self.fields[records_field] = ProjectRecordsRelatedField(

@@ -379,7 +379,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
 
     project = serializers.PrimaryKeyRelatedField(
         write_only=True,
-        queryset=Project.objects.filter(data_project__isnull=False),
+        queryset=Project.objects.filter(data_project__isnull=True),
         default=CurrentDataProjectDefault(),
     )
     analysis_id = CharField(required=False)

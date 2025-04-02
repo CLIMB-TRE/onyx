@@ -4,7 +4,7 @@ from typing import Any
 from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from accounts.models import User
-from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
+from utils.defaults import CurrentUserSiteDefault, CurrentDataProjectDefault
 from utils.fieldserializers import (
     CharField,
     IntegerField,
@@ -377,11 +377,10 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     Serializer for all project analyses.
     """
 
-    # TODO: Use analysis project or data project?
     project = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=Project.objects.filter(data_project__isnull=False),
-        default=CurrentProjectDefault(),
+        default=CurrentDataProjectDefault(),
     )
     analysis_id = CharField(required=False)
     methods = StructureField(required=False)

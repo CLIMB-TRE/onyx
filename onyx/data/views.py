@@ -223,7 +223,7 @@ class AnalysisAPIView(PrimaryRecordAPIView):
             model=self.model,
             user=request.user,
             fields=self.handler.get_fields(),
-        ).filter(project=self.project)
+        ).filter(project=self.project.data_project)
 
 
 class ProjectsView(APIView):
@@ -1087,7 +1087,7 @@ class RecordAnalysesView(PrimaryRecordAPIView):
             fields=self.analysis_handler.get_fields(),
         ).filter(
             **{
-                "project__code": self.analysis_project.code,
+                "project__code": self.project.code,
                 f"{self.project.code}_records__climb_id": climb_id,
             }
         )

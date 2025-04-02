@@ -16,8 +16,6 @@
 
 **OnyxType**: `OnyxType.DECIMAL`
 
-**Label**: `decimal`
-
 ## `date`
 
 **OnyxType**: `OnyxType.DATE`

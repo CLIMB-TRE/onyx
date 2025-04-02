@@ -39,8 +39,8 @@ Users with the `is_active`, `is_approved` and `is_staff` roles gain the ability 
 - List users waiting for approval via the `accounts.waiting` endpoint
 - Approve waiting users via the `accounts.approve` endpoint
 - List users across all sites via the `accounts.allusers` endpoint
-- Create/retrieve a user in a specific site, with permission to view a specific project, via the `accounts.projectuser` endpoint
-- For a given project they are assigned to:
+- Create/retrieve an `analyst` user for a specific project, via the `accounts.projectuser` endpoint
+- For a given project they are assigned to (and have the required actions on):
   - View value changes in the history of an object for any site
   - Recover an anonymised identifier for any site
   - Update an object for any site
@@ -72,9 +72,35 @@ $ python manage.py user roles <USER> --revoke <ROLE1> <ROLE2>
 
 #### `admin`
 
+**Actions:** `add` `change` `get` `list` `filter` `history` `identify`
+
+Users in the `admin` group for a project have the ability to:
+
+- Add data to a project, for any site (**NOTE**: this might be restricted for non-staff in a future update)
+- Change data in a project, including altering its published and suppressed status, for their site only (unless they are a member of staff)
+- Get individual objects from the project
+- List and filter data from the project (including unpublished data)
+- View the history of individual objects from the project
+- Recover anonymised identifiers from the project
+
 #### `uploader`
 
+**Actions:** `add` `change`
+
+Users in the `uploader` group for a project have the ability to:
+
+- Add data to a project, for any site (**NOTE**: this might be restricted for non-staff in a future update)
+- Change data in a project, including altering its published status, for their site only (unless they are a member of staff)
+
 #### `analyst`
+
+**Actions:** `get` `list` `filter` `history`
+
+Users in the `analyst` group for a project have the ability to:
+
+- Get individual objects from the project
+- List and filter data from the project
+- View the history of individual objects from the project
 
 ### Managing groups for a user
 

@@ -6,10 +6,10 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from ...models import Project, ProjectGroup, Choice
 from ...actions import Actions
-from ...types import OnyxObject
+from ...types import OnyxScope, OnyxObject
 
 
-# TODO: Scope Enum
+SCOPE_LABELS = [scope.label for scope in OnyxScope]
 OBJECT_TYPE_LABELS = [obj.label for obj in OnyxObject]
 ACTION_LABELS = [action.label for action in Actions]
 
@@ -33,6 +33,11 @@ class GroupConfig(BaseModel):
     scope: str
     object_type: str = OnyxObject.RECORD.label
     permissions: List[PermissionConfig]
+
+    @field_validator("scope")
+    def validate_scope(cls, value):
+        assert value in SCOPE_LABELS, f"Invalid scope: {value}"
+        return value
 
     @field_validator("object_type")
     def validate_object_type(cls, value):
@@ -84,7 +89,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
     return [
         GroupConfig(
             **{
-                "scope": "admin",
+                "scope": OnyxScope.ADMIN.label,
                 "object_type": OnyxObject.ANALYSIS.label,
                 "permissions": [
                     {
@@ -163,7 +168,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
         ),
         GroupConfig(
             **{
-                "scope": "uploader",
+                "scope": OnyxScope.UPLOADER.label,
                 "object_type": OnyxObject.ANALYSIS.label,
                 "permissions": [
                     {
@@ -191,7 +196,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
         ),
         GroupConfig(
             **{
-                "scope": "analyst",
+                "scope": OnyxScope.ANALYST.label,
                 "object_type": OnyxObject.ANALYSIS.label,
                 "permissions": [
                     {

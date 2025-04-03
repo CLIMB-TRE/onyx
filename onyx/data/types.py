@@ -1,6 +1,15 @@
 from enum import Enum
 
 
+class OnyxScope(Enum):
+    ADMIN = "admin"
+    UPLOADER = "uploader"
+    ANALYST = "analyst"
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+
+
 class OnyxObject(Enum):
     RECORD = "records"
     ANALYSIS = "analyses"

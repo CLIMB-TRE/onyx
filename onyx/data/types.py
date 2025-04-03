@@ -1,6 +1,14 @@
 from enum import Enum
 
 
+class OnyxObject(Enum):
+    RECORD = "records"
+    ANALYSIS = "analyses"
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+
+
 class OnyxLookup(Enum):
     EXACT = (
         "exact",

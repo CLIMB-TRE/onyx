@@ -46,25 +46,37 @@ def get_permission(
     app_label: str,
     action: str,
     code: str,
-    object_type,
+    object_type: str | None = None,
     field: str | None = None,
 ):
     """
-    Returns a permission string for a given `app_label`, `action`, `code`, and `field`.
+    Returns a permission string for a given `app_label`, `action`, `code`, `object_type` and `field`.
 
     The permission string is in the format:
 
     `<app_label>.<action>_<code>`
 
-    If `field` is provided, the permission string will be in the format:
+    If `object_type` is provided, the permission string will be in the format:
 
-    `<app_label>.<action>_<code>__<field>`
+    `<app_label>.<action>_<code>_<object_type>`
+
+    If `object_type` and `field` are provided, the permission string will be in the format:
+
+    `<app_label>.<action>_<code>_<object_type>__<field>`
     """
 
+    permission = f"{app_label}.{action}_{code}"
+
+    if field and not object_type:
+        raise ValueError("If field is provided, object_type must also be provided.")
+
+    if object_type:
+        permission += f"_{object_type}"
+
     if field:
-        return f"{app_label}.{action}_{code}_{object_type}__{field}"
-    else:
-        return f"{app_label}.{action}_{code}_{object_type}"
+        permission += f"__{field}"
+
+    return permission
 
 
 def parse_permission(permission: str) -> tuple[str, str, str, str, str]:
@@ -74,9 +86,23 @@ def parse_permission(permission: str) -> tuple[str, str, str, str, str]:
     Returns a tuple containing the `app_label`, `action`, `code`, `object_type` and `field`.
     """
 
+    # TODO: This function could be better... use regex?
+    # TODO: Permission forming/parsing is a bit scattered and can probably be consolidated.
+
     app_label, codename = permission.split(".")
     action_project_object, _, field_path = codename.partition("__")
-    action, project, object_type = action_project_object.split("_")
+    action, _, project_object_type = action_project_object.partition("_")
+    project, _, object_type = project_object_type.partition("_")
+
+    if not app_label or not action or not project:
+        raise ValueError(
+            f"Invalid permission string: {permission}. Must begin with '<app_label>.<action>_<project>'"
+        )
+
+    if field_path and not object_type:
+        raise ValueError(
+            f"Invalid permission string: {permission}. If field is provided, object_type must also be provided."
+        )
 
     return app_label, action, project, object_type, field_path
 

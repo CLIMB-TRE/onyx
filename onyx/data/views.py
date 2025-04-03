@@ -26,8 +26,7 @@ from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
 from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
-from .objects import OnyxObject
-from .types import OnyxType, OnyxLookup
+from .types import OnyxObject, OnyxType, OnyxLookup
 from .actions import Actions
 from .spec import generate_fields_spec
 from .fields import (

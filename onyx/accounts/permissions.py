@@ -103,13 +103,12 @@ class IsProjectApproved(permissions.BasePermission):
             raise exceptions.NotFound
 
         # Check the user's permission to access the project
-        project_access_permission = get_permission(
+        access_permission = get_permission(
             app_label=project.content_type.app_label,
             action=Actions.ACCESS.label,
             code=project.code,
-            object_type=view.object_type.label,
         )
-        if not request.user.has_perm(project_access_permission):
+        if not request.user.has_perm(access_permission):
             raise exceptions.NotFound
 
         # Check the user's site has access to the project
@@ -119,16 +118,17 @@ class IsProjectApproved(permissions.BasePermission):
             )
             return False
 
-        # Check the user's permission to perform action on the project
-        project_action_permission = get_permission(
-            app_label=project.content_type.app_label,
-            action=view.project_action.label,
-            code=project.code,
-            object_type=view.object_type.label,
-        )
-        if not request.user.has_perm(project_action_permission):
-            self.message = f"You do not have permission to {view.project_action.description} {view.object_type.plural} in the {project.name} project."
-            return False
+        # Check the user's permission to access and perform action on the object type for the project
+        for action in [Actions.ACCESS, view.project_action]:
+            action_permission = get_permission(
+                app_label=project.content_type.app_label,
+                action=action.label,
+                code=project.code,
+                object_type=view.object_type.label,
+            )
+            if not request.user.has_perm(action_permission):
+                self.message = f"You do not have permission to {action.description} {view.object_type.label} in the {project.name} project."
+                return False
 
         # If the user has permission to access and perform the action on the project, then they have permission
         return True

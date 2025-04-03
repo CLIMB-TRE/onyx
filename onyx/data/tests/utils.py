@@ -64,7 +64,7 @@ class OnyxTestCase(APITestCase):
             "test_admin_staff",
             cls.site,
             roles=["is_approved", "is_staff"],
-            groups=["testproject.admin", "testproject.analysis-admin"],
+            groups=["testproject.admin"],
         )
 
         # Set up testproject admin user
@@ -72,7 +72,7 @@ class OnyxTestCase(APITestCase):
             "test_admin_user",
             cls.site,
             roles=["is_approved"],
-            groups=["testproject.admin", "testproject.analysis-admin"],
+            groups=["testproject.admin"],
         )
 
         # Set up testproject analyst user
@@ -80,7 +80,7 @@ class OnyxTestCase(APITestCase):
             "test_analyst_user",
             cls.site,
             roles=["is_approved"],
-            groups=["testproject.analyst", "testproject.analysis-analyst"],
+            groups=["testproject.analyst"],
         )
 
         # Set up testproject analyst user from the extra site
@@ -88,7 +88,7 @@ class OnyxTestCase(APITestCase):
             "test_analyst_user_extra",
             cls.extra_site,
             roles=["is_approved"],
-            groups=["testproject.analyst", "testproject.analysis-analyst"],
+            groups=["testproject.analyst"],
         )
 
     @classmethod

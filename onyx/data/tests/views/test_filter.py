@@ -1159,6 +1159,7 @@ class TestFilterView(OnyxDataTestCase):
 
             # Check that the counts match
             for row in response.json()["data"]:
+                print(row)
                 self.assertEqual(
                     row["records__count"],
                     TestProjectRecord.objects.filter(
@@ -1193,6 +1194,7 @@ class TestFilterView(OnyxDataTestCase):
 
             # Check that the counts match
             for row in response.json()["data"]:
+                print(row)
                 self.assertEqual(
                     row["records__count"],
                     TestProjectRecord.objects.filter(test_result="details")

@@ -19,7 +19,7 @@ default_payload = {
 
 
 class OnyxAnalysisTestCase(OnyxDataTestCase):
-    NUM_RECORDS = 10
+    NUM_RECORDS = 0
 
     def setUp(self):
         super().setUp()
@@ -76,6 +76,8 @@ class OnyxAnalysisTestCase(OnyxDataTestCase):
 
 
 class TestCreateAnalysisView(OnyxAnalysisTestCase):
+    NUM_RECORDS = 10
+
     def setUp(self):
         super().setUp()
 
@@ -94,6 +96,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         # Create a test payload
         self.payload = copy.deepcopy(default_payload)
         records = random.sample(list(TestProject.objects.all()), self.NUM_RECORDS // 2)
+        assert len(records) > 0
         self.payload["testproject_records"] = [record.climb_id for record in records]
         self.payload["identifiers"] = [identifier.identifier]
 
@@ -375,6 +378,8 @@ class TestAnalysisHistoryView(OnyxAnalysisTestCase):
 
 
 class TestRecordAnalysesView(OnyxAnalysisTestCase):
+    NUM_RECORDS = 1
+
     def setUp(self):
         super().setUp()
 
@@ -421,6 +426,8 @@ class TestRecordAnalysesView(OnyxAnalysisTestCase):
 
 
 class TestAnalysisRecordsView(OnyxAnalysisTestCase):
+    NUM_RECORDS = 10
+
     def setUp(self):
         super().setUp()
 
@@ -435,6 +442,7 @@ class TestAnalysisRecordsView(OnyxAnalysisTestCase):
                 list(TestProject.objects.all()), self.NUM_RECORDS // 2
             )
         ]
+        assert len(climb_ids) > 0
         self.payload["testproject_records"] = climb_ids
         self.climb_ids = set(climb_ids)
         response = self.client.post(self.CREATE, data=self.payload)

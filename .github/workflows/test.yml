@@ -42,7 +42,7 @@ jobs:
 
       - name: Run Linter
         run: |
-          ruff check
+          poetry run ruff check
 
       - name: Run Tests
         env:

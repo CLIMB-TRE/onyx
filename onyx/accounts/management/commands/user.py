@@ -46,7 +46,7 @@ class Command(base.BaseCommand):
         groups_parser.add_argument("--rxrevoke")
 
         # LIST USERS
-        list_parser = command.add_parser(
+        command.add_parser(
             "list",
             help="Print a table of all users, with their roles and project groups.",
         )

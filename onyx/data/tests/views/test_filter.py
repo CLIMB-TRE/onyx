@@ -420,8 +420,8 @@ class TestFilterView(OnyxDataTestCase):
 
         for lookup, value, qs in (
             [
-                (l, x, TestProject.objects.filter(country=x.strip().lower()))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(country=x.strip().lower()))
+                for lo in ["", "exact"]
                 for x in choice_values
             ]
             + [
@@ -781,13 +781,13 @@ class TestFilterView(OnyxDataTestCase):
 
         for lookup, value, qs in (
             [
-                (l, x, TestProject.objects.filter(concern=True))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(concern=True))
+                for lo in ["", "exact"]
                 for x in true_values
             ]
             + [
-                (l, x, TestProject.objects.filter(concern=False))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(concern=False))
+                for lo in ["", "exact"]
                 for x in false_values
             ]
             + [
@@ -1159,7 +1159,6 @@ class TestFilterView(OnyxDataTestCase):
 
             # Check that the counts match
             for row in response.json()["data"]:
-                print(row)
                 self.assertEqual(
                     row["records__count"],
                     TestProjectRecord.objects.filter(
@@ -1194,7 +1193,6 @@ class TestFilterView(OnyxDataTestCase):
 
             # Check that the counts match
             for row in response.json()["data"]:
-                print(row)
                 self.assertEqual(
                     row["records__count"],
                     TestProjectRecord.objects.filter(test_result="details")

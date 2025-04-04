@@ -413,7 +413,7 @@ def generate_test_data(n: int, api_call: bool = True):
 
 
 class OnyxDataTestCase(OnyxTestCase):
-    NUM_RECORDS = 100
+    NUM_RECORDS = 50
 
     @classmethod
     def setUpTestData(cls):

@@ -146,7 +146,7 @@ class Command(base.BaseCommand):
             exit()
 
         if password:
-            user = User.objects.create_user(  # type: ignore
+            user = User.objects.create_user(
                 username=username,
                 password=password,
                 site=Site.objects.get(code=site),
@@ -154,13 +154,13 @@ class Command(base.BaseCommand):
             self.print("Created user:", user.username)
             self.print(f"• Site: {user.site.code}")
         else:
-            user = User.objects.create_user(  # type: ignore
+            user = User.objects.create_user(
                 username=username,
                 site=Site.objects.get(code=site),
             )
             user.set_unusable_password()
             user.save()
-            _, token = AuthToken.objects.create(user, None)  #  type: ignore
+            _, token = AuthToken.objects.create(user, None)  # type: ignore
             self.print("Created user:", user.username)
             self.print(f"• Site: {user.site.code}")
             self.print(f"• Token: {token}")

@@ -127,8 +127,6 @@ class Anonymiser(models.Model):
 
 
 class BaseRecord(models.Model):
-    # TODO: Make uuid primary key?
-    # Stop worrying about collisions. its not going to happen m8
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     history = HistoricalRecords(inherit=True)
     created = models.DateTimeField(auto_now_add=True)

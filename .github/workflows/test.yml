@@ -3,7 +3,7 @@ name: Run tests
 on: [push, pull_request]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
@@ -24,10 +24,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -36,7 +38,12 @@ jobs:
           pipx install poetry==1.7.0
           poetry config virtualenvs.in-project true
           poetry env use ${{ matrix.python-version }}
-          poetry install --with test
+          poetry install --with test,dev
+
+      - name: Run Linter
+        run: |
+          ruff check
+
       - name: Run Tests
         env:
           SECRET_KEY: super-duper-secret-key

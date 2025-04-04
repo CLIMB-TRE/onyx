@@ -3,8 +3,7 @@ from django.db import models
 from utils.functions import get_date_input_formats, get_date_output_format
 from .serializers import BaseRecordSerializer
 from .fields import OnyxField
-from .actions import Actions
-from .types import OnyxType
+from .types import Actions, OnyxType
 
 
 def generate_fields_spec(

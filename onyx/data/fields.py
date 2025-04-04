@@ -12,8 +12,7 @@ from utils.fields import (
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
 from .models import Choice, Project, PrimaryRecord
-from .types import OnyxLookup, OnyxType
-from .actions import Actions
+from .types import Actions, OnyxLookup, OnyxType
 
 
 class OnyxField:

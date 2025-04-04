@@ -26,8 +26,7 @@ from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
 from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
-from .types import OnyxObject, OnyxType, OnyxLookup
-from .actions import Actions
+from .types import Actions, Objects, OnyxType, OnyxLookup
 from .spec import generate_fields_spec
 from .fields import (
     FieldHandler,
@@ -118,7 +117,7 @@ class PrimaryRecordAPIView(APIView):
 
     permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.NO_ACCESS
-    object_type = OnyxObject.RECORD
+    object_type = Objects.RECORD
     id_field = "climb_id"
     NotFound = ClimbIDNotFound
 
@@ -206,13 +205,13 @@ class PrimaryRecordAPIView(APIView):
 
 
 class ProjectRecordAPIView(PrimaryRecordAPIView):
-    object_type = OnyxObject.RECORD
+    object_type = Objects.RECORD
     id_field = "climb_id"
     NotFound = ClimbIDNotFound
 
 
 class AnalysisAPIView(PrimaryRecordAPIView):
-    object_type = OnyxObject.ANALYSIS
+    object_type = Objects.ANALYSIS
     id_field = "analysis_id"
     NotFound = AnalysisIdNotFound
 
@@ -1104,7 +1103,7 @@ class RecordAnalysesView(AnalysisAPIView):
         record_handler = FieldHandler(
             project=self.project,
             action=Actions.GET.label,
-            object_type=OnyxObject.RECORD.label,
+            object_type=Objects.RECORD.label,
             model=record_model,
             user=request.user,
         )
@@ -1152,7 +1151,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         analysis_handler = FieldHandler(
             project=self.project,
             action=Actions.GET.label,
-            object_type=OnyxObject.ANALYSIS.label,
+            object_type=Objects.ANALYSIS.label,
             model=Analysis,
             user=request.user,
         )

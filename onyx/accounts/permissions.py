@@ -2,7 +2,7 @@ from rest_framework import permissions, exceptions
 from rest_framework.request import Request
 from utils.functions import get_permission
 from data.models import Project
-from data.actions import Actions
+from data.types import Actions
 
 
 class AllowAny(permissions.AllowAny):

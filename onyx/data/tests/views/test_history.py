@@ -3,8 +3,7 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import ClimbIDNotFound
-from ...actions import Actions
-from ...types import OnyxType
+from ...types import Actions, OnyxType
 from projects.testproject.models import TestProject
 
 

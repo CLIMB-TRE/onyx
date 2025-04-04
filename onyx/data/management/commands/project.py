@@ -5,12 +5,11 @@ from django.core.management import base
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from ...models import Project, ProjectGroup, Choice
-from ...actions import Actions
-from ...types import OnyxScope, OnyxObject
+from ...types import Actions, Scopes, Objects
 
 
-SCOPE_LABELS = [scope.label for scope in OnyxScope]
-OBJECT_TYPE_LABELS = [obj.label for obj in OnyxObject]
+SCOPE_LABELS = [scope.label for scope in Scopes]
+OBJECT_TYPE_LABELS = [obj.label for obj in Objects]
 ACTION_LABELS = [action.label for action in Actions]
 
 
@@ -31,7 +30,7 @@ class PermissionConfig(BaseModel):
 
 class GroupConfig(BaseModel):
     scope: str
-    object_type: str = OnyxObject.RECORD.label
+    object_type: str = Objects.RECORD.label
     permissions: List[PermissionConfig]
 
     @field_validator("scope")
@@ -89,8 +88,8 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
     return [
         GroupConfig(
             **{
-                "scope": OnyxScope.ADMIN.label,
-                "object_type": OnyxObject.ANALYSIS.label,
+                "scope": Scopes.ADMIN.label,
+                "object_type": Objects.ANALYSIS.label,
                 "permissions": [
                     {
                         "action": "add",
@@ -168,8 +167,8 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
         ),
         GroupConfig(
             **{
-                "scope": OnyxScope.UPLOADER.label,
-                "object_type": OnyxObject.ANALYSIS.label,
+                "scope": Scopes.UPLOADER.label,
+                "object_type": Objects.ANALYSIS.label,
                 "permissions": [
                     {
                         "action": ["add", "change"],
@@ -196,8 +195,8 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
         ),
         GroupConfig(
             **{
-                "scope": OnyxScope.ANALYST.label,
-                "object_type": OnyxObject.ANALYSIS.label,
+                "scope": Scopes.ANALYST.label,
+                "object_type": Objects.ANALYSIS.label,
                 "permissions": [
                     {
                         "action": ["get", "list", "filter", "history"],

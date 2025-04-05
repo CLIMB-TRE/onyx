@@ -479,10 +479,9 @@ class HistoryView(PrimaryRecordAPIView):
         included_fields = [
             field
             for field in self.serializer_cls.Meta.fields
-            # ManyToMany fields are non-nested and classed as relations, so should not be included in the history
-            # TODO: Should ManyToMany fields have a dedicated OnyxType?
-            # TODO: ManyToMany fields are not tracked in history (at present)
-            if field in fields and not fields[field].onyx_type == OnyxType.RELATION
+            if field in fields
+            # TODO: Many-to-many fields are not tracked in history
+            and fields[field].onyx_type != OnyxType.IDENTIFIERS
         ]
 
         # Nested fields to include in the history

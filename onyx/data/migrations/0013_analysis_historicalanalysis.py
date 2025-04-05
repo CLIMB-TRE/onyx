@@ -14,9 +14,6 @@ class Migration(migrations.Migration):
         ("accounts", "0002_initial"),
         ("contenttypes", "0002_remove_content_type_name"),
         ("data", "0012_alter_project_content_type"),
-        # ("mscape", "0023_remove_mscape_analyses_remove_openmgs_analyses_and_more"),
-        # ("pathsafe", "0009_remove_pathsafe_analyses"),
-        # ("testproject", "0011_remove_testmodel_analyses"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

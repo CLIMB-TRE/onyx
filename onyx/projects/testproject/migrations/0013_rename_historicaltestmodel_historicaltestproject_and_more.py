@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("accounts", "0002_initial"),
-        ("data", "0017_alter_project_data_project"),
+        ("data", "0013_analysis_historicalanalysis"),
         ("testproject", "0012_testmodel_analyses"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

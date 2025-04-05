@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("data", "0014_analysis_historicalanalysis"),
+        ("data", "0013_analysis_historicalanalysis"),
         ("testproject", "0011_remove_testmodel_analyses"),
     ]
 

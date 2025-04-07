@@ -57,9 +57,9 @@ class HistoryDiffSerializer(serializers.Serializer):
         # Instantiate the superclass normally
         super().__init__(*args, **kwargs)
 
-        serlializer_instance = serializer_cls()
-        assert isinstance(serlializer_instance, PrimaryRecordSerializer)
-        serializer_fields = serlializer_instance.get_fields()
+        serializer_instance = serializer_cls()
+        assert isinstance(serializer_instance, PrimaryRecordSerializer)
+        serializer_fields = serializer_instance.get_fields()
 
         if not show_values:
             self.fields["from"] = serializers.CharField()

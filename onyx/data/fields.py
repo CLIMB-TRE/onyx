@@ -214,12 +214,13 @@ class FieldHandler:
             fields = []
 
             for permission in self.user.get_all_permissions():
-                # TODO: Does this break if the user has a permission not in the format we expect?
-                # TODO: Should this be comparing app_label?
-                _, action, project, object_type, field = parse_permission(permission)
+                app_label, action, project, object_type, field = parse_permission(
+                    permission
+                )
 
                 if (
-                    action == self.action
+                    app_label == self.app_label
+                    and action == self.action
                     and project == self.project.code
                     and object_type == self.object_type
                     and field

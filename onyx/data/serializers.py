@@ -364,7 +364,13 @@ class AnonymiserRelatedField(serializers.SlugRelatedField):
         return queryset
 
 
-class ProjectRecordsRelatedField(serializers.SlugRelatedField):
+class AnalysisRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        queryset = Analysis.objects.filter(project=self.context["project"])
+        return queryset
+
+
+class ProjectRecordRelatedField(serializers.SlugRelatedField):
     def get_queryset(self):
         model = self.context["project"].content_type.model_class()
         queryset = model.objects.all()
@@ -384,14 +390,10 @@ class AnalysisSerializer(PrimaryRecordSerializer):
     analysis_id = CharField(required=False)
     methods = StructureField(required=False)
     result_metrics = StructureField(required=False)
-    upstream_analyses = serializers.SlugRelatedField(
-        queryset=Analysis.objects.all(),
-        many=True,
-        required=False,
-        slug_field="analysis_id",
+    upstream_analyses = AnalysisRelatedField(
+        many=True, required=False, slug_field="analysis_id"
     )
-    downstream_analyses = serializers.SlugRelatedField(
-        queryset=Analysis.objects.all(),
+    downstream_analyses = AnalysisRelatedField(
         many=True,
         required=False,
         slug_field="analysis_id",
@@ -408,7 +410,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             records_field = f"{self.context['project'].code}_records"
 
             if (fields is None) or (fields is not None and records_field in fields):
-                self.fields[records_field] = ProjectRecordsRelatedField(
+                self.fields[records_field] = ProjectRecordRelatedField(
                     many=True,
                     required=False,
                     slug_field="climb_id",

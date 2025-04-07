@@ -94,23 +94,26 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         )
 
         # Create a test payload
-        self.payload = copy.deepcopy(default_payload)
+        payload = copy.deepcopy(default_payload)
         records = random.sample(list(TestProject.objects.all()), self.NUM_RECORDS // 2)
         assert len(records) > 0
-        self.payload["testproject_records"] = [record.climb_id for record in records]
-        self.payload["identifiers"] = [identifier.identifier]
+        payload["testproject_records"] = [record.climb_id for record in records]
+        payload["identifiers"] = [identifier.identifier]
+        self._payload = payload
+        self.get_payload = lambda: copy.deepcopy(self._payload)
 
     def test_basic(self):
         """
         Test creating an analysis.
         """
 
-        response = self.client.post(self.CREATE, data=self.payload)
+        payload = self.get_payload()
+        response = self.client.post(self.CREATE, data=payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert Analysis.objects.count() == 1
         self.assertEqual(
             response.json()["data"]["analysis_id"],
-            Analysis.objects.get(name=self.payload["name"]).analysis_id,
+            Analysis.objects.get(name=payload["name"]).analysis_id,
         )
 
     def test_basic_test(self):
@@ -118,7 +121,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         Test the test creation of an analysis.
         """
 
-        response = self.client.post(self.TEST_CREATE, data=self.payload)
+        response = self.client.post(self.TEST_CREATE, data=self.get_payload())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert Analysis.objects.count() == 0
         self.assertEqual(response.json()["data"], {})
@@ -129,13 +132,13 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         """
 
         # Create the test payload and capture the analysis ID
-        response = self.client.post(self.CREATE, data=self.payload)
+        response = self.client.post(self.CREATE, data=self.get_payload())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert Analysis.objects.count() == 1
         analysis_id = response.json()["data"]["analysis_id"]
 
         # Create a new analysis with the analysis ID as an upstream analysis
-        payload = copy.deepcopy(self.payload)
+        payload = self.get_payload()
         payload["name"] += " #2"
         payload["upstream_analyses"] = [analysis_id]
         response = self.client.post(self.CREATE, data=payload)
@@ -144,7 +147,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         analysis_id_2 = response.json()["data"]["analysis_id"]
 
         # Create a new analysis with the analysis ID as a downstream analysis
-        payload = copy.deepcopy(self.payload)
+        payload = self.get_payload()
         payload["name"] += " #3"
         payload["upstream_analyses"] = [analysis_id_2]
         response = self.client.post(self.CREATE, data=payload)
@@ -178,8 +181,16 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         Test creating an analysis with an invalid identifier.
         """
 
+        # Test providing an identifier that does not exist
+        payload = self.get_payload()
+        payload["identifiers"] = ["invalid-identifier"]
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 0
+
         # Create test identifier from the extra project
         # This is invalid because the identifier is from a different project
+        payload = self.get_payload()
         identifier = Anonymiser.objects.create(
             project=self.extra_project,
             site=self.site,
@@ -187,10 +198,52 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
             hash="test_hash",
             prefix="I-",
         )
-        self.payload["identifiers"].append(identifier.identifier)
-        response = self.client.post(self.TEST_CREATE, data=self.payload)
+        payload["identifiers"].append(identifier.identifier)
+        response = self.client.post(self.CREATE, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert Analysis.objects.count() == 0
+
+    def test_invalid_upstream_downstream(self):
+        """
+        Test creating an analysis with an invalid upstream or downstream analysis.
+        """
+
+        # Test providing an upstream analysis that does not exist
+        payload = self.get_payload()
+        payload["upstream_analyses"] = ["invalid-analysis-id"]
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 0
+
+        # Test providing a downstream analysis that does not exist
+        payload = self.get_payload()
+        payload["name"] += " #3"
+        payload["downstream_analyses"] = ["invalid-analysis-id"]
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 0
+
+        # Test providing an upstream analysis that is from the extra project
+        payload = self.get_payload()
+        analysis = Analysis.objects.create(
+            project=self.extra_project,
+            site=self.site,
+            name=self._payload["name"] + " #2",
+            analysis_date="2024-01-01",
+            user=self.admin_user,
+            report="s3://test-bucket/test-report.html",
+        )
+        payload["upstream_analyses"] = [analysis.analysis_id]
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 1
+
+        # Test providing a downstream analysis that is from the extra project
+        payload = self.get_payload()
+        payload["downstream_analyses"] = [analysis.analysis_id]
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 1
 
 
 class TestGetAnalysisView(OnyxAnalysisTestCase):

@@ -340,10 +340,13 @@ class FieldsView(PrimaryRecordAPIView):
         # Get all actions for each field (excluding access)
         actions_map = {}
         for permission in request.user.get_all_permissions():
-            _, action, project, object_type, field = parse_permission(permission)
+            app_label, action, project, object_type, field = parse_permission(
+                permission
+            )
 
             if (
-                action != Actions.ACCESS.label
+                app_label == self.project.content_type.app_label
+                and action != Actions.ACCESS.label
                 and project == self.project.code
                 and object_type == self.object_type.label
                 and field in fields

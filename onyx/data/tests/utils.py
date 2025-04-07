@@ -17,7 +17,7 @@ class OnyxTestCase(APITestCase):
     def setUpTestData(cls):
         logging.disable(logging.CRITICAL)
 
-        # Set up test project and analysis project
+        # Set up test project
         call_command(
             "project",
             os.path.join(settings.BASE_DIR, "projects/testproject/project.json"),
@@ -25,7 +25,7 @@ class OnyxTestCase(APITestCase):
         )
         cls.project = Project.objects.get(code="testproject")
 
-        # Set up extra dummy project
+        # Set up extra project
         cls.extra_project = Project.objects.create(
             code="extra_project",
             name="Extra Project",

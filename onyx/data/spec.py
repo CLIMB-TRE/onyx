@@ -3,8 +3,7 @@ from django.db import models
 from utils.functions import get_date_input_formats, get_date_output_format
 from .serializers import BaseRecordSerializer
 from .fields import OnyxField
-from .actions import Actions
-from .types import OnyxType
+from .types import Actions, OnyxType
 
 
 def generate_fields_spec(
@@ -12,6 +11,7 @@ def generate_fields_spec(
     onyx_fields: dict[str, OnyxField],
     actions_map: dict[str, str],
     serializer: type[BaseRecordSerializer],
+    context: dict[str, Any] | None = None,
     prefix: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -30,24 +30,34 @@ def generate_fields_spec(
         onyx_fields: The dictionary of `OnyxField` objects to use for annotation.
         actions_map: The dictionary of field paths to their available actions.
         serializer: The serializer to use for annotation.
+        context: The context for the serializer.
         prefix: The prefix to use for the field paths.
 
     Returns:
         The annotated dictionary of fields.
     """
 
+    # Initialize the fields specification
     fields_spec = {}
 
-    serializer_instance = serializer()
+    # Create an instance of the serializer
+    serializer_instance = serializer(context=context)
     assert isinstance(serializer_instance, BaseRecordSerializer)
 
-    # Handle serializer fields
-    serializer_fields = serializer_instance.get_fields()
-    for field in serializer.Meta.fields:
-        # Skip fields that are not in the fields_dict
-        if field not in fields_dict:
-            continue
+    # Get the serializer fields to include in the specification
+    # These are ordered by the serializer.Meta.fields attribute
+    # Append any fields not in the serializer.Meta.fields attribute or OnyxMeta relations
+    fields = list(
+        field for field in serializer.Meta.fields if field in fields_dict
+    ) + list(
+        field
+        for field in fields_dict
+        if field not in serializer.Meta.fields
+        and field not in serializer.OnyxMeta.relations
+    )
 
+    # Handle serializer fields
+    for field in fields:
         # If a prefix is provided, use it to create the field path
         if prefix:
             field_path = f"{prefix}__{field}"
@@ -59,13 +69,13 @@ def generate_fields_spec(
         field_instance = onyx_fields[field_path].field_instance
 
         # Override the field's description from the serializer if it exists
-        description = serializer_fields[field].help_text
+        description = serializer_instance.fields[field].help_text
         if not description:
             description = onyx_fields[field_path].description
 
         # If the field is required when is_published = True, override required status
         for (f, v, _), reqs in serializer.OnyxMeta.conditional_value_required.items():
-            if f == "is_published" and v == True and field in reqs:
+            if f == "is_published" and v and field in reqs:
                 required = True
                 break
         else:
@@ -91,10 +101,14 @@ def generate_fields_spec(
         }
 
         # Add default value if it exists
-        if field_instance.default != models.NOT_PROVIDED:
+        if (
+            # ManyToMany fields don't have a default attribute
+            hasattr(field_instance, "default")
+            and field_instance.default != models.NOT_PROVIDED
+        ):
             if field_instance.default in [list, dict]:
                 field_spec["default"] = field_instance.default()
-            else:
+            elif type(field_instance.default) in [str, int, float, bool]:
                 field_spec["default"] = field_instance.default
 
         # Add choices if the field is a choice field
@@ -113,13 +127,13 @@ def generate_fields_spec(
         # Add date formatting information
         if onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
             input_format = (
-                ", ".join(get_date_input_formats(serializer_fields[field]))
+                ", ".join(get_date_input_formats(serializer_instance.fields[field]))
                 .replace("%Y", "YYYY")
                 .replace("%m", "MM")
                 .replace("%d", "DD")
             )
             output_format = (
-                get_date_output_format(serializer_fields[field])
+                get_date_output_format(serializer_instance.fields[field])
                 .replace("%Y", "YYYY")
                 .replace("%m", "MM")
                 .replace("%d", "DD")
@@ -186,6 +200,7 @@ def generate_fields_spec(
                 onyx_fields=onyx_fields,
                 actions_map=actions_map,
                 serializer=nested_serializer,
+                context=context,
                 prefix=field_path,
             ),
         }

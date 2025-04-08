@@ -9,7 +9,7 @@ from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
-from utils.constraints import unique_together
+from utils.constraints import unique_together, optional_value_group
 from simple_history.models import HistoricalRecords
 from .types import OnyxLookup
 
@@ -126,6 +126,81 @@ class Anonymiser(models.Model):
         return self.identifier
 
 
+class BaseRecord(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    history = HistoricalRecords(inherit=True)
+    created = models.DateTimeField(auto_now_add=True)
+    last_modified = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def check(cls, **kwargs: Any) -> list[CheckMessage]:
+        errors = super().check(**kwargs)
+
+        for field in cls._meta.get_fields():
+            if field.name in OnyxLookup.lookups():
+                errors.append(
+                    checks.Error(
+                        "Field names must not match existing lookups.",
+                        obj=field,
+                    )
+                )
+
+            elif field.name == "count":
+                errors.append(
+                    checks.Error(
+                        "Field name cannot be 'count' as this is reserved.",
+                        obj=field,
+                    )
+                )
+
+        return errors
+
+    def __str__(self):
+        return str(self.uuid)
+
+
+class PrimaryRecord(BaseRecord):
+    @classmethod
+    def version(cls):
+        return "N/A"
+
+    is_published = models.BooleanField(
+        default=True,
+        help_text="Indicator for whether an object has been published.",
+    )
+    published_date = models.DateField(
+        null=True,
+        help_text="The date the object was published in Onyx.",
+    )
+    is_suppressed = models.BooleanField(
+        default=False,
+        help_text="Indicator for whether an object has been hidden from users.",
+    )
+    site = SiteField(
+        Site,
+        to_field="code",
+        on_delete=models.PROTECT,
+        help_text="Site that uploaded the object.",
+    )
+    is_site_restricted = models.BooleanField(
+        default=False,
+        help_text="Indicator for whether an object has been hidden from users not within the object's site.",
+    )
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.published_date is None and self.is_published:
+            self.published_date = datetime.today().date()
+
+        super().save(*args, **kwargs)
+
+
 def generate_analysis_id():
     """
     Generate a random new Analysis ID.
@@ -142,31 +217,106 @@ def generate_analysis_id():
     return analysis_id
 
 
-class Analysis(models.Model):
+class Analysis(PrimaryRecord):
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
-    created = models.DateTimeField(auto_now_add=True)
+
+    # Overview
     analysis_id = UpperCharField(
         default=generate_analysis_id,
         max_length=12,
         unique=True,
         help_text="Unique identifier for an analysis in Onyx.",
     )
-    published_date = models.DateField(
-        auto_now_add=True,
-        help_text="The date the analysis was published in Onyx.",
+    analysis_date = models.DateField(
+        help_text="The date the analysis was carried out.",
     )
-    analysis_date = models.DateField(help_text="The date the analysis was carried out.")
-    name = StrippedCharField(max_length=100, unique=True)
-    command_details = models.TextField(blank=True)
-    pipeline_details = models.TextField(blank=True)
-    experiment_details = models.JSONField(default=dict)
-    result = models.TextField(blank=True)
-    report = models.TextField(blank=True)
-    outputs = models.TextField(blank=True)
+    name = StrippedCharField(
+        max_length=50,
+        help_text="Name for the analysis, unique to the project.",
+    )
+    description = models.CharField(
+        blank=True,
+        max_length=500,
+        help_text="Description of the analysis.",
+    )
+
+    # Execution
+    pipeline_name = models.CharField(
+        max_length=50,
+        help_text="Name of the pipeline used for the analysis.",
+    )
+    pipeline_url = models.CharField(
+        blank=True,
+        max_length=100,
+        help_text="URL to the pipeline used for the analysis.",
+    )
+    pipeline_version = models.CharField(
+        max_length=10,
+        help_text="Version of the pipeline used for the analysis.",
+    )
+    pipeline_command = models.CharField(
+        blank=True,
+        max_length=100,
+        help_text="Command used to run the pipeline for the analysis.",
+    )
+    methods = models.JSONField(
+        default=dict,
+        help_text="Structured details of the experiment run and its inputs.",
+    )
+
+    # Results
+    result = models.CharField(
+        max_length=100,
+        help_text="Key findings of the analysis.",
+    )
+    result_metrics = models.JSONField(
+        default=dict,
+        help_text="Structured output metrics from the result of the analysis.",
+    )
+    report = models.CharField(
+        blank=True,
+        max_length=200,
+        help_text="HTML report produced from the analysis.",
+    )
+    outputs = models.CharField(
+        blank=True,
+        max_length=200,
+        help_text="Directory of outputs produced from the analysis.",
+    )
+
+    # Relationships
     upstream_analyses = models.ManyToManyField(
-        "self", symmetrical=False, related_name="downstream_analyses"
+        "self",
+        symmetrical=False,
+        related_name="downstream_analyses",
+        help_text="The analyses that this analysis depends on.",
     )
-    identifiers = models.ManyToManyField(Anonymiser, related_name="analyses")
+    identifiers = models.ManyToManyField(
+        Anonymiser,
+        related_name="analyses",
+        help_text="Key anonymised identifiers involved in the analysis. This does not include the CLIMB ID (for these, see the {project}_records field).",
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=[
+                    "project",
+                    "analysis_id",
+                    "analysis_date",
+                    "name",
+                    "result",
+                ]
+            ),
+        ]
+        constraints = [
+            unique_together(
+                fields=["project", "name"],
+            ),
+            optional_value_group(
+                fields=["report", "outputs"],
+            ),
+        ]
 
     def __str__(self):
         return self.analysis_id
@@ -195,46 +345,7 @@ class ClimbID(models.Model):
         return self.climb_id
 
 
-class BaseRecord(models.Model):
-    # TODO: Make uuid primary key?
-    # Stop worrying about collisions. its not going to happen m8
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    history = HistoricalRecords(inherit=True)
-    created = models.DateTimeField(auto_now_add=True)
-    last_modified = models.DateTimeField(auto_now=True)
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
-
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def check(cls, **kwargs: Any) -> list[CheckMessage]:
-        errors = super().check(**kwargs)
-
-        for field in cls._meta.get_fields():
-            if field.name in OnyxLookup.lookups():
-                errors.append(
-                    checks.Error(
-                        f"Field names must not match existing lookups.",
-                        obj=field,
-                    )
-                )
-
-            elif field.name == "count":
-                errors.append(
-                    checks.Error(
-                        f"Field name cannot be 'count' as this is reserved.",
-                        obj=field,
-                    )
-                )
-
-        return errors
-
-    def __str__(self):
-        return str(self.uuid)
-
-
-class ProjectRecord(BaseRecord):
+class ProjectRecord(PrimaryRecord):
     @classmethod
     def version(cls):
         raise NotImplementedError("A version number is required.")
@@ -243,28 +354,6 @@ class ProjectRecord(BaseRecord):
         max_length=12,
         unique=True,
         help_text="Unique identifier for a project record in Onyx.",
-    )
-    is_published = models.BooleanField(
-        default=True,
-        help_text="Indicator for whether a project record has been published.",
-    )
-    published_date = models.DateField(
-        null=True,
-        help_text="The date the project record was published in Onyx.",
-    )
-    is_suppressed = models.BooleanField(
-        default=False,
-        help_text="Indicator for whether a project record has been hidden from users.",
-    )
-    site = SiteField(
-        Site,
-        to_field="code",
-        on_delete=models.PROTECT,
-        help_text="Site that uploaded the record.",
-    )
-    is_site_restricted = models.BooleanField(
-        default=False,
-        help_text="Indicator for whether a project record has been hidden from users not within the record's site.",
     )
     analyses = models.ManyToManyField(
         Analysis,
@@ -279,9 +368,6 @@ class ProjectRecord(BaseRecord):
         if not self.pk:
             climb_id = ClimbID.objects.create()
             self.climb_id = climb_id.climb_id
-
-        if self.published_date is None and self.is_published:
-            self.published_date = datetime.today().date()
 
         super().save(*args, **kwargs)
 

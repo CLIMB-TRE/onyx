@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxDataTestCase
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 class TestCountView(OnyxDataTestCase):
@@ -25,8 +25,12 @@ class TestCountView(OnyxDataTestCase):
 
         response = self.client.get(self.filter_endpoint)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["data"], {"count": TestModel.objects.count()})
+        self.assertEqual(
+            response.json()["data"], {"count": TestProject.objects.count()}
+        )
 
         response = self.client.post(self.query_endpoint, data={})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["data"], {"count": TestModel.objects.count()})
+        self.assertEqual(
+            response.json()["data"], {"count": TestProject.objects.count()}
+        )

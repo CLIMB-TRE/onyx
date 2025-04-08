@@ -1,14 +1,14 @@
 from django.db.models import Q, QuerySet
 from django.db.models.manager import BaseManager
 from accounts.models import User
-from .models import ProjectRecord
+from .models import PrimaryRecord
 
 
 def init_project_queryset(
-    model: type[ProjectRecord],
+    model: type[PrimaryRecord],
     user: User,
     fields: list[str],
-) -> BaseManager[ProjectRecord]:
+) -> BaseManager[PrimaryRecord]:
     """
     Initialize a QuerySet for a project model based on the user's access to fields.
 

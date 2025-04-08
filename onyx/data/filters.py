@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 from rest_framework.serializers import BooleanField
 from django_filters import rest_framework as filters, fields as filter_fields
 from utils.functions import get_suggestions, strtobool
@@ -15,7 +14,7 @@ class StrictFieldMixin:
         value = super().clean(value)  #  type: ignore
 
         if value is None:
-            raise ValidationError(f"Value cannot be null.")
+            raise ValidationError("Value cannot be null.")
 
         return value
 
@@ -26,7 +25,7 @@ class StrictFieldListMixin:
         assert isinstance(value, list)
 
         if not value or None in value:
-            raise ValidationError(f"Value cannot be null.")
+            raise ValidationError("Value cannot be null.")
 
         return value
 
@@ -396,6 +395,9 @@ FILTERS = {
         "has_key": filters.CharFilter,
         "has_keys": CharInFilter,
         "has_any_keys": CharInFilter,
+        "isnull": StrictBooleanFilter,
+    },
+    OnyxType.IDENTIFIERS: {
         "isnull": StrictBooleanFilter,
     },
 }

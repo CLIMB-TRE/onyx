@@ -50,3 +50,21 @@ class TestChoicesView(OnyxTestCase):
         self.assertEqual(
             response.json()["messages"]["detail"], "This field is not a choice field."
         )
+
+    def test_site_field(self):
+        """
+        Test retrieval of choices for the site field.
+        """
+
+        # The site field is a special case
+        # Descriptions are populated from the Site object's description
+        response = self.client.get(self.endpoint("site"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.json()["data"][self.site.code]["description"],
+            self.site.description,
+        )
+        self.assertEqual(
+            response.json()["data"][self.extra_site.code]["description"],
+            self.extra_site.description,
+        )

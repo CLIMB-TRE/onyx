@@ -1,6 +1,40 @@
 from enum import Enum
 
 
+class Actions(Enum):
+    ACCESS = ("access", "access")
+    NO_ACCESS = ("no_access", "not access")
+    GET = ("get", "get")
+    LIST = ("list", "list")
+    FILTER = ("filter", "filter")
+    HISTORY = ("history", "get the history of")
+    IDENTIFY = ("identify", "identify values from")
+    ADD = ("add", "add")
+    CHANGE = ("change", "change")
+    DELETE = ("delete", "delete")
+
+    def __init__(self, label: str, description: str) -> None:
+        self.label = label
+        self.description = description
+
+
+class Scopes(Enum):
+    ADMIN = "admin"
+    UPLOADER = "uploader"
+    ANALYST = "analyst"
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+
+
+class Objects(Enum):
+    RECORD = "records"
+    ANALYSIS = "analyses"
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+
+
 class OnyxLookup(Enum):
     EXACT = (
         "exact",
@@ -300,6 +334,13 @@ class OnyxType(Enum):
             OnyxLookup.HAS_KEY.label,
             OnyxLookup.HAS_KEYS.label,
             OnyxLookup.HAS_ANY_KEYS.label,
+            OnyxLookup.ISNULL.label,
+        ],
+    )
+    IDENTIFIERS = (
+        "identifiers",
+        "A many-to-many linkage with another table, captured in a set of identifiers.",
+        [
             OnyxLookup.ISNULL.label,
         ],
     )

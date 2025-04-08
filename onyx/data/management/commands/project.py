@@ -160,6 +160,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "fields": [
                             "upstream_analyses__analysis_id",
                             "downstream_analyses__analysis_id",
+                            f"{project}_records__climb_id",
                         ],
                     },
                 ],
@@ -237,6 +238,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "fields": [
                             "upstream_analyses__analysis_id",
                             "downstream_analyses__analysis_id",
+                            f"{project}_records__climb_id",
                         ],
                     },
                 ],

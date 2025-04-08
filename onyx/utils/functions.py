@@ -65,6 +65,10 @@ def get_permission(
     `<app_label>.<action>_<code>_<object_type>__<field>`
     """
 
+    for arg in [app_label, action, code]:
+        if not arg:
+            raise ValueError(f"{arg} must be provided.")
+
     permission = f"{app_label}.{action}_{code}"
 
     if field and not object_type:

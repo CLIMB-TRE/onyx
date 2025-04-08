@@ -4,7 +4,7 @@
       "code": "testproject",
       "name": "Test Project",
       "description": "This is a test project",
-      "content_type": "testproject.testmodel"
+      "content_type": "testproject.testproject"
     }
   ],
   "contents": [

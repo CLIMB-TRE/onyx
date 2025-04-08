@@ -3,9 +3,8 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import ClimbIDNotFound
-from ...actions import Actions
-from ...types import OnyxType
-from projects.testproject.models import TestModel
+from ...types import Actions, OnyxType
+from projects.testproject.models import TestProject
 
 
 class TestHistoryView(OnyxTestCase):
@@ -60,7 +59,7 @@ class TestHistoryView(OnyxTestCase):
         Test getting the history of a record by CLIMB ID after an update.
         """
 
-        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance = TestProject.objects.get(climb_id=self.climb_id)
         assert instance.submission_date is not None
         assert instance.tests is not None
         updated_values = {
@@ -115,7 +114,7 @@ class TestHistoryView(OnyxTestCase):
         Test getting the history of a record by CLIMB ID after an update with nested fields.
         """
 
-        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance = TestProject.objects.get(climb_id=self.climb_id)
         assert instance.submission_date is not None
         assert instance.tests is not None
         updated_values = {
@@ -215,7 +214,7 @@ class TestHistoryView(OnyxTestCase):
         Test that the change values are hidden when the user is from a different site.
         """
 
-        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance = TestProject.objects.get(climb_id=self.climb_id)
         assert instance.submission_date is not None
         assert instance.tests is not None
         updated_values = {
@@ -232,7 +231,7 @@ class TestHistoryView(OnyxTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        instance = TestModel.objects.get(climb_id=self.climb_id)
+        instance = TestProject.objects.get(climb_id=self.climb_id)
         instance.skip_history_when_saving = True  # type: ignore
         instance.site = self.extra_site
         instance.save()

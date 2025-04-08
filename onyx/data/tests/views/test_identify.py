@@ -4,7 +4,7 @@ from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import IdentifierNotFound
 from data.models import Anonymiser
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 # TODO: Test permissions to retrieve identifiers for users from different sites
@@ -113,7 +113,7 @@ class TestIdentifyView(OnyxTestCase):
         self.assertNotEqual(output_sample_id_1, output_sample_id_2)
         self.assertEqual(test_record_1["run_name"], test_record_2["run_name"])
         self.assertEqual(output_run_name_1, output_run_name_2)
-        assert TestModel.objects.count() == 2
+        assert TestProject.objects.count() == 2
         assert Anonymiser.objects.count() == 3
         assert Anonymiser.objects.filter(site__code="testsite_a").count() == 3
         assert Anonymiser.objects.filter(field="sample_id").count() == 2
@@ -154,7 +154,7 @@ class TestIdentifyView(OnyxTestCase):
         self.assertNotEqual(output_sample_id_1, output_sample_id_2)
         self.assertNotEqual(output_run_name_1, output_run_name_2)
 
-        assert TestModel.objects.count() == 2
+        assert TestProject.objects.count() == 2
         assert Anonymiser.objects.count() == 4
         assert Anonymiser.objects.filter(site__code="testsite_a").count() == 2
         assert Anonymiser.objects.filter(site__code="testsite_b").count() == 2

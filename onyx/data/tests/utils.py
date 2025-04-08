@@ -5,10 +5,11 @@ import itertools
 from django.core.management import call_command
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
-from ..models import Project
-from projects.testproject.models import TestModel, TestModelRecord
+from ..models import Project, Analysis
+from projects.testproject.models import TestProject, TestProjectRecord
 
 
 class OnyxTestCase(APITestCase):
@@ -23,6 +24,14 @@ class OnyxTestCase(APITestCase):
             quiet=True,
         )
         cls.project = Project.objects.get(code="testproject")
+
+        # Set up extra project
+        cls.extra_project = Project.objects.create(
+            code="extra_project",
+            name="Extra Project",
+            description="Extra Project for testing",
+            content_type=ContentType.objects.get_for_model(Analysis),
+        )
 
         # Set up test sites
         call_command(
@@ -404,7 +413,7 @@ def generate_test_data(n: int, api_call: bool = True):
 
 
 class OnyxDataTestCase(OnyxTestCase):
-    NUM_RECORDS = 100
+    NUM_RECORDS = 50
 
     @classmethod
     def setUpTestData(cls):
@@ -420,7 +429,7 @@ class OnyxDataTestCase(OnyxTestCase):
             if data.get("received_month"):
                 data["received_month"] += "-01"
 
-            record = TestModel.objects.create(**data)
+            record = TestProject.objects.create(**data)
             for nested_record in nested_records:
                 nested_record["link"] = record
                 nested_record["user"] = cls.admin_user
@@ -431,4 +440,4 @@ class OnyxDataTestCase(OnyxTestCase):
                 if nested_record.get("test_end"):
                     nested_record["test_end"] += "-01"
 
-                TestModelRecord.objects.create(**nested_record)
+                TestProjectRecord.objects.create(**nested_record)

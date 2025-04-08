@@ -11,9 +11,8 @@ from utils.fields import (
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
-from .models import Choice, Project, ProjectRecord
-from .types import OnyxLookup, OnyxType
-from .actions import Actions
+from .models import Choice, Project, PrimaryRecord
+from .types import Actions, OnyxLookup, OnyxType
 
 
 class OnyxField:
@@ -35,6 +34,7 @@ class OnyxField:
         "lookup",
         "value",
         "base_onyx_field",
+        "many_to_many",
     )
 
     def __init__(
@@ -46,6 +46,7 @@ class OnyxField:
         allow_lookup: bool = False,
         value: Any = None,
         is_base_field: bool = False,
+        many_to_many: bool = False,
     ):
         self.project = project
         self.field_model = field_model
@@ -63,9 +64,11 @@ class OnyxField:
 
         self.field_type = type(self.field_instance)
         self.base_onyx_field = None
+        self.many_to_many = many_to_many
 
         # Determine the OnyxType for the field
         if self.field_type in {
+            models.UUIDField,
             models.CharField,
             models.TextField,
             StrippedCharField,
@@ -96,6 +99,9 @@ class OnyxField:
         elif self.field_type == models.BooleanField:
             self.onyx_type = OnyxType.BOOLEAN
 
+        elif self.field_instance.many_to_many:
+            self.onyx_type = OnyxType.IDENTIFIERS
+
         elif self.field_instance.is_relation:
             self.onyx_type = OnyxType.RELATION
 
@@ -119,7 +125,12 @@ class OnyxField:
             )
 
         # Determine the field description
-        if isinstance(self.field_instance, models.ManyToOneRel):
+        if (
+            # many-to-one and one-to-many
+            isinstance(self.field_instance, models.ManyToOneRel)
+            # many-to-many
+            or isinstance(self.field_instance, models.ManyToManyRel)
+        ):
             self.description = self.field_instance.field.help_text
         else:
             self.description = self.field_instance.help_text
@@ -162,21 +173,29 @@ class FieldHandler:
     - Checks whether the user has permission to action on the resolved fields.
     """
 
-    __slots__ = "project", "model", "app_label", "action", "user", "fields"
+    __slots__ = (
+        "app_label",
+        "project",
+        "action",
+        "object_type",
+        "model",
+        "user",
+        "fields",
+    )
 
     def __init__(
         self,
         project: Project,
         action: str,
+        object_type: str,
+        model: type[PrimaryRecord],
         user: User,
     ) -> None:
-        self.project = project
-        model = project.content_type.model_class()
-        assert model is not None
-        assert issubclass(model, ProjectRecord)
-        self.model = model
         self.app_label = project.content_type.app_label
+        self.project = project
         self.action = action
+        self.object_type = object_type
+        self.model = model
         self.user = user
         self.fields = None
 
@@ -195,9 +214,17 @@ class FieldHandler:
             fields = []
 
             for permission in self.user.get_all_permissions():
-                _, action, project, field = parse_permission(permission)
+                app_label, action, project, object_type, field = parse_permission(
+                    permission
+                )
 
-                if action == self.action and project == self.project.code and field:
+                if (
+                    app_label == self.app_label
+                    and action == self.action
+                    and project == self.project.code
+                    and object_type == self.object_type
+                    and field
+                ):
                     fields.append(field)
 
             self.fields = fields
@@ -246,6 +273,7 @@ class FieldHandler:
             app_label=self.app_label,
             action=Actions.ACCESS.label,
             code=self.project.code,
+            object_type=self.object_type,
             field=onyx_field.field_path,
         )
 
@@ -260,6 +288,7 @@ class FieldHandler:
             app_label=self.app_label,
             action=self.action,
             code=self.project.code,
+            object_type=self.object_type,
             field=onyx_field.field_path,
         )
 
@@ -289,6 +318,8 @@ class FieldHandler:
             The resolved `OnyxField` object.
         """
 
+        # TODO: Must be an easier way to achieve this
+
         # Check for trailing underscore
         # This is required because if a field ends in "__"
         # Splitting will result in some funky stuff
@@ -303,6 +334,7 @@ class FieldHandler:
         # If there are multiple components, these should specify
         # a chain of relations through multiple models
         components = field.split("__")
+        many_to_many = False
         for i, component in enumerate(components):
             # If the current component is not known on the current model
             # Then add to unknown fields
@@ -325,6 +357,7 @@ class FieldHandler:
                     field_path=field_path,
                     lookup=lookup,
                     allow_lookup=allow_lookup,
+                    many_to_many=many_to_many,
                 )
 
                 # Check that the user can perform the given action on this field
@@ -340,6 +373,10 @@ class FieldHandler:
                 current_model = component_instance.related_model
                 assert current_model is not None
                 model_fields = {x.name: x for x in current_model._meta.get_fields()}
+
+                # Mark OnyxField as many-to-many if one of the components is a ManyToManyField
+                if component_instance.many_to_many:
+                    many_to_many = True
 
             else:
                 # Otherwise, it is unknown

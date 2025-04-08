@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "onyx"
 version = "0.19.0"
-description = "API for pathogen metadata."
+description = "API for Pathogen Metadata."
 authors = ["Thomas Brier <t.o.brier@bham.ac.uk>"]
 license = "LICENSE"
 readme = "README.md"

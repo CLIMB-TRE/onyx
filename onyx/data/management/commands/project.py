@@ -2,6 +2,7 @@ import json
 from typing import Optional, List, Dict
 from pydantic import BaseModel, field_validator
 from django.core.management import base
+from django.db import transaction
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from ...models import Project, ProjectGroup, Choice
@@ -264,8 +265,9 @@ class Command(base.BaseCommand):
         with open(options["config"]) as config_file:
             config = Config.model_validate(json.load(config_file))
 
-        for project_config in config.projects:
-            self.set_project(project_config, config.contents)
+        with transaction.atomic():
+            for project_config in config.projects:
+                self.set_project(project_config, config.contents)
 
     def set_project(
         self,
@@ -430,6 +432,8 @@ class Command(base.BaseCommand):
         Create/update the groups for the project.
         """
 
+        # TODO: How should ContentType be handled for different objects in permissions?
+
         groups = {}
 
         # For each scope, combine configs into a group
@@ -445,81 +449,92 @@ class Command(base.BaseCommand):
                 self.print(f"Updated group: {name}")
 
             # Group actions
-            group_actions = [Actions.ACCESS.label]
+            group_actions = {Actions.ACCESS.label}
 
             # Group permissions
-            permissions = []
+            permissions = {}
 
             # Create/update permission to access project
-            # TODO: How should ContentType be handled for different objects?
-            permissions.append(
-                self.create_update_permission(
+            access = (Actions.ACCESS.label,)
+            if access not in permissions:
+                permissions[access] = self.create_update_permission(
                     content_type=project.content_type,
                     action=Actions.ACCESS.label,
                     project=project,
                 )
-            )
 
             # Create/update permissions for each object type
             for config in configs:
+                # Create/update permission to access the object type
+                access_object_type = (Actions.ACCESS.label, config.object_type)
+                if access_object_type not in permissions:
+                    permissions[access_object_type] = self.create_update_permission(
+                        content_type=project.content_type,
+                        action=Actions.ACCESS.label,
+                        project=project,
+                        object_type=config.object_type,
+                    )
+
+                # Create/update action permissions for the object type
                 for permission_config in config.permissions:
+                    # Get list of actions in the permission config
                     if isinstance(permission_config.action, str):
                         actions = [permission_config.action]
                     else:
                         actions = permission_config.action
 
                     # Add actions to the list of actions for the group
-                    group_actions.extend(actions)
+                    group_actions.update(actions)
 
                     for action in actions:
-                        # Create/update permission to access the object type
-                        permissions.append(
-                            self.create_update_permission(
-                                content_type=project.content_type,
-                                action=Actions.ACCESS.label,
-                                project=project,
-                                object_type=config.object_type,
+                        # Create/update permission to action on the object type
+                        action_object_type = (action, config.object_type)
+                        if action_object_type not in permissions:
+                            permissions[action_object_type] = (
+                                self.create_update_permission(
+                                    content_type=project.content_type,
+                                    action=action,
+                                    project=project,
+                                    object_type=config.object_type,
+                                )
                             )
-                        )
-
-                        # Create/update permission to action on project for the object type
-                        permissions.append(
-                            self.create_update_permission(
-                                content_type=project.content_type,
-                                action=action,
-                                project=project,
-                                object_type=config.object_type,
-                            )
-                        )
 
                         # Field permissions for the action
                         for field in permission_config.fields:
                             assert field, "Field cannot be empty."
 
                             # Create/update permission to access the object's field
-                            permissions.append(
-                                self.create_update_permission(
-                                    content_type=project.content_type,
-                                    action=Actions.ACCESS.label,
-                                    project=project,
-                                    object_type=config.object_type,
-                                    field=field,
-                                )
+                            access_object_field = (
+                                Actions.ACCESS.label,
+                                config.object_type,
+                                field,
                             )
+                            if access_object_field not in permissions:
+                                permissions[access_object_field] = (
+                                    self.create_update_permission(
+                                        content_type=project.content_type,
+                                        action=Actions.ACCESS.label,
+                                        project=project,
+                                        object_type=config.object_type,
+                                        field=field,
+                                    )
+                                )
 
                             # Create/update permission to action on the object's field
-                            permissions.append(
-                                self.create_update_permission(
-                                    content_type=project.content_type,
-                                    action=action,
-                                    project=project,
-                                    object_type=config.object_type,
-                                    field=field,
+                            action_object_field = (action, config.object_type, field)
+                            if action_object_field not in permissions:
+                                permissions[action_object_field] = (
+                                    self.create_update_permission(
+                                        content_type=project.content_type,
+                                        action=action,
+                                        project=project,
+                                        object_type=config.object_type,
+                                        field=field,
+                                    )
                                 )
-                            )
 
             # Set permissions for the group
-            group.permissions.set(permissions)
+            group.permissions.set(permissions.values())
 
             # Print permissions for the group
             if permissions:
@@ -530,7 +545,7 @@ class Command(base.BaseCommand):
                 self.print(f"Group {name} has no permissions.")
 
             # Add the group to the groups structure
-            groups[scope] = (group, set(group_actions))
+            groups[scope] = (group, group_actions)
 
         # Create/update the corresponding projectgroup for each group
         for scope, (group, group_actions) in groups.items():

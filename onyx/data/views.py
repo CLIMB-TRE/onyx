@@ -670,7 +670,10 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
             case ("POST", "create"):
-                self.project_action = Actions.ADD
+                if kwargs.get("test"):
+                    self.project_action = Actions.TEST_ADD
+                else:
+                    self.project_action = Actions.ADD
 
             case ("POST", "list"):
                 self.project_action = Actions.LIST
@@ -682,7 +685,10 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                 self.project_action = Actions.LIST
 
             case ("PATCH", "partial_update"):
-                self.project_action = Actions.CHANGE
+                if kwargs.get("test"):
+                    self.project_action = Actions.TEST_CHANGE
+                else:
+                    self.project_action = Actions.CHANGE
 
             case ("DELETE", "destroy"):
                 self.project_action = Actions.DELETE

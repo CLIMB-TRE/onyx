@@ -15,15 +15,15 @@
           "scope": "admin",
           "permissions": [
             {
-              "action": "add",
+              "action": ["add", "testadd"],
               "fields": ["site", "sample_id", "run_name"]
             },
             {
-              "action": ["history", "change"],
+              "action": ["history", "change", "testchange"],
               "fields": ["is_suppressed"]
             },
             {
-              "action": ["add", "change"],
+              "action": ["add", "testadd", "change", "testchange"],
               "fields": [
                 "is_published",
                 "collection_month",

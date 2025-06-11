@@ -316,6 +316,10 @@ class PrimaryRecordSerializer(BaseRecordSerializer):
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):
         anonymised_fields: dict[str, str] = {}
+        default_fields: list[str] = [
+            "published_date",
+            "site",
+        ]
 
 
 class ProjectRecordSerializer(PrimaryRecordSerializer):
@@ -328,6 +332,11 @@ class ProjectRecordSerializer(PrimaryRecordSerializer):
     class Meta:
         model: models.Model | None = None
         fields = PrimaryRecordSerializer.Meta.fields + [
+            "climb_id",
+        ]
+
+    class OnyxMeta(PrimaryRecordSerializer.OnyxMeta):
+        default_fields = PrimaryRecordSerializer.OnyxMeta.default_fields + [
             "climb_id",
         ]
 
@@ -454,6 +463,13 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             PrimaryRecordSerializer.OnyxMeta.optional_value_groups
             + [["report", "outputs"]]
         )
+        default_fields = PrimaryRecordSerializer.OnyxMeta.default_fields + [
+            "analysis_id",
+            "analysis_date",
+            "name",
+            "report",
+            "outputs",
+        ]
 
 
 # TODO: Race condition testing + preventions.

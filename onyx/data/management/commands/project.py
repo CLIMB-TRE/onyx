@@ -638,6 +638,7 @@ class Command(base.BaseCommand):
                 is_active=True,
             )
 
+            # TODO: Fix active choices to account for all contents
             active_choices = {
                 option.choice if isinstance(option, ChoiceInfoConfig) else option
                 for option in choice_config.options

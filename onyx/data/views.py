@@ -1,6 +1,5 @@
 from __future__ import annotations
 import hashlib
-import pydantic.validators
 from typing_extensions import Annotated
 from collections import namedtuple
 import pydantic
@@ -18,8 +17,9 @@ from accounts.models import Site
 from .models import Project, Choice, Anonymiser, PrimaryRecord, Analysis
 from .serializers import (
     HistoryDiffSerializer,
-    SummarySerializer,
     IdentifierSerializer,
+    QueryOptionSerializer,
+    SummarySerializer,
     SerializerNode,
 )
 from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
@@ -167,6 +167,7 @@ class PrimaryRecordAPIView(APIView):
                 "summarise",
                 "search",
                 "page",
+                "page_size",
                 "order",
             }
         ]
@@ -177,6 +178,9 @@ class PrimaryRecordAPIView(APIView):
 
         # Page number for pagination
         self.page = request.query_params.get("page")
+
+        # Page size for pagination
+        self.page_size = request.query_params.get("page_size")
 
         # Include fields in output of get/filter/query
         self.include = list(request.query_params.getlist("include"))
@@ -251,28 +255,29 @@ class ProjectsView(APIView):
         List all projects that the user has allowed actions on.
         """
 
-        # Filter user groups to determine all (project, scope, actions) tuples
-        project_groups = []
-        for project, scope, actions_str in (
-            request.user.groups.filter(projectgroup__isnull=False)
-            .values_list(
-                "projectgroup__project__code",
-                "projectgroup__scope",
-                "projectgroup__actions",
+        # Filter user groups to determine all (project, name, scope, actions) tuples
+        project_groups = [
+            {
+                "project": project,
+                "name": name,
+                "scope": scope,
+                "actions": [
+                    action.label
+                    for action in Actions
+                    if action != Actions.ACCESS and action.label in actions
+                ],
+            }
+            for project, name, scope, actions in (
+                request.user.groups.filter(projectgroup__isnull=False)
+                .values_list(
+                    "projectgroup__project__code",
+                    "projectgroup__project__name",
+                    "projectgroup__scope",
+                    "projectgroup__actions",
+                )
+                .distinct()
             )
-            .distinct()
-        ):
-            project_groups.append(
-                {
-                    "project": project,
-                    "scope": scope,
-                    "actions": [
-                        action.label
-                        for action in Actions
-                        if action != Actions.ACCESS and action.label in actions_str
-                    ],
-                }
-            )
+        ]
 
         # Return list of allowed project groups
         return Response(project_groups)
@@ -448,6 +453,7 @@ class AnalysisChoicesView(ChoicesView, AnalysisAPIView):
         return super().get(request, code, field)
 
 
+# TODO: Should be able to return history of deleted objects
 class HistoryView(PrimaryRecordAPIView):
     project_action = Actions.HISTORY
 
@@ -956,8 +962,17 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                 return Response({"count": qs.count()})
 
             # Prepare paginator
-            if self.order or self.page:
+            if self.order or self.page or self.page_size:
                 self.paginator = PageNumberPagination()
+
+                if self.page_size:
+                    page_size_serializer = QueryOptionSerializer(
+                        data={"page_size": self.page_size}
+                    )
+                    if not page_size_serializer.is_valid():
+                        raise exceptions.ValidationError(page_size_serializer.errors)
+
+                    self.paginator.page_size = page_size_serializer.data["page_size"]
 
                 if self.order:
                     reverse = self.order.startswith("-")

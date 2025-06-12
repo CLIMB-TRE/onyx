@@ -23,7 +23,8 @@ class TestProjectsView(OnyxTestCase):
             response.json()["data"],
             [
                 {
-                    "project": "testproject",
+                    "project": self.project.code,
+                    "name": self.project.name,
                     "scope": "analyst",
                     "actions": [
                         "get",

@@ -93,6 +93,10 @@ class IdentifierSerializer(serializers.Serializer):
     value = serializers.CharField()
 
 
+class QueryOptionSerializer(serializers.Serializer):
+    page_size = serializers.IntegerField(min_value=1, max_value=1000)
+
+
 class SummarySerializer(serializers.Serializer):
     """
     Serializer for multi-field count aggregates.

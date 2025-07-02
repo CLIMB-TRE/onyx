@@ -148,6 +148,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         models.DateField: DateField,
         models.FloatField: FloatField,
         models.IntegerField: IntegerField,
+        models.BigIntegerField: IntegerField,
         models.TextField: CharField,
     }
     serializer_choice_field = ChoiceField

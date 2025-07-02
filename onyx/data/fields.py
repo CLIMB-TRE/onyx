@@ -84,7 +84,7 @@ class OnyxField:
                 field=self.field_name,
             ).values_list("choice", flat=True)
 
-        elif self.field_type == models.IntegerField:
+        elif self.field_type in {models.IntegerField, models.BigIntegerField}:
             self.onyx_type = OnyxType.INTEGER
 
         elif self.field_type == models.FloatField:

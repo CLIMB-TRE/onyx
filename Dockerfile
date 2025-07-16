@@ -1,10 +1,22 @@
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/engine/reference/builder/
-
+# First stage: Poetry requirements export
 ARG PYTHON_VERSION=3.11.8
+FROM python:${PYTHON_VERSION}-slim as poetry-export
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry
+
+# Set up working directory
+WORKDIR /app
+
+# Copy poetry files
+COPY pyproject.toml poetry.lock* ./
+
+# Export requirements to requirements.txt
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
+
+# Second stage: Application runtime
 FROM python:${PYTHON_VERSION}-slim as base
 
 # Prevents Python from writing pyc files.
@@ -33,7 +45,7 @@ RUN adduser \
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    --mount=type=bind,source=requirements.txt,from=poetry-export,target=requirements.txt \
     python -m pip install -r requirements.txt
 
 # Switch to the non-privileged user to run the application.

@@ -1,19 +1,19 @@
 # syntax=docker/dockerfile:1
 
 # TODO: Use docker label for onyx version
-# TODO: Pin versions for poetry and the export plugin
 
 ARG PYTHON_VERSION=3.11.8
-# ARG POETRY_VERSION=
-# ARG_POETRY_EXPORT_VERSION=
 
 ###################################################
 #       STAGE 1: Poetry requirements export
 ###################################################
 FROM python:${PYTHON_VERSION}-slim AS poetry-export
 
+ARG POETRY_VERSION=2.1.3
+ARG POETRY_EXPORT_VERSION=1.9.0
+
 # Install Poetry and export plugin
-RUN pip install --no-cache-dir poetry poetry-plugin-export
+RUN pip install --no-cache-dir poetry==${POETRY_VERSION} poetry-plugin-export==${POETRY_EXPORT_VERSION}
 
 # Set up working directory
 WORKDIR /app

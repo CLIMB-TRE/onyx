@@ -1,30 +1,34 @@
 # syntax=docker/dockerfile:1
 
-# First stage: Poetry requirements export
+# TODO: Pin versions for poetry and the export plugin
 ARG PYTHON_VERSION=3.11.8
-FROM python:${PYTHON_VERSION}-slim as poetry-export
+# ARG POETRY_VERSION=
+# ARG_POETRY_EXPORT_VERSION=
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry
+# First stage: Poetry requirements export
+FROM python:${PYTHON_VERSION}-slim AS poetry-export
+
+# Install Poetry and export plugin
+RUN pip install --no-cache-dir poetry poetry-plugin-export
 
 # Set up working directory
 WORKDIR /app
 
 # Copy poetry files
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock ./
 
 # Export requirements to requirements.txt
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 # Second stage: Application runtime
-FROM python:${PYTHON_VERSION}-slim as base
+FROM python:${PYTHON_VERSION}-slim AS base
 
-# Prevents Python from writing pyc files.
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Keeps Python from buffering stdout and stderr to avoid situations where
-# the application crashes without emitting any logs due to buffering.
-ENV PYTHONUNBUFFERED=1
+ENV \
+    # Prevents Python from writing pyc files.
+    PYTHONDONTWRITEBYTECODE=1 \
+    # Keeps Python from buffering stdout and stderr to avoid situations where
+    # the application crashes without emitting any logs due to buffering.
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -45,17 +49,17 @@ RUN adduser \
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,from=poetry-export,target=requirements.txt \
+    --mount=type=bind,from=poetry-export,source=/app/requirements.txt,target=requirements.txt \
     python -m pip install -r requirements.txt
 
 # Switch to the non-privileged user to run the application.
 USER appuser
 
 # Copy the source code into the container.
-COPY . .
+COPY onyx .
 
 # Expose the port that the application listens on.
 EXPOSE 8000
 
 # Run the application.
-CMD poetry run gunicorn -c onyx/onyx.gunicorn.py
+CMD ["gunicorn", "-c", "onyx.gunicorn.py"]

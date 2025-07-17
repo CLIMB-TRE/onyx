@@ -32,3 +32,10 @@
 **/values.dev.yaml
 LICENSE
 README.md
+
+# Additional files/directories
+**/.ruff_cache
+**/.coverage
+**/.env.example
+**/htmlcov
+**/projects

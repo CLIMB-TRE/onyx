@@ -109,14 +109,18 @@ WSGI_APPLICATION = "onyx.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DATABASE_NAME"],
-        "USER": os.environ["DATABASE_USER"],
+        "ENGINE": os.environ["DB_ENGINE"],
+        "HOST": os.environ["DB_HOST"],
+        "PORT": os.environ["DB_PORT"],
+        "NAME": os.environ["DB_NAME"],
+        "USER": os.environ["DB_USER"],
+        "PASSWORD": os.environ["DB_PASSWORD"],
     }
 }
 
 # In CI, Django has to connect differently to the Postgres container,
 # and we have to provide a host name and password
+# TODO: Get rid of this
 if os.environ.get("CI") and "test" in sys.argv:
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",

@@ -2,6 +2,7 @@ name: onyx
 
 services:
   wsgi:
+    container_name: onyx-wsgi
     build: .
     ports:
       - 8000:8000
@@ -9,30 +10,28 @@ services:
       - ${ONYX_PROJECTS_DIR}:/app/projects
     env_file:
       - ./onyx/.env
-    # depends_on:
-    #   db:
-    #     condition: service_healthy
+    depends_on:
+      db:
+        condition: service_healthy
 
-#   db:
-#     image: postgres:14
-#     restart: always
-#     user: postgres
-#     expose:
-#       - 5432
-#     volumes:
-#       - pg-data:/var/lib/postgresql/data
-#     # env_file:
-#     #   - ./onyx/.env
-#     environment:
-#       - DATABASE_NAME=onyx
-#       - DATABASE_USER=postgres
-#       - DATABASE_PASSWORD=postgres
-#       - DATABASE_HOST=localhost
-#     healthcheck:
-#       test: [ "CMD", "pg_isready" ]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
+  db:
+    container_name: onyx-db
+    image: postgres:14
+    restart: always
+    user: postgres
+    volumes:
+        - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    env_file:
+      - ./onyx/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
 
-# volumes:
-#   pg-data:
+volumes:
+  pgdata:

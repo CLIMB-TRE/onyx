@@ -8,8 +8,21 @@ services:
       - 8000:8000
     volumes:
       - ${ONYX_PROJECTS_DIR}:/app/projects
-    env_file:
-      - ./onyx/.env
+    environment:
+      HOST_NAME: ${HOST_NAME}
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      GUNICORN_BIND: ${GUNICORN_BIND}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS}
+      GUNICORN_ACCESS_LOG: ${GUNICORN_ACCESS_LOG}
+      GUNICORN_ERROR_LOG: ${GUNICORN_ERROR_LOG}
+      DB_ENGINE: ${DB_ENGINE}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ONYX_PROJECTS: ${ONYX_PROJECTS}
     depends_on:
       db:
         condition: service_healthy
@@ -25,8 +38,6 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    env_file:
-      - ./onyx/.env
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 1s

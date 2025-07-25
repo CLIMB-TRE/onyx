@@ -13,11 +13,10 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-import sys
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 load_dotenv(Path(BASE_DIR) / ".env")  # loads .env
 
@@ -117,18 +116,6 @@ DATABASES = {
         "PASSWORD": os.environ["DB_PASSWORD"],
     }
 }
-
-# In CI, Django has to connect differently to the Postgres container,
-# and we have to provide a host name and password
-# TODO: Get rid of this
-if os.environ.get("CI") and "test" in sys.argv:
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DATABASE_NAME"],
-        "USER": os.environ["DATABASE_USER"],
-        "PASSWORD": os.environ["DATABASE_PASSWORD"],
-        "HOST": os.environ["DATABASE_HOST"],
-    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators

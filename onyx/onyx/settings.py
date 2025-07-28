@@ -190,7 +190,6 @@ LOGGING = {
     "formatters": {
         "timestamp": {
             "format": "[{asctime}] [{process}] [{levelname}] {message}",
-            "datefmt": "%Y-%m-%d %H:%M:%S %z",
             "style": "{",
         },
     },

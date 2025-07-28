@@ -24,6 +24,7 @@ class Scopes(Enum):
     ADMIN = "admin"
     UPLOADER = "uploader"
     ANALYST = "analyst"
+    ANALYSIS_UPLOADER = "analysis_uploader"
 
     def __init__(self, label: str) -> None:
         self.label = label

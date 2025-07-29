@@ -202,7 +202,6 @@ LOGGING = {
     "root": {
         "handlers": ["console"],
         "level": "DEBUG",
-        "propagate": True,
     },
 }
 

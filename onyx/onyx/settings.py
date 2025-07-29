@@ -188,17 +188,21 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "timestamp": {
+        "verbose": {
             "format": "[{asctime}] [{process}] [{levelname}] {message}",
             "style": "{",
         },
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "timestamp"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
     },
     "root": {
         "handlers": ["console"],
         "level": "DEBUG",
+        "propagate": True,
     },
 }
 

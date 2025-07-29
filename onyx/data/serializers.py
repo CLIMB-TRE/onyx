@@ -455,6 +455,9 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             PrimaryRecordSerializer.OnyxMeta.optional_value_groups
             + [["report", "outputs"]]
         )
+        non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [
+            "analysis_date",
+        ]
 
 
 # TODO: Race condition testing + preventions.

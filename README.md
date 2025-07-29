@@ -1,6 +1,6 @@
-# `onyx`
+# Onyx
 
-API for Pathogen Metadata.
+![Onyx Banner Image](images/onyx.png)
 
 ## Overview
 

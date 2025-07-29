@@ -9,7 +9,7 @@ from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
-from utils.constraints import unique_together, optional_value_group
+from utils.constraints import unique_together, optional_value_group, non_futures
 from simple_history.models import HistoricalRecords
 from .types import OnyxLookup
 
@@ -315,6 +315,9 @@ class Analysis(PrimaryRecord):
             ),
             optional_value_group(
                 fields=["report", "outputs"],
+            ),
+            non_futures(
+                fields=["analysis_date"],
             ),
         ]
 

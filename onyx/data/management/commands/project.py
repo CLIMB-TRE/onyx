@@ -197,6 +197,34 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
         ),
         GroupConfig(
             **{
+                "scope": Scopes.ANALYSIS_UPLOADER.label,
+                "object_type": Objects.ANALYSIS.label,
+                "permissions": [
+                    {
+                        "action": ["add", "testadd", "change", "testchange"],
+                        "fields": [
+                            "analysis_date",
+                            "name",
+                            "description",
+                            "pipeline_name",
+                            "pipeline_url",
+                            "pipeline_version",
+                            "pipeline_command",
+                            "methods",
+                            "result",
+                            "result_metrics",
+                            "report",
+                            "outputs",
+                            "upstream_analyses",
+                            "identifiers",
+                            f"{project}_records",
+                        ],
+                    },
+                ],
+            }
+        ),
+        GroupConfig(
+            **{
                 "scope": Scopes.ANALYST.label,
                 "object_type": Objects.ANALYSIS.label,
                 "permissions": [

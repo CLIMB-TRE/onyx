@@ -1,6 +1,6 @@
-# Onyx
-
 ![Onyx Banner Image](images/onyx.png)
+
+# Onyx
 
 ## Overview
 

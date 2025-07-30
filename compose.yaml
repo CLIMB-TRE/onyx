@@ -2,7 +2,6 @@ name: onyx
 
 services:
   wsgi:
-    container_name: onyx-wsgi
     build: .
     ports:
       - 8000:8000
@@ -12,8 +11,7 @@ services:
       HOST_NAME: ${HOST_NAME}
       SECRET_KEY: ${SECRET_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      GUNICORN_BIND: ${GUNICORN_BIND}
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-1}
       DB_ENGINE: ${DB_ENGINE}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -26,7 +24,6 @@ services:
         condition: service_healthy
 
   db:
-    container_name: onyx-db
     image: postgres:14
     restart: always
     user: postgres

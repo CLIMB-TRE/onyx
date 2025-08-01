@@ -288,6 +288,7 @@ class Analysis(PrimaryRecord):
     upstream_analyses = models.ManyToManyField(
         "self",
         symmetrical=False,
+        null=True,
         related_name="downstream_analyses",
         help_text="The analyses that this analysis depends on.",
     )

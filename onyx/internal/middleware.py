@@ -1,5 +1,6 @@
 import time
 import logging
+import json
 from rest_framework import status
 from rest_framework.response import Response
 from django.core.handlers.wsgi import WSGIRequest
@@ -67,9 +68,11 @@ class SaveRequest:
         # Log the request
         log = f"{address} {user} {response.status_code} {filesizeformat(len(response.content))} {exec_time}ms {request.get_full_path()}"
         if status.is_server_error(response.status_code):
-            logger.error(f"{log} {error_messages}")
+            errors = json.loads(error_messages).get("messages", {})
+            logger.error(f"{log} {errors}")
         elif status.is_client_error(response.status_code):
-            logger.warning(f"{log} {error_messages}")
+            errors = json.loads(error_messages).get("messages", {})
+            logger.warning(f"{log} {errors}")
         else:
             logger.info(log)
 

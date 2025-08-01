@@ -189,7 +189,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "[{asctime}] [{process}] [{levelname}] {message}",
+            "format": "django [{asctime}] [{process}] [{levelname}] {message}",
             "style": "{",
         },
     },

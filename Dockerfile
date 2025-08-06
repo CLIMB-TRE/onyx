@@ -1,11 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# TODO: Use docker label for onyx version
-
 ARG PYTHON_VERSION=3.11.8
 
 ###################################################
-#       STAGE 1: Poetry requirements export
+#       STAGE 1: Poetry requirements export       #
 ###################################################
 FROM python:${PYTHON_VERSION}-slim AS poetry-export
 
@@ -28,7 +26,7 @@ RUN \
     poetry version > version
 
 ###################################################
-#          STAGE 2: Application runtime
+#          STAGE 2: Application runtime           #
 ###################################################
 FROM python:${PYTHON_VERSION}-slim AS runtime
 

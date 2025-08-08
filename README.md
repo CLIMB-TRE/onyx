@@ -6,7 +6,7 @@
 
 Onyx is a Django-based API for managing metadata records, analyses, and other associated data. It provides a flexible system for handling projects with different metadata requirements, and has built-in access control, data validation, sensitive identifier anonymisation, and a granular query system.
 
-## Projects
+## Projects
 
 As part of [CLIMB-TRE](https://climb-tre.github.io/), Onyx serves as the central metadata repository for the following projects:
 

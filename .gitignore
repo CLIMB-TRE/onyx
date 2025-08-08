@@ -4,6 +4,7 @@
 .env
 .coverage
 .stuff
+.prettierignore
 **.log
 __pycache__
 onyx/projects/*

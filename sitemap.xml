@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://climb-tre.github.io/onyx/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://climb-tre.github.io/onyx/backend/permissions/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://climb-tre.github.io/onyx/backend/server_control/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://climb-tre.github.io/onyx/backend/tests/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://climb-tre.github.io/onyx/fields/lookups/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+    <url>
+         <loc>https://climb-tre.github.io/onyx/fields/types/</loc>
+         <lastmod>2025-08-20</lastmod>
+    </url>
+</urlset>

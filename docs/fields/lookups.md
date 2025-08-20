@@ -1,4 +1,4 @@
-# Lookups
+# Lookups
 
 *Lookups* can be used to specify more complex conditions that fields must match when filtering.
 
@@ -18,7 +18,7 @@ Different [types][types] have different lookups available to them.
 
 Return values equal to the search value.
 
-## `ne`
+## `ne`
 [`[text]`][text]
 [`[choice]`][choice]
 [`[integer]`][integer]
@@ -61,7 +61,7 @@ Return values that are not within the set of search values.
 
 Return values that contain the search value.
 
-## `startswith`
+## `startswith`
 
 [`[text]`][text]
 
@@ -73,19 +73,19 @@ Return values that start with the search value.
 
 Return values that end with the search value.
 
-## `iexact`
+## `iexact`
 
 [`[text]`][text]
 
 Return values case-insensitively equal to the search value.
 
-## `icontains`
+## `icontains`
 
 [`[text]`][text]
 
 Return values that case-insensitively contain the search value.
 
-## `istartswith`
+## `istartswith`
 
 [`[text]`][text]
 
@@ -104,21 +104,21 @@ Return values that case-insensitively end with the search value.
 
 Return values with a length equal to the search value.
 
-## `length__in`
+## `length__in`
 
 [`[text]`][text]
 [`[array]`][array]
 
 Return values with a length that is within the set of search values.
 
-## `length__range`
+## `length__range`
 
 [`[text]`][text]
 [`[array]`][array]
 
 Return values with a length that is within an inclusive range of search values.
 
-## `lt`
+## `lt`
 
 [`[integer]`][integer]
 [`[decimal]`][decimal]
@@ -127,7 +127,7 @@ Return values with a length that is within an inclusive range of search values.
 
 Return values less than the search value.
 
-## `lte`
+## `lte`
 
 [`[integer]`][integer]
 [`[decimal]`][decimal]
@@ -136,7 +136,7 @@ Return values less than the search value.
 
 Return values less than or equal to the search value.
 
-## `gt`
+## `gt`
 
 [`[integer]`][integer]
 [`[decimal]`][decimal]
@@ -145,7 +145,7 @@ Return values less than or equal to the search value.
 
 Return values greater than the search value.
 
-## `gte`
+## `gte`
 
 [`[integer]`][integer]
 [`[decimal]`][decimal]
@@ -163,7 +163,7 @@ Return values greater than or equal to the search value.
 
 Return values within an inclusive range of search values.
 
-## `iso_year`
+## `iso_year`
 
 [`[date]`][date]
 [`[datetime]`][datetime]
@@ -177,14 +177,14 @@ Return values with an ISO 8601 week-numbering year equal to the search year.
 
 Return values with an ISO 8601 week-numbering year that is within the set of search years.
 
-## `iso_year__range`
+## `iso_year__range`
 
 [`[date]`][date]
 [`[datetime]`][datetime]
 
 Return values with an ISO 8601 week-numbering year that is within an inclusive range of search years.
 
-## `week`
+## `week`
 
 [`[date]`][date]
 [`[datetime]`][datetime]
@@ -198,14 +198,14 @@ Return values with an ISO 8601 week number equal to the search number.
 
 Return values with an ISO 8601 week number that is within the set of search numbers.
 
-## `week__range`
+## `week__range`
 
 [`[date]`][date]
 [`[datetime]`][datetime]
 
 Return values with an ISO 8601 week number that is within an inclusive range of search numbers.
 
-## `isnull`
+## `isnull`
 
 [`[text]`][text]
 [`[choice]`][choice]

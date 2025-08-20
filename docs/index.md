@@ -5,20 +5,15 @@ hide:
   - footer
 ---
 
-# Onyx - API for Pathogen Metadata
+![](img/banner.png)
+
+# Onyx
 
 ## Introduction
 
 This is the documentation for [Onyx](https://github.com/CLIMB-TRE/onyx).
 
-Onyx is a pathogen metadata system for managing sample metadata, their analyses, and other associated data. As part of [CLIMB-TRE](https://climb-tre.github.io/), Onyx serves as the central metadata repository for the following projects:
-
-- [mSCAPE](https://mscape.climb.ac.uk/) (Metagenomics Surveillance Collaboration and Analysis Programme): A collaborative initiative led by UKHSA, involving a consortium of NHS and academic partners, to deliver a pilot surveillance network trialling the use of metagenomic data for public health surveillance and pathogen analysis.
-- [PATH-SAFE](https://www.food.gov.uk/our-work/pathogen-surveillance-in-agriculture-food-and-environment-path-safe-programme) (Pathogen Surveillance in Agriculture, Food and Environment): Led by the FSA, PATH-SAFE piloted the development of a national surveillance network to improve the detection and tracking of foodborne human pathogens and AMR within agriculture.
-- [synthSCAPE](https://climb-tre.github.io/synthscape/) (Synthetic dataset for mSCAPE)
-- [openMGS](https://climb-tre.github.io/openmgs/) (Open Meta-Genomic Surveillance)
-
-![](img/onyx.png)
+Onyx is being developed as part of the [CLIMB-TRE](https://climb-tre.github.io/) project.
 
 ## Contents
 

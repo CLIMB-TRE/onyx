@@ -26,7 +26,7 @@ jobs:
             mkdocs-material-
       - name: Install dependencies
         run: |
-          pip install mkdocs-material mkdocs-with-pdf
+          pip install mkdocs-material mkdocstrings-python mkdocs-with-pdf
       - name: Deploy site
         run: |
           mkdocs gh-deploy --force

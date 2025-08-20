@@ -1,4 +1,4 @@
-![Onyx Banner Image](images/onyx.png)
+![](images/banner.png)
 
 # Onyx
 

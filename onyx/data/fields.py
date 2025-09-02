@@ -186,7 +186,7 @@ class FieldHandler:
     def __init__(
         self,
         project: Project,
-        action: str,
+        action: Actions,
         object_type: str,
         model: type[PrimaryRecord],
         user: User,
@@ -220,7 +220,7 @@ class FieldHandler:
 
                 if (
                     app_label == self.app_label
-                    and action == self.action
+                    and action == self.action.label
                     and project == self.project.code
                     and object_type == self.object_type
                     and field
@@ -286,7 +286,7 @@ class FieldHandler:
         # If the user does not have permission, tell them it is not allowed
         field_action_permission = get_permission(
             app_label=self.app_label,
-            action=self.action,
+            action=self.action.label,
             code=self.project.code,
             object_type=self.object_type,
             field=onyx_field.field_path,
@@ -296,7 +296,7 @@ class FieldHandler:
             raise exceptions.ValidationError(
                 self.field_suggestions(
                     onyx_field.field_path,
-                    f"You cannot {self.action} this field.",
+                    f"You cannot {self.action.description} this field.",
                 )
             )
 

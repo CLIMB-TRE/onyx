@@ -141,7 +141,7 @@ class PrimaryRecordAPIView(APIView):
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
             project=self.project,
-            action=self.project_action.label,
+            action=self.project_action,
             object_type=self.object_type.label,
             model=self.model,
             user=request.user,
@@ -232,7 +232,7 @@ class AnalysisAPIView(PrimaryRecordAPIView):
         # Override field handler with correct model
         self.handler = FieldHandler(
             project=self.project,
-            action=self.project_action.label,
+            action=self.project_action,
             object_type=self.object_type.label,
             model=self.model,
             user=request.user,
@@ -796,7 +796,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         errors = {}
         filter_handler = FieldHandler(
             project=self.project,
-            action=Actions.FILTER.label,
+            action=Actions.FILTER,
             object_type=self.object_type.label,
             model=self.model,
             user=request.user,
@@ -972,7 +972,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                     if not page_size_serializer.is_valid():
                         raise exceptions.ValidationError(page_size_serializer.errors)
 
-                    self.paginator.page_size = page_size_serializer.data["page_size"]
+                    self.paginator.page_size = page_size_serializer.data["page_size"]  #  type: ignore <- TODO: type issue
 
                 if self.order:
                     reverse = self.order.startswith("-")
@@ -1125,7 +1125,7 @@ class RecordAnalysesView(AnalysisAPIView):
         # Initialise record field handler
         record_handler = FieldHandler(
             project=self.project,
-            action=Actions.GET.label,
+            action=Actions.GET,
             object_type=Objects.RECORD.label,
             model=record_model,
             user=request.user,
@@ -1173,7 +1173,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         # Initialise analysis field handler
         analysis_handler = FieldHandler(
             project=self.project,
-            action=Actions.GET.label,
+            action=Actions.GET,
             object_type=Objects.ANALYSIS.label,
             model=Analysis,
             user=request.user,

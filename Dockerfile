@@ -71,4 +71,4 @@ COPY onyx .
 EXPOSE 8000
 
 # Run the application.
-CMD ["gunicorn", "-c", "onyx.gunicorn.py", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "-c", "onyx.gunicorn.py", "--bind", "0.0.0.0:8000", "--access-logfile", "/app/logs/wsgi/access.log", "--error-logfile", "/app/logs/wsgi/error.log"]

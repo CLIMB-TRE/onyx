@@ -2,9 +2,12 @@
 hide:
   - navigation
   - toc
+  - footer
 ---
 
-# Onyx - API for Pathogen Metadata
+![](img/banner.png)
+
+# Onyx
 
 ## Introduction
 

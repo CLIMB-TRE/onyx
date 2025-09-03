@@ -142,7 +142,7 @@ class PrimaryRecordAPIView(APIView):
         self.handler = FieldHandler(
             project=self.project,
             action=self.project_action,
-            object_type=self.object_type.label,
+            object_type=self.object_type,
             model=self.model,
             user=request.user,
         )
@@ -151,7 +151,7 @@ class PrimaryRecordAPIView(APIView):
         self.qs = init_project_queryset(
             model=self.model,
             user=request.user,
-            fields=self.handler.get_fields(),
+            fields=self.handler.fields,
         )
 
         # Build request query parameters
@@ -233,7 +233,7 @@ class AnalysisAPIView(PrimaryRecordAPIView):
         self.handler = FieldHandler(
             project=self.project,
             action=self.project_action,
-            object_type=self.object_type.label,
+            object_type=self.object_type,
             model=self.model,
             user=request.user,
         )
@@ -243,7 +243,7 @@ class AnalysisAPIView(PrimaryRecordAPIView):
         self.qs = init_project_queryset(
             model=self.model,
             user=request.user,
-            fields=self.handler.get_fields(),
+            fields=self.handler.fields,
         ).filter(project=self.project)
 
 
@@ -340,7 +340,7 @@ class FieldsView(PrimaryRecordAPIView):
         """
 
         # Get all accessible fields
-        fields = self.handler.get_fields()
+        fields = self.handler.fields
 
         # Get all actions for each field (excluding access)
         actions_map = {}
@@ -482,7 +482,7 @@ class HistoryView(PrimaryRecordAPIView):
         history = list(instance.history.all().order_by("history_date"))  #  type: ignore
 
         # Mapping of all history fields to their corresponding OnyxField objects
-        fields = self.handler.resolve_fields(self.handler.get_fields())
+        fields = self.handler.resolve_fields(self.handler.fields)
 
         # Non-nested fields to include in the history
         included_fields = [
@@ -764,7 +764,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
 
         # Fields returned in response
         fields = include_exclude_fields(
-            fields=self.handler.get_fields(),
+            fields=self.handler.fields,
             include=self.include,
             exclude=self.exclude,
         )
@@ -797,7 +797,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         filter_handler = FieldHandler(
             project=self.project,
             action=Actions.FILTER,
-            object_type=self.object_type.label,
+            object_type=self.object_type,
             model=self.model,
             user=request.user,
         )
@@ -855,7 +855,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
 
         # Fields returned in response
         fields = include_exclude_fields(
-            fields=self.handler.get_fields(),
+            fields=self.handler.fields,
             include=self.include,
             exclude=self.exclude,
         )
@@ -1126,7 +1126,7 @@ class RecordAnalysesView(AnalysisAPIView):
         record_handler = FieldHandler(
             project=self.project,
             action=Actions.GET,
-            object_type=Objects.RECORD.label,
+            object_type=Objects.RECORD,
             model=record_model,
             user=request.user,
         )
@@ -1135,7 +1135,7 @@ class RecordAnalysesView(AnalysisAPIView):
         record_qs = init_project_queryset(
             model=record_model,
             user=request.user,
-            fields=record_handler.get_fields(),
+            fields=record_handler.fields,
         )
 
         # Check the instance exists
@@ -1155,7 +1155,7 @@ class RecordAnalysesView(AnalysisAPIView):
         serializer = self.serializer_cls(
             qs,
             many=True,
-            fields=unflatten_fields(self.handler.get_fields()),
+            fields=unflatten_fields(self.handler.fields),
         )
 
         # Return response with data
@@ -1174,7 +1174,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         analysis_handler = FieldHandler(
             project=self.project,
             action=Actions.GET,
-            object_type=Objects.ANALYSIS.label,
+            object_type=Objects.ANALYSIS,
             model=Analysis,
             user=request.user,
         )
@@ -1183,7 +1183,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         analysis_qs = init_project_queryset(
             model=Analysis,
             user=request.user,
-            fields=analysis_handler.get_fields(),
+            fields=analysis_handler.fields,
         )
 
         # Check the instance exists

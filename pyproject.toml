@@ -18,6 +18,7 @@ django-filter = "^24.2"
 django-simple-history = "^3.5.0"
 pydantic = "^2.8.2"
 django-cors-headers = "^4.3.1"
+orjson = "^3.11.3"
 
 [tool.poetry.group.test]
 optional = true

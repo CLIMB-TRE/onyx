@@ -1,4 +1,5 @@
 from rest_framework import renderers, status
+import orjson
 
 
 class OnyxJSONRenderer(renderers.JSONRenderer):
@@ -31,8 +32,13 @@ class OnyxJSONRenderer(renderers.JSONRenderer):
 
                 render_data["data"] = data
 
-        return super().render(
-            render_data,
-            accepted_media_type=accepted_media_type,
-            renderer_context=renderer_context,
-        )
+        # return super().render(
+        #     render_data,
+        #     accepted_media_type=accepted_media_type,
+        #     renderer_context=renderer_context,
+        # )
+
+        if render_data is None:
+            return b""
+
+        return orjson.dumps(render_data)

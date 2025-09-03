@@ -1,8 +1,13 @@
+---
+hide:
+  - footer
+---
+
 # Lookups
 
-*Lookups* can be used to specify more complex conditions that fields must match when filtering.
+_Lookups_ can be used to specify more complex conditions that fields must match when filtering.
 
-Different [types][types] have different lookups available to them. 
+Different [types][types] have different lookups available to them.
 
 ## `exact`
 
@@ -19,6 +24,7 @@ Different [types][types] have different lookups available to them.
 Return values equal to the search value.
 
 ## `ne`
+
 [`[text]`][text]
 [`[choice]`][choice]
 [`[integer]`][integer]
@@ -218,13 +224,13 @@ Return values with an ISO 8601 week number that is within an inclusive range of 
 [`[array]`][array]
 [`[structure]`][structure]
 
-Return values that are empty (`isnull = True`) or non-empty (`isnull = False`). 
+Return values that are empty (`isnull = True`) or non-empty (`isnull = False`).
 
-* For [`text`][text] and [`choice`][choice] types, 'empty' is defined as the empty string `""`. 
-* For the [`relation`][relation] type, 'empty' is defined as there being zero items linked to the record being evaluated.
-* For the [`array`][array] type, 'empty' is defined as the empty array `[]`.
-* For the [`structure`][structure] type, 'empty' is defined as the empty structure `{}`.
-* For all other types, 'empty' is the SQL `null` value.
+- For [`text`][text] and [`choice`][choice] types, 'empty' is defined as the empty string `""`.
+- For the [`relation`][relation] type, 'empty' is defined as there being zero items linked to the record being evaluated.
+- For the [`array`][array] type, 'empty' is defined as the empty array `[]`.
+- For the [`structure`][structure] type, 'empty' is defined as the empty structure `{}`.
+- For all other types, 'empty' is the SQL `null` value.
 
 ## `contained_by`
 

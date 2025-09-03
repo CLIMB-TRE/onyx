@@ -29,4 +29,4 @@ Different pieces of Onyx (the backend, project definitions and frontend apps) ar
 
 ## Documentation
 
-Documentation can be found [here.](docs)
+Documentation can be found [here](https://climb-tre.github.io/onyx/).

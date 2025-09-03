@@ -148,6 +148,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         models.DateField: DateField,
         models.FloatField: FloatField,
         models.IntegerField: IntegerField,
+        models.BigIntegerField: IntegerField,
         models.TextField: CharField,
     }
     serializer_choice_field = ChoiceField
@@ -463,6 +464,9 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             PrimaryRecordSerializer.OnyxMeta.optional_value_groups
             + [["report", "outputs"]]
         )
+        non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [
+            "analysis_date",
+        ]
         default_fields = PrimaryRecordSerializer.OnyxMeta.default_fields + [
             "analysis_id",
             "analysis_date",

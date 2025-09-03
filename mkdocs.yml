@@ -6,48 +6,46 @@ site_author: CLIMB-TRE
 
 theme:
   name: material
+  favicon: assets/logo.svg
+  logo: assets/logo.svg
   icon:
     repo: fontawesome/brands/github
   palette:
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: teal
+      primary: black
+      accent: custom
       toggle:
-        icon: material/toggle-switch-off-outline
+        icon: material/weather-sunny
         name: Switch to dark mode
 
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: purple
-      accent: purple
+      primary: black
+      accent: custom
       toggle:
-        icon: material/toggle-switch
+        icon: material/weather-night
         name: Switch to light mode
-      
+
   features:
     - navigation.tabs
-    - navigation.tabs.sticky
-    # - navigation.sections
-    # - navigation.top
-    # - toc.integrate
+    - navigation.top
+    - navigation.sections
+    - navigation.footer
     - content.code.copy
 
 plugins:
   - search
-  - mkdocstrings:
-      default_handler: python
-      handlers:
-        python:
-          options:
-            docstring_style: google
-            docstring_section_style: spacy
-            show_source: false
-            members_order: source
+  - with-pdf:
+      output_path: onyx.pdf
+      cover_subtitle: ""
+  - autorefs
 
 markdown_extensions:
+  - attr_list
+  - admonition
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -55,15 +53,21 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.magiclink
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
 
+extra_css:
+  - stylesheets/extra.css
+
 nav:
   - Overview: index.md
-  - Documentation:
-    - Data types: data_types.md
-    - Permissions: permissions.md
-  - Deployment: 
-    - Server control: server_control.md
-    - Running tests: running_tests.md
+  - CLI & Python API: https://climb-tre.github.io/onyx-client/
+  - JupyterLab Extension: https://climb-tre.github.io/onyx-extension/
+  - Types & Lookups:
+      - Types: fields/types.md
+      - Lookups: fields/lookups.md
   - CLIMB-TRE: https://climb-tre.github.io

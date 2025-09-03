@@ -319,6 +319,7 @@ class FieldHandler:
         """
 
         # TODO: Must be an easier way to achieve this
+        # Do we want to switch to checking is_relation first?
 
         # Check for trailing underscore
         # This is required because if a field ends in "__"
@@ -378,9 +379,22 @@ class FieldHandler:
                 if component_instance.many_to_many:
                     many_to_many = True
 
+            elif lookup:
+                if not allow_lookup:
+                    raise exceptions.ValidationError("Lookups are not allowed.")
+
+                else:
+                    suggestions = get_suggestions(
+                        lookup,
+                        options=list(OnyxLookup.lookups()),
+                        cutoff=0,
+                        message_prefix="Invalid lookup.",
+                    )
+
+                    raise exceptions.ValidationError(suggestions)
+
             else:
                 # Otherwise, it is unknown
-                # TODO: Better suggestion handling for both fields and lookups
                 break
 
         raise exceptions.ValidationError(self.field_suggestions(field))

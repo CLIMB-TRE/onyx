@@ -1,12 +1,17 @@
+---
+hide:
+  - footer
+---
+
 # Types
 
-*Types* in Onyx define the various categories of data which can be stored. 
+_Types_ in Onyx define the various categories of data which can be stored.
 
 Each field belongs to a certain type. This dictates what kind of data the field can store (e.g. text, numbers, dates, etc.), as well as what filter operations (i.e. [lookups][lookups]) can be carried out on values of the field.
 
 ## `text`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -28,7 +33,7 @@ A string of characters.
 
 ## `choice`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -40,7 +45,7 @@ A restricted set of options.
 
 ## `integer`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -57,7 +62,7 @@ A whole number.
 
 ## `decimal`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -74,7 +79,7 @@ A decimal number.
 
 ## `date`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -93,11 +98,11 @@ A decimal number.
 
 A date.
 
-**Examples:** `"2023-03"`, `"2023-04-05"`, `"2024-01-01"` 
+**Examples:** `"2023-03"`, `"2023-04-05"`, `"2024-01-01"`
 
 ## `datetime`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]
@@ -120,7 +125,7 @@ A date and time.
 
 ## `bool`
 
-[`[exact]`][exact] 
+[`[exact]`][exact]
 [`[ne]`][ne]
 [`[in]`][in]
 [`[notin]`][notin]

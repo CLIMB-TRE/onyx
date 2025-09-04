@@ -13,13 +13,12 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-import sys
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(Path(BASE_DIR) / ".env")  # loads .env
+load_dotenv(Path(BASE_DIR).parent / ".env")  # loads .env
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -109,22 +108,14 @@ WSGI_APPLICATION = "onyx.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DATABASE_NAME"],
-        "USER": os.environ["DATABASE_USER"],
+        "ENGINE": os.environ["DB_ENGINE"],
+        "HOST": os.environ["DB_HOST"],
+        "PORT": os.environ["DB_PORT"],
+        "NAME": os.environ["DB_NAME"],
+        "USER": os.environ["DB_USER"],
+        "PASSWORD": os.environ["DB_PASSWORD"],
     }
 }
-
-# In CI, Django has to connect differently to the Postgres container,
-# and we have to provide a host name and password
-if os.environ.get("CI") and "test" in sys.argv:
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DATABASE_NAME"],
-        "USER": os.environ["DATABASE_USER"],
-        "PASSWORD": os.environ["DATABASE_PASSWORD"],
-        "HOST": os.environ["DATABASE_HOST"],
-    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -197,14 +188,16 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "timestamp": {
-            "format": "[{asctime}] [{process}] [{levelname}] {message}",
-            "datefmt": "%Y-%m-%d %H:%M:%S %z",
+        "verbose": {
+            "format": "django [{asctime}] [{process}] [{levelname}] {message}",
             "style": "{",
         },
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "timestamp"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
     },
     "root": {
         "handlers": ["console"],

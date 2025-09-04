@@ -1,4 +1,5 @@
 from typing import Any
+from functools import cached_property
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from rest_framework import exceptions
@@ -12,7 +13,7 @@ from utils.fields import (
 from utils.functions import get_suggestions, get_permission, parse_permission
 from accounts.models import User
 from .models import Choice, Project, PrimaryRecord
-from .types import Actions, OnyxLookup, OnyxType
+from .types import Actions, Objects, OnyxLookup, OnyxType
 
 
 class OnyxField:
@@ -166,70 +167,57 @@ class OnyxField:
 
 class FieldHandler:
     """
-    Class that does the following for a given project, action and user:
+    Class that does the following for a given `project`, `action`, `object_type`, `model` and `user`:
 
-    - Provide functions for retrieving fields that can be actioned on.
     - Resolves fields (converts field strings into `OnyxField` objects).
-    - Checks whether the user has permission to action on the resolved fields.
+    - Checks whether the `user` has permission to perform the `action` on the resolved fields.
+    - Provides functions for retrieving fields that can be actioned on.
     """
 
-    __slots__ = (
-        "app_label",
-        "project",
-        "action",
-        "object_type",
-        "model",
-        "user",
-        "fields",
-    )
+    project: Project
+    action: Actions
+    object_type: Objects
+    model: type[PrimaryRecord]
+    user: User
 
     def __init__(
         self,
         project: Project,
-        action: str,
-        object_type: str,
+        action: Actions,
+        object_type: Objects,
         model: type[PrimaryRecord],
         user: User,
     ) -> None:
-        self.app_label = project.content_type.app_label
         self.project = project
         self.action = action
         self.object_type = object_type
         self.model = model
         self.user = user
-        self.fields = None
 
-    def get_fields(
-        self,
-    ) -> list[str]:
+    @cached_property
+    def fields(self) -> list[str]:
         """
-        Get all fields that can be actioned on.
+        All fields that the user can perform the handler's action on.
 
         Returns:
             The list of fields that the user can action on.
         """
 
-        # If fields have not been cached, retrieve them
-        if self.fields is None:
-            fields = []
+        action_fields = []
+        for permission in self.user.get_all_permissions():
+            app_label, action, project, object_type, field = parse_permission(
+                permission
+            )
+            if (
+                app_label == self.project.content_type.app_label
+                and action == self.action.label
+                and project == self.project.code
+                and object_type == self.object_type.label
+                and field
+            ):
+                action_fields.append(field)
 
-            for permission in self.user.get_all_permissions():
-                app_label, action, project, object_type, field = parse_permission(
-                    permission
-                )
-
-                if (
-                    app_label == self.app_label
-                    and action == self.action
-                    and project == self.project.code
-                    and object_type == self.object_type
-                    and field
-                ):
-                    fields.append(field)
-
-            self.fields = fields
-
-        return self.fields
+        return action_fields
 
     def field_suggestions(self, field, message_prefix=None) -> str:
         """
@@ -250,7 +238,7 @@ class FieldHandler:
 
         suggestions = get_suggestions(
             field,
-            options=self.get_fields(),
+            options=self.fields,
             n=1,
             message_prefix=message_prefix,
         )
@@ -270,10 +258,10 @@ class FieldHandler:
         # Check the user's permission to access the field
         # If the user does not have permission, tell them it is unknown
         field_access_permission = get_permission(
-            app_label=self.app_label,
+            app_label=self.project.content_type.app_label,
             action=Actions.ACCESS.label,
             code=self.project.code,
-            object_type=self.object_type,
+            object_type=self.object_type.label,
             field=onyx_field.field_path,
         )
 
@@ -285,10 +273,10 @@ class FieldHandler:
         # Check the user's permission to perform action on the field
         # If the user does not have permission, tell them it is not allowed
         field_action_permission = get_permission(
-            app_label=self.app_label,
-            action=self.action,
+            app_label=self.project.content_type.app_label,
+            action=self.action.label,
             code=self.project.code,
-            object_type=self.object_type,
+            object_type=self.object_type.label,
             field=onyx_field.field_path,
         )
 
@@ -296,7 +284,7 @@ class FieldHandler:
             raise exceptions.ValidationError(
                 self.field_suggestions(
                     onyx_field.field_path,
-                    f"You cannot {self.action} this field.",
+                    f"You cannot {self.action.description} this field.",
                 )
             )
 

@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
+          POSTGRES_DB: onyx
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: onyx
         ports:
           - 5432:5432
         # needed because the postgres container does not provide a healthcheck
@@ -46,12 +46,14 @@ jobs:
 
       - name: Run Tests
         env:
-          SECRET_KEY: super-duper-secret-key
           HOST_NAME: localhost
-          DATABASE_NAME: onyx
-          DATABASE_USER: postgres
-          DATABASE_PASSWORD: postgres
-          DATABASE_HOST: localhost
+          SECRET_KEY: super-duper-secret-key
+          DB_ENGINE: django.db.backends.postgresql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: onyx
+          DB_USER: postgres
+          DB_PASSWORD: postgres
           ONYX_PROJECTS: testproject
         working-directory: ./onyx
         run: |

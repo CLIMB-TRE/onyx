@@ -378,6 +378,7 @@ class FieldsView(PrimaryRecordAPIView):
                 "object_type": self.object_type.label,
                 "version": self.model.version(),
                 "fields": fields_spec,
+                "default_fields": self.serializer_cls.OnyxMeta.default_fields,
             }
         )
 

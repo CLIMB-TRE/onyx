@@ -300,11 +300,7 @@ class FieldHandler:
                 )
             )
 
-    def resolve_field(
-        self,
-        field: str,
-        allow_lookup=False,
-    ) -> OnyxField:
+    def resolve_field(self, field: str, allow_lookup=False) -> OnyxField:
         """
         Resolve a provided `field`, determining which model it comes from.
 
@@ -318,15 +314,6 @@ class FieldHandler:
             The resolved `OnyxField` object.
         """
 
-        # TODO: Must be an easier way to achieve this
-        # Do we want to switch to checking is_relation first?
-
-        # Check for trailing underscore
-        # This is required because if a field ends in "__"
-        # Splitting will result in some funky stuff
-        if field.endswith("_"):
-            raise exceptions.ValidationError(self.field_suggestions(field))
-
         # Base model for the project
         current_model = self.model
         model_fields = {x.name: x for x in current_model._meta.get_fields()}
@@ -336,6 +323,8 @@ class FieldHandler:
         # a chain of relations through multiple models
         components = field.split("__")
         many_to_many = False
+        field_path = ""
+        lookup = ""
         for i, component in enumerate(components):
             # If the current component is not known on the current model
             # Then add to unknown fields
@@ -348,56 +337,56 @@ class FieldHandler:
             lookup = "__".join(components[i + 1 :])
 
             if lookup in OnyxLookup.lookups():
-                # The field is valid, and the lookup is not sus
-                # So we attempt to instantiate the field instance
-                # This could fail if the lookup is not allowed for the given field
+                break
 
-                onyx_field = OnyxField(
-                    project=self.project,
-                    field_model=current_model,
-                    field_path=field_path,
-                    lookup=lookup,
-                    allow_lookup=allow_lookup,
-                    many_to_many=many_to_many,
-                )
-
-                # Check that the user can perform the given action on this field
-                # Raises a ValidationError if this is not the case
-                self.check_field_permissions(onyx_field)
-
-                # Return OnyxField object
-                return onyx_field
-
-            elif component_instance.is_relation:
+            if component_instance.is_relation:
                 # The field's 'lookup' may be remaining components in a relation
                 # Move on to them
                 current_model = component_instance.related_model
                 assert current_model is not None
-                model_fields = {x.name: x for x in current_model._meta.get_fields()}
 
                 # Mark OnyxField as many-to-many if one of the components is a ManyToManyField
                 if component_instance.many_to_many:
                     many_to_many = True
 
-            elif lookup:
-                if not allow_lookup:
-                    raise exceptions.ValidationError("Lookups are not allowed.")
+                model_fields = {x.name: x for x in current_model._meta.get_fields()}
+                next_component = components[i + 1] if i + 1 < len(components) else ""
 
-                else:
-                    suggestions = get_suggestions(
-                        lookup,
-                        options=list(OnyxLookup.lookups()),
-                        cutoff=0,
-                        message_prefix="Invalid lookup.",
-                    )
+                if next_component in model_fields:
+                    continue
 
-                    raise exceptions.ValidationError(suggestions)
-
+            if len(components[i + 1 :]) > 1:
+                raise exceptions.ValidationError(self.field_suggestions(field))
             else:
-                # Otherwise, it is unknown
-                break
+                suggestions = get_suggestions(
+                    lookup,
+                    options=list(OnyxLookup.lookups()),
+                    cutoff=0,
+                    message_prefix="This lookup is unknown.",
+                )
+                raise exceptions.ValidationError(suggestions)
 
-        raise exceptions.ValidationError(self.field_suggestions(field))
+        if lookup and not allow_lookup:
+            raise exceptions.ValidationError("Lookups are not allowed.")
+
+        # The field is valid, and the lookup is not sus
+        # So we attempt to instantiate the field instance
+        # This could fail if the lookup is not allowed for the given field
+        onyx_field = OnyxField(
+            project=self.project,
+            field_model=current_model,
+            field_path=field_path,
+            lookup=lookup,
+            allow_lookup=allow_lookup,
+            many_to_many=many_to_many,
+        )
+
+        # Check that the user can perform the given action on this field
+        # Raises a ValidationError if this is not the case
+        self.check_field_permissions(onyx_field)
+
+        # Return OnyxField object
+        return onyx_field
 
     def resolve_fields(
         self,

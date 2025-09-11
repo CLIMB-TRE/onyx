@@ -148,18 +148,21 @@ class OnyxField:
             ) and self.field_instance.default == models.NOT_PROVIDED
 
         # Validate the lookup
-        if not allow_lookup and lookup:
-            raise exceptions.ValidationError("Lookups are not allowed.")
+        if allow_lookup:
+            # If lookups are allowed, check it is valid
+            if lookup not in self.onyx_type.lookups:
+                suggestions = get_suggestions(
+                    lookup,
+                    options=self.onyx_type.lookups,
+                    cutoff=0,
+                    message_prefix="Invalid lookup.",
+                )
 
-        if allow_lookup and lookup not in self.onyx_type.lookups:
-            suggestions = get_suggestions(
-                lookup,
-                options=self.onyx_type.lookups,
-                cutoff=0,
-                message_prefix="Invalid lookup.",
-            )
-
-            raise exceptions.ValidationError(suggestions)
+                raise exceptions.ValidationError(suggestions)
+        else:
+            # If lookups are not allowed, ensure one was not provided
+            if lookup:
+                raise exceptions.ValidationError("Lookups are not allowed.")
 
         self.lookup = lookup
         self.value = value
@@ -349,17 +352,12 @@ class FieldHandler:
                 suggestions = get_suggestions(
                     lookup,
                     options=list(OnyxLookup.lookups()),
-                    cutoff=0,
+                    n=1,
                     message_prefix="This lookup is unknown.",
                 )
                 raise exceptions.ValidationError(suggestions)
 
-        if lookup and not allow_lookup:
-            raise exceptions.ValidationError("Lookups are not allowed.")
-
-        # The field is valid, and the lookup is not sus
-        # So we attempt to instantiate the field instance
-        # This could fail if the lookup is not allowed for the given field
+        # Instantiate OnyxField object
         onyx_field = OnyxField(
             project=self.project,
             field_model=current_model,

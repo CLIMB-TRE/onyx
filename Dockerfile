@@ -26,9 +26,9 @@ RUN \
     poetry version > version
 
 ###################################################
-#          STAGE 2: Application runtime           #
+#              STAGE 2: Base runtime              #
 ###################################################
-FROM python:${PYTHON_VERSION}-slim AS runtime
+FROM python:${PYTHON_VERSION}-slim AS base
 
 ENV \
     # Prevents Python from writing pyc files.
@@ -60,6 +60,28 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy onyx version from poetry export stage
 COPY --from=poetry-export /app/version .
+
+###################################################
+#              STAGE 3: Development               #
+###################################################
+FROM base AS dev
+
+# Switch to the non-privileged user to run the application.
+USER appuser
+
+# Copy the source code into the container.
+COPY onyx .
+
+# Expose the port that the application listens on.
+EXPOSE 8000
+
+# Run the application.
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+###################################################
+#               STAGE 4: Production               #
+###################################################
+FROM base AS prod
 
 # Switch to the non-privileged user to run the application.
 USER appuser

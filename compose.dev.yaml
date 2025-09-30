@@ -1,0 +1,8 @@
+services:
+  wsgi:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./onyx:/app
+      - ${ONYX_LOGS_DIR}/wsgi:/app/logs/wsgi

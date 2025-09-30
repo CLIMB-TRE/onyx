@@ -358,16 +358,22 @@ class FieldHandler:
                 if next_component in model_fields:
                     continue
 
-            if len(components[i + 1 :]) > 1:
-                raise exceptions.ValidationError(self.field_suggestions(field))
-            else:
-                suggestions = get_suggestions(
-                    lookup,
-                    options=list(OnyxLookup.lookups()),
-                    n=1,
-                    message_prefix="This lookup is unknown.",
-                )
-                raise exceptions.ValidationError(suggestions)
+            options = []
+            for f in self.fields:
+                if f.startswith(field_path):
+                    for o_l in OnyxLookup.lookups():
+                        if o_l:
+                            options.append(f"{f}__{o_l}")
+                        else:
+                            options.append(f)
+
+            suggestions = get_suggestions(
+                field,
+                options=options,
+                n=1,
+                message_prefix="This field or lookup is unknown.",
+            )
+            raise exceptions.ValidationError(suggestions)
 
         # Instantiate OnyxField object
         onyx_field = OnyxField(

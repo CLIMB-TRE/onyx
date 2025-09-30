@@ -290,6 +290,15 @@ class StrictStructureFilter(StructureFilter):
 
 # Mappings from field type + lookup to filter
 FILTERS = {
+    OnyxType.ID: {lookup: filters.CharFilter for lookup in OnyxType.ID.lookups}
+    | {
+        "in": CharInFilter,
+        "notin": CharInFilter,
+        "length": StrictNumberFilter,
+        "length__in": StrictNumberInFilter,
+        "length__range": NumberRangeFilter,
+        "isnull": StrictBooleanFilter,
+    },
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
     | {
         "in": CharInFilter,

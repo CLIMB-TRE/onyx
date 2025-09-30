@@ -8,6 +8,7 @@ from utils.fields import (
     LowerCharField,
     UpperCharField,
     ChoiceField,
+    PrimaryIDField,
     SiteField,
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
@@ -68,7 +69,10 @@ class OnyxField:
         self.many_to_many = many_to_many
 
         # Determine the OnyxType for the field
-        if self.field_type in {
+        if self.field_type == PrimaryIDField:
+            self.onyx_type = OnyxType.ID
+
+        elif self.field_type in {
             models.UUIDField,
             models.CharField,
             models.TextField,

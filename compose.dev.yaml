@@ -5,4 +5,6 @@ services:
       target: dev
     volumes:
       - ./onyx:/app
-      - ${ONYX_LOGS_DIR}/wsgi:/app/logs/wsgi
+      - ./onyx/projects/testproject:/app/projects/testproject
+    environment:
+      - ONYX_PROJECTS=${ONYX_PROJECTS},testproject

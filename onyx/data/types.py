@@ -31,6 +31,7 @@ class Scopes(Enum):
 
 
 class Objects(Enum):
+    OBJECT = "object"
     RECORD = "records"
     ANALYSIS = "analyses"
 

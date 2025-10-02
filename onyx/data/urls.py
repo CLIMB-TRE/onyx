@@ -26,19 +26,10 @@ def generate_project_urls(
     """
 
     project_patterns = [
-        # CRUD operations
         path(
             "",
             views.ProjectRecordsViewSet.as_view({"post": "create", "get": "list"}),
             name=f"projects.{code}",
-            kwargs={"code": code, "serializer_class": serializer_class},
-        ),
-        re_path(
-            r"^(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
-            views.ProjectRecordsViewSet.as_view(
-                {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
-            ),
-            name=f"projects.{code}.climb_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         path(
@@ -48,9 +39,9 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
         re_path(
-            r"^test/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            r"^test/(?P<record_id>[a-zA-Z0-9\-]*)/$",
             views.ProjectRecordsViewSet.as_view({"patch": "partial_update"}),
-            name=f"projects.{code}.test.climb_id",
+            name=f"projects.{code}.test.record_id",
             kwargs={"code": code, "serializer_class": serializer_class, "test": True},
         ),
         path(
@@ -71,7 +62,6 @@ def generate_project_urls(
             name=f"projects.{code}.query.count",
             kwargs={"code": code, "serializer_class": serializer_class, "count": True},
         ),
-        # Fields and choices
         path(
             "fields/",
             views.ProjectRecordFieldsView.as_view(),
@@ -84,11 +74,10 @@ def generate_project_urls(
             name=f"projects.{code}.choices.field",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
-        # History, identify and analyses
         re_path(
-            r"^history/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            r"^history/(?P<record_id>[a-zA-Z0-9\-]*)/$",
             views.ProjectRecordHistoryView.as_view(),
-            name=f"projects.{code}.history.climb_id",
+            name=f"projects.{code}.history.record_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
@@ -98,12 +87,11 @@ def generate_project_urls(
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
         re_path(
-            r"^analyses/(?P<climb_id>[cC]-[a-zA-Z0-9]{10})/$",
+            r"^analyses/(?P<record_id>[a-zA-Z0-9\-]*)/$",
             views.RecordAnalysesView.as_view(),
-            name=f"projects.{code}.analyses.climb_id",
+            name=f"projects.{code}.analyses.record_id",
             kwargs={"code": code, "serializer_class": AnalysisSerializer},
         ),
-        # Analysis CRUD operations
         path(
             "analysis/",
             views.AnalysisViewSet.as_view({"post": "create", "get": "list"}),
@@ -140,7 +128,6 @@ def generate_project_urls(
                 "count": True,
             },
         ),
-        # Analysis fields and choices
         path(
             "analysis/fields/",
             views.AnalysisFieldsView.as_view(),
@@ -153,7 +140,6 @@ def generate_project_urls(
             name=f"projects.{code}.analysis.choices.field",
             kwargs={"code": code, "serializer_class": AnalysisSerializer},
         ),
-        # Analysis history and records
         re_path(
             r"^analysis/history/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
             views.AnalysisHistoryView.as_view(),
@@ -164,6 +150,14 @@ def generate_project_urls(
             r"^analysis/records/(?P<analysis_id>[aA]-[a-zA-Z0-9]{10})/$",
             views.AnalysisRecordsView.as_view(),
             name=f"projects.{code}.analysis.records.analysis_id",
+            kwargs={"code": code, "serializer_class": serializer_class},
+        ),
+        re_path(
+            r"^(?P<record_id>[a-zA-Z0-9\-]*)/$",
+            views.ProjectRecordsViewSet.as_view(
+                {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
+            ),
+            name=f"projects.{code}.record_id",
             kwargs={"code": code, "serializer_class": serializer_class},
         ),
     ]

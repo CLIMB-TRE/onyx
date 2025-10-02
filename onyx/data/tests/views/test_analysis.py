@@ -65,8 +65,8 @@ class OnyxAnalysisTestCase(OnyxDataTestCase):
         )
 
         self.RECORD_ANALYSES = lambda climb_id: reverse(
-            "projects.testproject.analyses.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
+            "projects.testproject.analyses.record_id",
+            kwargs={"code": self.project.code, "record_id": climb_id},
         )
 
         self.ANALYSIS_RECORDS = lambda analysis_id: reverse(

@@ -299,6 +299,17 @@ FILTERS = {
         "length__range": NumberRangeFilter,
         "isnull": StrictBooleanFilter,
     },
+    OnyxType.ID_INT: {lookup: NumberFilter for lookup in OnyxType.INTEGER.lookups}
+    | {
+        "in": NumberInFilter,
+        "notin": NumberInFilter,
+        "lt": StrictNumberFilter,
+        "lte": StrictNumberFilter,
+        "gt": StrictNumberFilter,
+        "gte": StrictNumberFilter,
+        "range": NumberRangeFilter,
+        "isnull": StrictBooleanFilter,
+    },
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
     | {
         "in": CharInFilter,

@@ -238,6 +238,11 @@ class OnyxType(Enum):
         "A unique identifier for an object.",
         TEXT_LOOKUPS,
     )
+    ID_INT = (
+        "id (int)",
+        "A unique integer identifier for an object.",
+        NUMBER_LOOKUPS,
+    )
     TEXT = (
         "text",
         "A string of characters.",

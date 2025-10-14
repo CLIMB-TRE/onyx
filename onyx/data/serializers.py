@@ -27,6 +27,7 @@ from .models import Project, Anonymiser, Analysis
 # Solution would be to have serializer field instances attached to OnyxField objects
 FIELDS = {
     OnyxType.ID: serializers.CharField,
+    OnyxType.ID_INT: serializers.IntegerField,
     OnyxType.TEXT: serializers.CharField,
     OnyxType.CHOICE: serializers.CharField,
     OnyxType.INTEGER: serializers.IntegerField,

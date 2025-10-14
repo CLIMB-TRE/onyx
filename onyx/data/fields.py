@@ -9,6 +9,7 @@ from utils.fields import (
     UpperCharField,
     ChoiceField,
     PrimaryIDField,
+    PrimaryIntIDField,
     SiteField,
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
@@ -35,8 +36,10 @@ class OnyxField:
         "choices",
         "lookup",
         "value",
+        "default",
         "base_onyx_field",
         "many_to_many",
+        "is_primary_id",
     )
 
     def __init__(
@@ -69,8 +72,16 @@ class OnyxField:
         self.many_to_many = many_to_many
 
         # Determine the OnyxType for the field
+        if issubclass(self.field_model, PrimaryRecord):
+            self.is_primary_id = self.field_name == self.field_model.get_primary_id()
+        else:
+            self.is_primary_id = False
+
         if self.field_type == PrimaryIDField:
             self.onyx_type = OnyxType.ID
+
+        elif self.field_type == PrimaryIntIDField:
+            self.onyx_type = OnyxType.ID_INT
 
         elif self.field_type in {
             models.UUIDField,
@@ -167,6 +178,18 @@ class OnyxField:
 
         self.lookup = lookup
         self.value = value
+
+        # Add default value if it exists
+        self.default = None
+        if (
+            # ManyToMany fields don't have a default attribute
+            hasattr(self.field_instance, "default")
+            and self.field_instance.default != models.NOT_PROVIDED
+        ):
+            if self.field_instance.default in [list, dict]:
+                self.default = self.field_instance.default()
+            elif type(self.field_instance.default) in [str, int, float, bool]:
+                self.default = self.field_instance.default
 
 
 class FieldHandler:

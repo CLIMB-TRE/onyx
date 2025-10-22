@@ -165,11 +165,11 @@ class BaseRecord(models.Model):
 
 class PrimaryRecord(BaseRecord):
     @classmethod
-    def version(cls):
+    def version(cls) -> str:
         raise NotImplementedError("A version number is required.")
 
     @classmethod
-    def get_primary_id(cls):
+    def get_primary_id(cls) -> str:
         raise NotImplementedError("A method to return the ID field is required.")
 
     is_published = models.BooleanField(

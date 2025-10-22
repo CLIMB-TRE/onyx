@@ -8,8 +8,6 @@ from utils.fields import (
     LowerCharField,
     UpperCharField,
     ChoiceField,
-    PrimaryIDField,
-    PrimaryIntIDField,
     SiteField,
 )
 from utils.functions import get_suggestions, get_permission, parse_permission
@@ -77,13 +75,7 @@ class OnyxField:
         else:
             self.is_primary_id = False
 
-        if self.field_type == PrimaryIDField:
-            self.onyx_type = OnyxType.ID
-
-        elif self.field_type == PrimaryIntIDField:
-            self.onyx_type = OnyxType.ID_INT
-
-        elif self.field_type in {
+        if self.field_type in {
             models.UUIDField,
             models.CharField,
             models.TextField,

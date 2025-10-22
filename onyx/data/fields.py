@@ -37,7 +37,6 @@ class OnyxField:
         "default",
         "base_onyx_field",
         "many_to_many",
-        "is_primary_id",
     )
 
     def __init__(
@@ -70,11 +69,6 @@ class OnyxField:
         self.many_to_many = many_to_many
 
         # Determine the OnyxType for the field
-        if issubclass(self.field_model, PrimaryRecord):
-            self.is_primary_id = self.field_name == self.field_model.get_primary_id()
-        else:
-            self.is_primary_id = False
-
         if self.field_type in {
             models.UUIDField,
             models.CharField,

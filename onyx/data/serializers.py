@@ -26,7 +26,6 @@ from .models import Project, Anonymiser, Analysis
 # TODO: Currently not possible to initialise with nested date and nested array fields
 # Solution would be to have serializer field instances attached to OnyxField objects
 FIELDS = {
-    OnyxType.ID: serializers.CharField,
     OnyxType.TEXT: serializers.CharField,
     OnyxType.CHOICE: serializers.CharField,
     OnyxType.INTEGER: serializers.IntegerField,

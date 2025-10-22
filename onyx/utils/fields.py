@@ -37,10 +37,6 @@ class UpperCharField(StrippedCharField):
         return super().to_python(value)
 
 
-class PrimaryIDField(UpperCharField):
-    pass
-
-
 class YearMonthField(models.DateField):
     pass
 

@@ -8,13 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
-from utils.fields import (
-    StrippedCharField,
-    LowerCharField,
-    UpperCharField,
-    PrimaryIDField,
-    SiteField,
-)
+from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
 from utils.constraints import unique_together, optional_value_group, non_futures
 from simple_history.models import HistoricalRecords
 from .types import OnyxLookup
@@ -227,7 +221,7 @@ class Analysis(PrimaryRecord):
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
 
     # Overview
-    analysis_id = PrimaryIDField(
+    analysis_id = UpperCharField(
         default=generate_analysis_id,
         max_length=12,
         unique=True,
@@ -360,7 +354,7 @@ class ProjectRecord(PrimaryRecord):
     def version(cls):
         raise NotImplementedError("A version number is required.")
 
-    climb_id = PrimaryIDField(
+    climb_id = UpperCharField(
         max_length=12,
         unique=True,
         help_text="Unique identifier for a project record in Onyx.",

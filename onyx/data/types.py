@@ -177,70 +177,28 @@ class OnyxLookup(Enum):
         return {""} | {lookup.label for lookup in cls}
 
 
-TEXT_LOOKUPS = [
-    "",
-    OnyxLookup.EXACT.label,
-    OnyxLookup.NE.label,
-    OnyxLookup.IN.label,
-    OnyxLookup.NOTIN.label,
-    OnyxLookup.CONTAINS.label,
-    OnyxLookup.STARTSWITH.label,
-    OnyxLookup.ENDSWITH.label,
-    OnyxLookup.IEXACT.label,
-    OnyxLookup.ICONTAINS.label,
-    OnyxLookup.ISTARTSWITH.label,
-    OnyxLookup.IENDSWITH.label,
-    OnyxLookup.LENGTH.label,
-    OnyxLookup.LENGTH_IN.label,
-    OnyxLookup.LENGTH_RANGE.label,
-    OnyxLookup.ISNULL.label,
-]
-
-NUMBER_LOOKUPS = [
-    "",
-    OnyxLookup.EXACT.label,
-    OnyxLookup.NE.label,
-    OnyxLookup.IN.label,
-    OnyxLookup.NOTIN.label,
-    OnyxLookup.LT.label,
-    OnyxLookup.LTE.label,
-    OnyxLookup.GT.label,
-    OnyxLookup.GTE.label,
-    OnyxLookup.RANGE.label,
-    OnyxLookup.ISNULL.label,
-]
-
-DATE_LOOKUPS = [
-    "",
-    OnyxLookup.EXACT.label,
-    OnyxLookup.NE.label,
-    OnyxLookup.IN.label,
-    OnyxLookup.NOTIN.label,
-    OnyxLookup.LT.label,
-    OnyxLookup.LTE.label,
-    OnyxLookup.GT.label,
-    OnyxLookup.GTE.label,
-    OnyxLookup.RANGE.label,
-    OnyxLookup.ISO_YEAR.label,
-    OnyxLookup.ISO_YEAR_IN.label,
-    OnyxLookup.ISO_YEAR_RANGE.label,
-    OnyxLookup.WEEK.label,
-    OnyxLookup.WEEK_IN.label,
-    OnyxLookup.WEEK_RANGE.label,
-    OnyxLookup.ISNULL.label,
-]
-
-
 class OnyxType(Enum):
-    ID = (
-        "id",
-        "A unique identifier for an object.",
-        TEXT_LOOKUPS,
-    )
     TEXT = (
         "text",
         "A string of characters.",
-        TEXT_LOOKUPS,
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.NE.label,
+            OnyxLookup.IN.label,
+            OnyxLookup.NOTIN.label,
+            OnyxLookup.CONTAINS.label,
+            OnyxLookup.STARTSWITH.label,
+            OnyxLookup.ENDSWITH.label,
+            OnyxLookup.IEXACT.label,
+            OnyxLookup.ICONTAINS.label,
+            OnyxLookup.ISTARTSWITH.label,
+            OnyxLookup.IENDSWITH.label,
+            OnyxLookup.LENGTH.label,
+            OnyxLookup.LENGTH_IN.label,
+            OnyxLookup.LENGTH_RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
     )
     CHOICE = (
         "choice",
@@ -257,22 +215,82 @@ class OnyxType(Enum):
     INTEGER = (
         "integer",
         "A whole number.",
-        NUMBER_LOOKUPS,
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.NE.label,
+            OnyxLookup.IN.label,
+            OnyxLookup.NOTIN.label,
+            OnyxLookup.LT.label,
+            OnyxLookup.LTE.label,
+            OnyxLookup.GT.label,
+            OnyxLookup.GTE.label,
+            OnyxLookup.RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
     )
     DECIMAL = (
         "decimal",
         "A decimal number.",
-        NUMBER_LOOKUPS,
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.NE.label,
+            OnyxLookup.IN.label,
+            OnyxLookup.NOTIN.label,
+            OnyxLookup.LT.label,
+            OnyxLookup.LTE.label,
+            OnyxLookup.GT.label,
+            OnyxLookup.GTE.label,
+            OnyxLookup.RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
     )
     DATE = (
         "date",
         "A date.",
-        DATE_LOOKUPS,
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.NE.label,
+            OnyxLookup.IN.label,
+            OnyxLookup.NOTIN.label,
+            OnyxLookup.LT.label,
+            OnyxLookup.LTE.label,
+            OnyxLookup.GT.label,
+            OnyxLookup.GTE.label,
+            OnyxLookup.RANGE.label,
+            OnyxLookup.ISO_YEAR.label,
+            OnyxLookup.ISO_YEAR_IN.label,
+            OnyxLookup.ISO_YEAR_RANGE.label,
+            OnyxLookup.WEEK.label,
+            OnyxLookup.WEEK_IN.label,
+            OnyxLookup.WEEK_RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
     )
     DATETIME = (
         "datetime",
         "A date and time.",
-        DATE_LOOKUPS,
+        [
+            "",
+            OnyxLookup.EXACT.label,
+            OnyxLookup.NE.label,
+            OnyxLookup.IN.label,
+            OnyxLookup.NOTIN.label,
+            OnyxLookup.LT.label,
+            OnyxLookup.LTE.label,
+            OnyxLookup.GT.label,
+            OnyxLookup.GTE.label,
+            OnyxLookup.RANGE.label,
+            OnyxLookup.ISO_YEAR.label,
+            OnyxLookup.ISO_YEAR_IN.label,
+            OnyxLookup.ISO_YEAR_RANGE.label,
+            OnyxLookup.WEEK.label,
+            OnyxLookup.WEEK_IN.label,
+            OnyxLookup.WEEK_RANGE.label,
+            OnyxLookup.ISNULL.label,
+        ],
     )
     BOOLEAN = (
         "bool",

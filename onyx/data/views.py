@@ -382,6 +382,7 @@ class FieldsView(PrimaryRecordAPIView):
                 "name": self.project.name,
                 "description": self.project.description,
                 "object_type": self.object_type.label,
+                "primary_id": self.model.get_primary_id(),
                 "version": self.model.version(),
                 "fields": fields_spec,
             }

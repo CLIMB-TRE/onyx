@@ -177,10 +177,6 @@ def generate_fields_spec(
         if onyx_field.onyx_type == OnyxType.CHOICE:
             field_spec["values"] = sorted(onyx_field.choices)
 
-        # Add primary_id status
-        if onyx_field.is_primary_id:
-            field_spec["primary_id"] = onyx_field.is_primary_id
-
         # Add additional restrictions
         restrictions = generate_restrictions(
             field=field,

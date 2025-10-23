@@ -279,5 +279,5 @@ def validate_conditional_value_optional_value_groups(
 
             if not req_provided:
                 errors.setdefault("non_field_errors", []).append(
-                    f"At least one of {', '.join(requirements)} is required."
+                    f"At least one of {', '.join(requirements)} is required if {field} equals {value}."
                 )

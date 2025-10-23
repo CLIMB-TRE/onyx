@@ -82,6 +82,8 @@ class TestProjectSerializer(ProjectRecordSerializer):
             "start",
             "end",
             "required_when_published",
+            "optional_when_published_1",
+            "optional_when_published_2",
             "scores",
             "structure",
         ]

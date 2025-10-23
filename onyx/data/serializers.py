@@ -453,12 +453,6 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             "downstream_analyses",
             "identifiers",
         ]
-        validators = [
-            OnyxUniqueTogetherValidator(
-                queryset=Analysis.objects.all(),
-                fields=["project", "name"],
-            )
-        ]
 
     class OnyxMeta(PrimaryRecordSerializer.OnyxMeta):
         non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [

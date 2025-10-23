@@ -9,7 +9,12 @@ from django.core import checks
 from django.core.checks.messages import CheckMessage
 from accounts.models import Site, User
 from utils.fields import StrippedCharField, LowerCharField, UpperCharField, SiteField
-from utils.constraints import unique_together, optional_value_group, non_futures
+from utils.constraints import (
+    unique_together,
+    non_futures,
+    conditional_value_required,
+    conditional_value_optional_value_group,
+)
 from simple_history.models import HistoricalRecords
 from .types import OnyxLookup
 
@@ -233,19 +238,23 @@ class Analysis(PrimaryRecord):
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
 
     # Overview
+    # Auto-generated
     analysis_id = UpperCharField(
         default=generate_analysis_id,
         max_length=12,
         unique=True,
         help_text="Unique identifier for an analysis in Onyx.",
     )
+    # Required
     analysis_date = models.DateField(
         help_text="The date the analysis was carried out.",
     )
+    # Required
     name = StrippedCharField(
         max_length=50,
         help_text="Name for the analysis, unique to the project.",
     )
+    # Optional
     description = models.CharField(
         blank=True,
         max_length=500,
@@ -253,38 +262,47 @@ class Analysis(PrimaryRecord):
     )
 
     # Execution
+    # Required
     pipeline_name = models.CharField(
         max_length=50,
         help_text="Name of the pipeline used for the analysis.",
     )
-    pipeline_url = models.CharField(
-        blank=True,
-        max_length=100,
-        help_text="URL to the pipeline used for the analysis.",
-    )
+    # Required
     pipeline_version = models.CharField(
         max_length=10,
         help_text="Version of the pipeline used for the analysis.",
     )
+    # Optional
+    pipeline_url = models.CharField(
+        blank=True,
+        max_length=200,
+        help_text="URL to the pipeline used for the analysis.",
+    )
+    # Optional
     pipeline_command = models.CharField(
         blank=True,
-        max_length=100,
+        max_length=200,
         help_text="Command used to run the pipeline for the analysis.",
     )
+    # Optional (has default)
     methods = models.JSONField(
         default=dict,
         help_text="Structured details of the experiment run and its inputs.",
     )
 
     # Results
+    # Required if published
     result = models.CharField(
-        max_length=100,
+        blank=True,
+        max_length=200,
         help_text="Key findings of the analysis.",
     )
+    # Optional (has default)
     result_metrics = models.JSONField(
         default=dict,
         help_text="Structured output metrics from the result of the analysis.",
     )
+    # One of report or outputs required if published
     report = models.CharField(
         blank=True,
         max_length=200,
@@ -297,6 +315,7 @@ class Analysis(PrimaryRecord):
     )
 
     # Relationships
+    # Optional
     upstream_analyses = models.ManyToManyField(
         "self",
         symmetrical=False,
@@ -304,6 +323,7 @@ class Analysis(PrimaryRecord):
         related_name="downstream_analyses",
         help_text="The analyses that this analysis depends on.",
     )
+    # Optional
     identifiers = models.ManyToManyField(
         Anonymiser,
         related_name="analyses",
@@ -323,11 +343,15 @@ class Analysis(PrimaryRecord):
             ),
         ]
         constraints = [
-            unique_together(
-                fields=["project", "name"],
+            conditional_value_required(
+                field="is_published",
+                value=True,
+                required=["result"],
             ),
-            optional_value_group(
-                fields=["report", "outputs"],
+            conditional_value_optional_value_group(
+                field="is_published",
+                value=True,
+                optional=["report", "outputs"],
             ),
             non_futures(
                 fields=["analysis_date"],

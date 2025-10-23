@@ -8,6 +8,7 @@ from utils.constraints import (
     non_futures,
     conditional_required,
     conditional_value_required,
+    conditional_value_optional_value_group,
 )
 from data.models import BaseRecord, ProjectRecord
 
@@ -39,6 +40,8 @@ class BaseTestProject(ProjectRecord):
     start = models.IntegerField()
     end = models.IntegerField()
     required_when_published = models.TextField(blank=True)
+    optional_when_published_1 = models.TextField(blank=True)
+    optional_when_published_2 = models.TextField(blank=True)
     scores = ArrayField(models.IntegerField(), default=list, size=10)
     structure = models.JSONField(default=dict)
 
@@ -91,6 +94,11 @@ class BaseTestProject(ProjectRecord):
                 field="is_published",
                 value=True,
                 required=["required_when_published"],
+            ),
+            conditional_value_optional_value_group(
+                field="is_published",
+                value=True,
+                optional=["optional_when_published_1", "optional_when_published_2"],
             ),
         ]
 

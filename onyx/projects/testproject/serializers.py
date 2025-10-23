@@ -132,6 +132,15 @@ class TestProjectSerializer(ProjectRecordSerializer):
                 ]
             }
         )
+        conditional_value_optional_value_groups = (
+            ProjectRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): [
+                    "optional_when_published_1",
+                    "optional_when_published_2",
+                ]
+            }
+        )
         anonymised_fields = ProjectRecordSerializer.OnyxMeta.anonymised_fields | {
             "sample_id": "S-",
             "run_name": "R-",

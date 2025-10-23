@@ -343,6 +343,9 @@ class Analysis(PrimaryRecord):
             ),
         ]
         constraints = [
+            non_futures(
+                fields=["analysis_date"],
+            ),
             conditional_value_required(
                 field="is_published",
                 value=True,
@@ -352,9 +355,6 @@ class Analysis(PrimaryRecord):
                 field="is_published",
                 value=True,
                 optional=["report", "outputs"],
-            ),
-            non_futures(
-                fields=["analysis_date"],
             ),
         ]
 

@@ -231,6 +231,7 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
             name=self._payload["name"] + " #2",
             analysis_date="2024-01-01",
             user=self.admin_user,
+            result="Test Result",
             report="s3://test-bucket/test-report.html",
         )
         payload["upstream_analyses"] = [analysis.analysis_id]
@@ -244,6 +245,70 @@ class TestCreateAnalysisView(OnyxAnalysisTestCase):
         response = self.client.post(self.CREATE, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         assert Analysis.objects.count() == 1
+
+    def test_result(self):
+        """
+        Test the conditional requirement of the result field when publishing an analysis.
+        """
+
+        # Analyses cannot be published without a result
+        payload = self.get_payload()
+        payload["result"] = ""
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 0
+
+        # Analyses can be created without a result, before publishing
+        payload = self.get_payload()
+        payload["result"] = ""
+        payload["is_published"] = False
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 1
+
+        # Analyses can be published with a result
+        payload = self.get_payload()
+        payload["result"] = "Test Result"
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 2
+
+    def test_report_and_outputs(self):
+        """
+        Test the conditional requirement of either the report field or outputs field when publishing an analysis.
+        """
+
+        # Analyses cannot be published without any report or outputs
+        payload = self.get_payload()
+        payload["report"] = ""
+        payload["outputs"] = ""
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert Analysis.objects.count() == 0
+
+        # Analyses can be created without any report or outputs, before publishing
+        payload = self.get_payload()
+        payload["report"] = ""
+        payload["outputs"] = ""
+        payload["is_published"] = False
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 1
+
+        # Analyses can be published with either a report or outputs
+        payload = self.get_payload()
+        payload["report"] = "s3://test-bucket/test-report.html"
+        payload["outputs"] = ""
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 2
+
+        payload = self.get_payload()
+        payload["report"] = ""
+        payload["outputs"] = "s3://test-bucket/test-outputs/"
+        response = self.client.post(self.CREATE, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Analysis.objects.count() == 3
 
 
 class TestGetAnalysisView(OnyxAnalysisTestCase):

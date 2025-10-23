@@ -15,7 +15,6 @@ from utils.fieldserializers import (
     StructureField,
 )
 from utils.functions import get_date_output_format
-from utils.validators import OnyxUniqueTogetherValidator
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField

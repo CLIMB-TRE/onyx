@@ -8,3 +8,10 @@ services:
       - ./onyx/projects/testproject:/app/projects/testproject
     environment:
       - ONYX_PROJECTS=${ONYX_PROJECTS},testproject
+  db:
+    command: [
+      "postgres",
+      "-c", "log_statement=all",
+      "-c", "log_duration=on",
+      "-c", "log_min_duration_statement=0"
+    ]

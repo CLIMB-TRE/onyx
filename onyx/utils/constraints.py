@@ -17,7 +17,7 @@ class ConstraintCodes(Enum):
     NON_FUTURES = "nf"
     CONDITIONAL_REQUIRED = "cr"
     CONDITIONAL_VALUE_REQUIRED = "cvr"
-    CONDITIONAL_VALUE_OPTIONAL = "cvo"
+    CONDITIONAL_VALUE_OPTIONAL_VALUE_GROUP = "cvo"
 
     def __init__(self, label: str) -> None:
         self.label = label
@@ -274,7 +274,7 @@ def conditional_value_optional_value_group(field: str, value: Any, optional: lis
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code=ConstraintCodes.CONDITIONAL_VALUE_OPTIONAL.value,
+            code=ConstraintCodes.CONDITIONAL_VALUE_OPTIONAL_VALUE_GROUP.value,
             fields=[field] + optional + [str(value).strip().lower()],
         ),
         violation_error_message=f"At least one of {', '.join(optional)} are required in order to set {field} to the value.",

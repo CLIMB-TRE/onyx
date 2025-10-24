@@ -82,6 +82,8 @@ class TestProjectSerializer(ProjectRecordSerializer):
             "start",
             "end",
             "required_when_published",
+            "optional_when_published_1",
+            "optional_when_published_2",
             "scores",
             "structure",
         ]
@@ -129,6 +131,15 @@ class TestProjectSerializer(ProjectRecordSerializer):
             | {
                 ("is_published", True, True): [
                     "required_when_published",
+                ]
+            }
+        )
+        conditional_value_optional_value_groups = (
+            ProjectRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): [
+                    "optional_when_published_1",
+                    "optional_when_published_2",
                 ]
             }
         )

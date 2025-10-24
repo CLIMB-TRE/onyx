@@ -258,6 +258,8 @@ def generate_test_data(n: int, api_call: bool = True):
     starts = [1, 2, 3, 4, 5]
     ends = [6, 7, 8, 9, 10]
     required_when_publisheds = ["hello", "world"]
+    optional_when_published_1s = ["value 1", ""]
+    optional_when_published_2s = ["", "value 2"]
     many_scores = (
         [[]]
         + [[1, 2, 3]] * 3
@@ -305,6 +307,8 @@ def generate_test_data(n: int, api_call: bool = True):
         start,
         end,
         required_when_published,
+        optional_when_published_1s,
+        optional_when_published_2s,
         scores,
         structure,
         has_nested,
@@ -326,6 +330,8 @@ def generate_test_data(n: int, api_call: bool = True):
             itertools.cycle(starts),
             itertools.cycle(ends),
             itertools.cycle(required_when_publisheds),
+            itertools.cycle(optional_when_published_1s),
+            itertools.cycle(optional_when_published_2s),
             itertools.cycle(many_scores),
             itertools.cycle(structures),
             itertools.cycle(has_nesteds),
@@ -349,6 +355,8 @@ def generate_test_data(n: int, api_call: bool = True):
             "start": start,
             "end": end,
             "required_when_published": required_when_published,
+            "optional_when_published_1": optional_when_published_1s,
+            "optional_when_published_2": optional_when_published_2s,
             "scores": scores,
             "structure": structure,
         }

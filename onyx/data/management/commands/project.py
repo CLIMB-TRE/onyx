@@ -173,6 +173,10 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                 "object_type": Objects.ANALYSIS.label,
                 "permissions": [
                     {
+                        "action": ["add", "testadd"],
+                        "fields": ["is_published", "site"],
+                    },
+                    {
                         "action": ["add", "testadd", "change", "testchange"],
                         "fields": [
                             "analysis_date",
@@ -203,6 +207,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                     {
                         "action": ["add", "testadd", "change", "testchange"],
                         "fields": [
+                            "is_published",
                             "analysis_date",
                             "name",
                             "description",

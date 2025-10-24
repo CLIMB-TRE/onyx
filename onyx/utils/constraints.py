@@ -253,7 +253,7 @@ def conditional_value_optional_value_group(field: str, value: Any, optional: lis
         The constraint.
     """
 
-    # Build a Q object that says all of the required fields are not null
+    # Build a Q object that says at least one of the required fields is not null
     requirements = functools.reduce(
         operator.or_,
         [Q(**{f"{field}__isnull": False}) for field in optional],

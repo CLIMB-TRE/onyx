@@ -36,11 +36,13 @@ ALLOWED_HOSTS = [os.environ["HOST_NAME"]]
 
 # ADMINS = [(os.environ["ADMIN_NAME"], os.environ["ADMIN_EMAIL"])]
 
-ONYX_PROJECTS = [
-    os.path.basename(p)
-    for p in (BASE_DIR / "projects").iterdir()
-    if p.is_dir() and "__init__.py" in os.listdir(p)
-]
+ONYX_PROJECTS = sorted(
+    [
+        p.name
+        for p in (BASE_DIR / "projects").iterdir()
+        if p.is_dir() and (p / "__init__.py").exists() and (p / "apps.py").exists()
+    ]
+)
 
 # Application definition
 

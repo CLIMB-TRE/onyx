@@ -1,12 +1,26 @@
 import functools
 import hashlib
 import operator
+from enum import Enum
 from typing import Any
 from django.db import models
 from django.db.models import F, Q
 
 
 # TODO: Test constraints
+
+
+class ConstraintCodes(Enum):
+    UNIQUE_TOGETHER = "ut"
+    OPTIONAL_VALUE_GROUP = "ovg"
+    ORDERING = "ord"
+    NON_FUTURES = "nf"
+    CONDITIONAL_REQUIRED = "cr"
+    CONDITIONAL_VALUE_REQUIRED = "cvr"
+    CONDITIONAL_VALUE_OPTIONAL_VALUE_GROUP = "cvo"
+
+    def __init__(self, label: str) -> None:
+        self.label = label
 
 
 def generate_constraint_name(code: str, fields: list[str]) -> str:
@@ -49,7 +63,7 @@ def unique_together(fields: list[str]):
     return models.UniqueConstraint(
         fields=fields,
         name=generate_constraint_name(
-            code="ut",
+            code=ConstraintCodes.UNIQUE_TOGETHER.value,
             fields=fields,
         ),
     )
@@ -75,7 +89,7 @@ def optional_value_group(fields: list[str]):
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code="ovg",
+            code=ConstraintCodes.OPTIONAL_VALUE_GROUP.value,
             fields=fields,
         ),
         violation_error_message=f"At least one of {', '.join(fields)} is required.",
@@ -108,7 +122,7 @@ def ordering(fields: tuple[str, str]):
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code="ord",
+            code=ConstraintCodes.ORDERING.value,
             fields=list(fields),
         ),
         violation_error_message=f"The {lower} must be less than or equal to {higher}.",
@@ -140,7 +154,7 @@ def non_futures(fields: list[str]):
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code="nf",
+            code=ConstraintCodes.NON_FUTURES.value,
             fields=fields,
         ),
         violation_error_message=f"At least one of {', '.join(fields)} is from the future.",
@@ -179,7 +193,7 @@ def conditional_required(field: str, required: list[str]):
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code="cr",
+            code=ConstraintCodes.CONDITIONAL_REQUIRED.value,
             fields=[field] + required,
         ),
         violation_error_message=f"Each of {', '.join(required)} are required in order to set {field}.",
@@ -219,8 +233,49 @@ def conditional_value_required(field: str, value: Any, required: list[str]):
     return models.CheckConstraint(
         check=check,
         name=generate_constraint_name(
-            code="cvr",
+            code=ConstraintCodes.CONDITIONAL_VALUE_REQUIRED.value,
             fields=[field] + required + [str(value).strip().lower()],
         ),
         violation_error_message=f"Each of {', '.join(required)} are required in order to set {field} to the value.",
+    )
+
+
+def conditional_value_optional_value_group(field: str, value: Any, optional: list[str]):
+    """
+    Creates a constraint that ensures that the `field` can only be set to the `value` when at least one of the `optional` fields are not null.
+
+    Args:
+        field: The field to create the constraint over.
+        value: The value that the `field` is required to be set to.
+        optional: The fields where at least one is required in order to set the `field` to the `value`.
+
+    Returns:
+        The constraint.
+    """
+
+    # Build a Q object that says at least one of the required fields is not null
+    requirements = functools.reduce(
+        operator.or_,
+        [Q(**{f"{field}__isnull": False}) for field in optional],
+    )
+
+    # Build a Q object that says the field is equal to the value
+    condition = Q(**{field: value})
+
+    # We have the following:
+    # - condition: The field is equal to the value
+    # - requirements: At least one of the optional fields are not null
+    # We want a Q object that satisfies the following condition:
+    # condition IMPLIES requirements
+    # This is logically equivalent to:
+    # (NOT condition) OR requirements
+    check = (~condition) | requirements
+
+    return models.CheckConstraint(
+        check=check,
+        name=generate_constraint_name(
+            code=ConstraintCodes.CONDITIONAL_VALUE_OPTIONAL_VALUE_GROUP.value,
+            fields=[field] + optional + [str(value).strip().lower()],
+        ),
+        violation_error_message=f"At least one of {', '.join(optional)} are required in order to set {field} to the value.",
     )

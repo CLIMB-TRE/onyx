@@ -30,6 +30,8 @@ default_payload = {
     "start": 1,
     "end": 2,
     "required_when_published": "hello",
+    "optional_when_published_1": "optional text",
+    "optional_when_published_2": "",
     "records": [
         {
             "test_id": 1,
@@ -279,6 +281,61 @@ class TestCreateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert TestProject.objects.count() == 1
         assert TestProjectRecord.objects.count() == 2
+        instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        self.assertEqualRecords(payload, instance, created=True)
+
+    def test_conditional_value_optional_value_group_fields(self):
+        """
+        Test that a payload with no conditional-value required fields fails.
+        """
+
+        # one of optional_when_published 1 and 2 must be provided when the record is being published
+        payload = copy.deepcopy(default_payload)
+        payload.pop("optional_when_published_1")
+        payload.pop("optional_when_published_2")
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert TestProject.objects.count() == 0
+        assert TestProjectRecord.objects.count() == 0
+
+        # neither are required when the record is not being published
+        payload = copy.deepcopy(default_payload)
+        payload.pop("optional_when_published_1")
+        payload.pop("optional_when_published_2")
+        payload["is_published"] = False
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert TestProject.objects.count() == 1
+        assert TestProjectRecord.objects.count() == 2
+        instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        self.assertEqualRecords(payload, instance, created=True)
+
+        # either can be provided when the record is being published
+        payload = copy.deepcopy(default_payload)
+        payload["sample_id"] = "sample-2345"
+        payload["optional_when_published_1"] = "hello"
+        payload.pop("optional_when_published_2")
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert TestProject.objects.count() == 2
+        assert TestProjectRecord.objects.count() == 4
+        instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
+        payload["sample_id"] = response.json()["data"]["sample_id"]
+        payload["run_name"] = response.json()["data"]["run_name"]
+        self.assertEqualRecords(payload, instance, created=True)
+
+        payload = copy.deepcopy(default_payload)
+        payload["sample_id"] = "sample-3456"
+        payload.pop("optional_when_published_1")
+        payload["optional_when_published_2"] = "hello"
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert TestProject.objects.count() == 3
+        assert TestProjectRecord.objects.count() == 6
         instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
         payload["sample_id"] = response.json()["data"]["sample_id"]
         payload["run_name"] = response.json()["data"]["run_name"]

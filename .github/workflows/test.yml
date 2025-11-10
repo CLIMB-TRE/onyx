@@ -54,7 +54,6 @@ jobs:
           DB_NAME: onyx
           DB_USER: postgres
           DB_PASSWORD: postgres
-          ONYX_PROJECTS: testproject
         working-directory: ./onyx
         run: |
           poetry run coverage run --rcfile=../pyproject.toml manage.py test -v 2

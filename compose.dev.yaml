@@ -1,0 +1,15 @@
+services:
+  wsgi:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./onyx:/app
+      - ./onyx/projects/testproject:/app/projects/testproject
+  db:
+    command: [
+      "postgres",
+      "-c", "log_statement=all",
+      "-c", "log_duration=on",
+      "-c", "log_min_duration_statement=0"
+    ]

@@ -2,12 +2,14 @@ name: onyx
 
 services:
   wsgi:
-    build: .
+    build:
+      context: .
+      target: prod
     ports:
       - 8000:8000
     volumes:
-      - ${ONYX_PROJECTS_DIR}:/app/projects
-      - ${ONYX_LOGS_DIR}/wsgi:/app/logs/wsgi
+      - ${ONYX_PROJECTS}:/app/projects
+      - ${ONYX_LOGS}/wsgi:/app/logs/wsgi
     environment:
       HOST_NAME: ${HOST_NAME}
       SECRET_KEY: ${SECRET_KEY}
@@ -19,7 +21,6 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      ONYX_PROJECTS: ${ONYX_PROJECTS}
     depends_on:
       db:
         condition: service_healthy

@@ -6,8 +6,6 @@ services:
     volumes:
       - ./onyx:/app
       - ./onyx/projects/testproject:/app/projects/testproject
-    environment:
-      - ONYX_PROJECTS=${ONYX_PROJECTS},testproject
   db:
     command: [
       "postgres",

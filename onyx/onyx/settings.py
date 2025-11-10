@@ -36,6 +36,12 @@ ALLOWED_HOSTS = [os.environ["HOST_NAME"]]
 
 # ADMINS = [(os.environ["ADMIN_NAME"], os.environ["ADMIN_EMAIL"])]
 
+ONYX_PROJECTS = [
+    os.path.basename(p)
+    for p in (BASE_DIR / "projects").iterdir()
+    if p.is_dir() and "__init__.py" in os.listdir(p)
+]
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -53,11 +59,7 @@ INSTALLED_APPS = [
     "internal",
     "data",
     "accounts",
-] + [
-    f"projects.{project}"
-    for project in os.getenv("ONYX_PROJECTS", "").split(",")
-    if project
-]
+] + [f"projects.{project}" for project in ONYX_PROJECTS]
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",

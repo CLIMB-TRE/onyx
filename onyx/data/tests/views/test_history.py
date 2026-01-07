@@ -2,7 +2,7 @@ from datetime import timedelta, date
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from ...exceptions import ClimbIDNotFound
+from ...exceptions import RecordIDNotFound
 from ...types import Actions, OnyxType
 from projects.testproject.models import TestProject
 
@@ -15,8 +15,8 @@ class TestHistoryView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
 
         self.endpoint = lambda climb_id: reverse(
-            "projects.testproject.history.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
+            "projects.testproject.history.record_id",
+            kwargs={"code": self.project.code, "record_id": climb_id},
         )
         response = self.client.post(
             reverse("projects.testproject", kwargs={"code": self.project.code}),
@@ -51,7 +51,7 @@ class TestHistoryView(OnyxTestCase):
         response = self.client.get(self.endpoint(climb_id_not_found))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(
-            response.json()["messages"]["detail"], ClimbIDNotFound.default_detail
+            response.json()["messages"]["detail"], RecordIDNotFound.default_detail
         )
 
     def test_change_history(self):
@@ -69,8 +69,8 @@ class TestHistoryView(OnyxTestCase):
         }
         response = self.client.patch(
             reverse(
-                "projects.testproject.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+                "projects.testproject.record_id",
+                kwargs={"code": self.project.code, "record_id": self.climb_id},
             ),
             data=updated_values,
         )
@@ -124,8 +124,8 @@ class TestHistoryView(OnyxTestCase):
         }
         response = self.client.patch(
             reverse(
-                "projects.testproject.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+                "projects.testproject.record_id",
+                kwargs={"code": self.project.code, "record_id": self.climb_id},
             ),
             data=updated_values,
         )
@@ -155,8 +155,8 @@ class TestHistoryView(OnyxTestCase):
         }
         response = self.client.patch(
             reverse(
-                "projects.testproject.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+                "projects.testproject.record_id",
+                kwargs={"code": self.project.code, "record_id": self.climb_id},
             ),
             data=updated_values,
         )
@@ -224,8 +224,8 @@ class TestHistoryView(OnyxTestCase):
         }
         response = self.client.patch(
             reverse(
-                "projects.testproject.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+                "projects.testproject.record_id",
+                kwargs={"code": self.project.code, "record_id": self.climb_id},
             ),
             data=updated_values,
         )

@@ -5,7 +5,7 @@ from django.core.management import base
 from django.db import transaction
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from ...models import Project, ProjectGroup, Choice
+from ...models import Project, ProjectGroup, Choice, PrimaryRecord
 from ...types import Actions, Scopes, Objects
 
 
@@ -81,7 +81,7 @@ class Config(BaseModel):
     contents: Optional[List[ProjectContentsConfig]]
 
 
-def get_analysis_groups(project: str) -> List[GroupConfig]:
+def get_analysis_groups(project: str, record_id_field: str) -> List[GroupConfig]:
     """
     Get the analysis groups for the provided `project`.
     """
@@ -161,7 +161,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "fields": [
                             "upstream_analyses__analysis_id",
                             "downstream_analyses__analysis_id",
-                            f"{project}_records__climb_id",
+                            f"{project}_records__{record_id_field}",
                         ],
                     },
                 ],
@@ -272,7 +272,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "fields": [
                             "upstream_analyses__analysis_id",
                             "downstream_analyses__analysis_id",
-                            f"{project}_records__climb_id",
+                            f"{project}_records__{record_id_field}",
                         ],
                     },
                 ],
@@ -334,6 +334,10 @@ class Command(base.BaseCommand):
                 "content_type": ContentType.objects.get(app_label=app, model=model),
             },
         )
+        record_model = project.content_type.model_class()
+        assert record_model is not None
+        assert issubclass(record_model, PrimaryRecord)
+        record_id_field = record_model.get_primary_id()
 
         if p_created:
             self.print(f"Creating project: {project.code}")
@@ -380,7 +384,7 @@ class Command(base.BaseCommand):
                         choice_constraints.extend(content.choice_constraints)
 
             # Add analysis permissions for the project scopes
-            for group in get_analysis_groups(project.code):
+            for group in get_analysis_groups(project.code, record_id_field):
                 groups.setdefault(group.scope, {}).setdefault(
                     group.object_type, []
                 ).extend(group.permissions)

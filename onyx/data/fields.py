@@ -34,6 +34,7 @@ class OnyxField:
         "choices",
         "lookup",
         "value",
+        "default",
         "base_onyx_field",
         "many_to_many",
     )
@@ -163,6 +164,18 @@ class OnyxField:
 
         self.lookup = lookup
         self.value = value
+
+        # Add default value if it exists
+        self.default = None
+        if (
+            # ManyToMany fields don't have a default attribute
+            hasattr(self.field_instance, "default")
+            and self.field_instance.default != models.NOT_PROVIDED
+        ):
+            if self.field_instance.default in [list, dict]:
+                self.default = self.field_instance.default()
+            elif type(self.field_instance.default) in [str, int, float, bool]:
+                self.default = self.field_instance.default
 
 
 class FieldHandler:

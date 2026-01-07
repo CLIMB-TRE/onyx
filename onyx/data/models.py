@@ -170,8 +170,12 @@ class BaseRecord(models.Model):
 
 class PrimaryRecord(BaseRecord):
     @classmethod
-    def version(cls):
-        return "N/A"
+    def version(cls) -> str:
+        raise NotImplementedError("A version number is required.")
+
+    @classmethod
+    def get_primary_id(cls) -> str:
+        raise NotImplementedError("A method to return the ID field is required.")
 
     is_published = models.BooleanField(
         default=True,
@@ -223,6 +227,14 @@ def generate_analysis_id():
 
 
 class Analysis(PrimaryRecord):
+    @classmethod
+    def version(cls):
+        return "N/A"
+
+    @classmethod
+    def get_primary_id(cls):
+        return "analysis_id"
+
     project = models.ForeignKey(Project, on_delete=models.PROTECT)
 
     # Overview
@@ -375,8 +387,8 @@ class ClimbID(models.Model):
 
 class ProjectRecord(PrimaryRecord):
     @classmethod
-    def version(cls):
-        raise NotImplementedError("A version number is required.")
+    def get_primary_id(cls):
+        return "climb_id"
 
     climb_id = UpperCharField(
         max_length=12,

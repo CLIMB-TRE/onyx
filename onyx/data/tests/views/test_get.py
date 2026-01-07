@@ -21,8 +21,8 @@ class TestGetView(OnyxTestCase):
         self.client.force_authenticate(self.analyst_user)  # type: ignore
 
         self.endpoint = lambda climb_id: reverse(
-            "projects.testproject.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
+            "projects.testproject.record_id",
+            kwargs={"code": self.project.code, "record_id": climb_id},
         )
 
     def test_basic(self):

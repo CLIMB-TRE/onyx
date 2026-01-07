@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
-from ...exceptions import ClimbIDNotFound
+from ...exceptions import RecordIDNotFound
 from projects.testproject.models import TestProject
 
 
@@ -17,8 +17,8 @@ class TestUpdateView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
 
         self.endpoint = lambda climb_id: reverse(
-            "projects.testproject.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
+            "projects.testproject.record_id",
+            kwargs={"code": self.project.code, "record_id": climb_id},
         )
         response = self.client.post(
             reverse("projects.testproject", kwargs={"code": self.project.code}),
@@ -63,8 +63,8 @@ class TestUpdateView(OnyxTestCase):
         }
         response = self.client.patch(
             reverse(
-                "projects.testproject.test.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+                "projects.testproject.test.record_id",
+                kwargs={"code": self.project.code, "record_id": self.climb_id},
             ),
             data=updated_values,
         )
@@ -86,7 +86,7 @@ class TestUpdateView(OnyxTestCase):
         response = self.client.patch(self.endpoint(climb_id_not_found), data={})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(
-            response.json()["messages"]["detail"], ClimbIDNotFound.default_detail
+            response.json()["messages"]["detail"], RecordIDNotFound.default_detail
         )
 
     def test_empty_payload_success(self):

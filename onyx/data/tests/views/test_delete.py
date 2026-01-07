@@ -16,8 +16,8 @@ class TestDeleteView(OnyxTestCase):
         self.client.force_authenticate(self.admin_user)  # type: ignore
 
         self.endpoint = lambda climb_id: reverse(
-            "projects.testproject.climb_id",
-            kwargs={"code": self.project.code, "climb_id": climb_id},
+            "projects.testproject.record_id",
+            kwargs={"code": self.project.code, "record_id": climb_id},
         )
         response = self.client.post(
             reverse("projects.testproject", kwargs={"code": self.project.code}),

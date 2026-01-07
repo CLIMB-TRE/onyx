@@ -22,7 +22,12 @@ from .serializers import (
     SummarySerializer,
     SerializerNode,
 )
-from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
+from .exceptions import (
+    ObjectNotFound,
+    RecordIDNotFound,
+    AnalysisIdNotFound,
+    IdentifierNotFound,
+)
 from .query import QuerySymbol, QueryBuilder
 from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
@@ -117,9 +122,8 @@ class PrimaryRecordAPIView(APIView):
 
     permission_classes = ProjectApproved + [IsSiteMember]
     project_action = Actions.NO_ACCESS
-    object_type = Objects.RECORD
-    id_field = "climb_id"
-    NotFound = ClimbIDNotFound
+    object_type = Objects.OBJECT
+    NotFound = ObjectNotFound
 
     def initial(self, request: Request, *args, **kwargs):
         """
@@ -131,12 +135,19 @@ class PrimaryRecordAPIView(APIView):
         # Get the project and model
         self.project, self.model = get_project_and_model(self.kwargs["code"])
 
+        # Get the id field
+        self.id_field = self.model.get_primary_id()
+
         # Get the model's serializer
         self.serializer_cls = self.kwargs["serializer_class"]
         self.kwargs.pop("serializer_class")
 
         # Get the serializer context
-        self.context = {"project": self.project, "request": self.request}
+        self.context = {
+            "project": self.project,
+            "request": self.request,
+            "id_field": self.id_field,
+        }
 
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
@@ -210,13 +221,11 @@ class PrimaryRecordAPIView(APIView):
 
 class ProjectRecordAPIView(PrimaryRecordAPIView):
     object_type = Objects.RECORD
-    id_field = "climb_id"
-    NotFound = ClimbIDNotFound
+    NotFound = RecordIDNotFound
 
 
 class AnalysisAPIView(PrimaryRecordAPIView):
     object_type = Objects.ANALYSIS
-    id_field = "analysis_id"
     NotFound = AnalysisIdNotFound
 
     def initial(self, request: Request, *args, **kwargs):
@@ -226,8 +235,9 @@ class AnalysisAPIView(PrimaryRecordAPIView):
 
         super().initial(request, *args, **kwargs)
 
-        # Assign the analysis model
+        # Assign the analysis model and id field
         self.model = Analysis
+        self.id_field = self.model.get_primary_id()
 
         # Override field handler with correct model
         self.handler = FieldHandler(
@@ -376,6 +386,7 @@ class FieldsView(PrimaryRecordAPIView):
                 "name": self.project.name,
                 "description": self.project.description,
                 "object_type": self.object_type.label,
+                "primary_id": self.model.get_primary_id(),
                 "version": self.model.version(),
                 "fields": fields_spec,
             }
@@ -466,7 +477,7 @@ class HistoryView(PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to view the history of the instance
@@ -600,8 +611,8 @@ class HistoryView(PrimaryRecordAPIView):
 
 
 class ProjectRecordHistoryView(HistoryView, ProjectRecordAPIView):
-    def get(self, request: Request, code: str, climb_id: str) -> Response:
-        return super().get(request, code, climb_id)
+    def get(self, request: Request, code: str, record_id: str) -> Response:
+        return super().get(request, code, record_id)
 
 
 class AnalysisHistoryView(HistoryView, AnalysisAPIView):
@@ -759,7 +770,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Fields returned in response
@@ -1012,7 +1023,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to update the instance
@@ -1059,7 +1070,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to delete the instance
@@ -1086,16 +1097,16 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
 
 
 class ProjectRecordsViewSet(PrimaryRecordViewSet, ProjectRecordAPIView):
-    def retrieve(self, request: Request, code: str, climb_id: str) -> Response:
-        return super().retrieve(request, code, climb_id)
+    def retrieve(self, request: Request, code: str, record_id: str) -> Response:
+        return super().retrieve(request, code, record_id)
 
     def partial_update(
-        self, request: Request, code: str, climb_id: str, test: bool = False
+        self, request: Request, code: str, record_id: str, test: bool = False
     ) -> Response:
-        return super().partial_update(request, code, climb_id, test)
+        return super().partial_update(request, code, record_id, test)
 
-    def destroy(self, request: Request, code: str, climb_id: str) -> Response:
-        return super().destroy(request, code, climb_id)
+    def destroy(self, request: Request, code: str, record_id: str) -> Response:
+        return super().destroy(request, code, record_id)
 
 
 class AnalysisViewSet(PrimaryRecordViewSet, AnalysisAPIView):
@@ -1114,13 +1125,14 @@ class AnalysisViewSet(PrimaryRecordViewSet, AnalysisAPIView):
 class RecordAnalysesView(AnalysisAPIView):
     project_action = Actions.LIST
 
-    def get(self, request: Request, code: str, climb_id: str) -> Response:
+    def get(self, request: Request, code: str, record_id: str) -> Response:
         """
-        Use the `climb_id` to retrieve the analyses of an instance for the given project `code`.
+        Use the `record_id` to retrieve the analyses of an instance for the given project `code`.
         """
 
         # Get the record model
         _, record_model = get_project_and_model(self.project.code)
+        record_id_field = record_model.get_primary_id()
 
         # Initialise record field handler
         record_handler = FieldHandler(
@@ -1140,14 +1152,14 @@ class RecordAnalysesView(AnalysisAPIView):
 
         # Check the instance exists
         # If the instance does not exist, return 404
-        if not record_qs.filter(climb_id=climb_id).exists():
-            raise self.NotFound
+        if not record_qs.filter(**{record_id_field: record_id}).exists():
+            raise RecordIDNotFound
 
-        # Filter the analyses with the instance's climb_id
+        # Filter the analyses with the instance's record_id
         qs = self.qs.filter(
             **{
                 "project__code": self.project.code,
-                f"{self.project.code}_records__climb_id": climb_id,
+                f"{self.project.code}_records__{record_id_field}": record_id,
             }
         )
 
@@ -1189,7 +1201,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         # Check the instance exists
         # If the instance does not exist, return 404
         if not analysis_qs.filter(analysis_id=analysis_id).exists():
-            raise self.NotFound
+            raise AnalysisIdNotFound
 
         # Filter the records with the instance's analysis_id
         qs = self.qs.filter(analyses__analysis_id=analysis_id)
@@ -1198,7 +1210,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         serializer = self.serializer_cls(
             qs,
             many=True,
-            fields=unflatten_fields(["climb_id", "published_date", "site"]),
+            fields=unflatten_fields([self.id_field, "published_date", "site"]),
         )
 
         # Return response with data

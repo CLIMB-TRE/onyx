@@ -143,7 +143,11 @@ class PrimaryRecordAPIView(APIView):
         self.kwargs.pop("serializer_class")
 
         # Get the serializer context
-        self.context = {"project": self.project, "request": self.request}
+        self.context = {
+            "project": self.project,
+            "request": self.request,
+            "id_field": self.id_field,
+        }
 
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
@@ -473,7 +477,7 @@ class HistoryView(PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to view the history of the instance
@@ -766,7 +770,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Fields returned in response
@@ -1019,7 +1023,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to update the instance
@@ -1066,7 +1070,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the instance does not exist, return 404
         try:
             instance = self.qs.get(**{self.id_field: id_value})
-        except self.model.DoesNotExist:
+        except (self.model.DoesNotExist, ValueError):
             raise self.NotFound
 
         # Check permissions to delete the instance

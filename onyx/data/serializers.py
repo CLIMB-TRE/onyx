@@ -427,7 +427,7 @@ class AnalysisSerializer(PrimaryRecordSerializer):
                 self.fields[records_field] = ProjectRecordRelatedField(
                     many=True,
                     required=False,
-                    slug_field="climb_id",
+                    slug_field=self.context["id_field"],
                     help_text="The records this analysis was produced from.",
                 )
 

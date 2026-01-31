@@ -1029,6 +1029,10 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                     or onyx_field.onyx_type == OnyxType.CHOICE
                 ):
                     self.request_data[field] = ""
+                elif onyx_field.onyx_type == OnyxType.ARRAY:
+                    self.request_data[field] = "[]"
+                elif onyx_field.onyx_type == OnyxType.STRUCTURE:
+                    self.request_data[field] = "{}"
                 else:
                     self.request_data[field] = None
             except exceptions.ValidationError as e:

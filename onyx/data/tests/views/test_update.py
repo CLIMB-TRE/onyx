@@ -884,7 +884,303 @@ class TestUpdateView(OnyxTestCase):
         self.assertContains(response, "test_pass", status_code=400)
         self.assertContains(response, "test_result", status_code=400)
 
-    def test_update_array_field(self):
+    def test_update_text(self):
+        """
+        Test updating a text field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with a new value
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"text_option_2": "updated text value"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.text_option_2, "updated text value")
+
+        # Update with whitespace (should be stripped)
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"text_option_2": "  trimmed  "},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.text_option_2, "trimmed")
+
+        # Update with empty string
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"text_option_2": ""},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.text_option_2, "")
+
+    def test_update_choice(self):
+        """
+        Test updating a choice field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with a valid choice
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"region": "ne"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.region, "ne")
+
+        # Update with different case (should be normalized)
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"region": "NW"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.region, "nw")
+
+        # Update with empty string
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"region": ""},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.region, "")
+
+        # Update with invalid choice should fail
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"region": "invalid_choice"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "region", status_code=400)
+
+    def test_update_integer(self):
+        """
+        Test updating an integer field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with a new value
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 42},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 42)
+
+        # Update with string representation
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": "100"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 100)
+
+        # Update with null
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": None},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNone(instance.tests)
+
+        # Update with invalid value should fail
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": "not_a_number"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "tests", status_code=400)
+
+    def test_update_decimal(self):
+        """
+        Test updating a decimal field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with a new value
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": 3.14159},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.score)
+        self.assertAlmostEqual(instance.score, 3.14159, places=5)  # type: ignore
+
+        # Update with string representation
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": "99.99"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.score)
+        self.assertAlmostEqual(instance.score, 99.99, places=2)  # type: ignore
+
+        # Update with integer (should work as decimal)
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.score, 100.0)
+
+        # Update with null
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": None},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNone(instance.score)
+
+        # Update with invalid value should fail
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": "not_a_number"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "score", status_code=400)
+
+    def test_update_date(self):
+        """
+        Test updating a date field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with a new value
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"submission_date": "2024-06-15"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.submission_date)
+        self.assertEqual(instance.submission_date.strftime("%Y-%m-%d"), "2024-06-15")  # type: ignore
+
+        # Update with different format
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"submission_date": "2024-1-5"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.submission_date)
+        self.assertEqual(instance.submission_date.strftime("%Y-%m-%d"), "2024-01-05")  # type: ignore
+
+        # Update with null
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"submission_date": None},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNone(instance.submission_date)
+
+        # Update with invalid value should fail
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"submission_date": "not_a_date"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "submission_date", status_code=400)
+
+    def test_update_boolean(self):
+        """
+        Test updating a boolean field.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+
+        # Update with True
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": True},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertTrue(instance.concern)
+
+        # Update with False
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": False},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertFalse(instance.concern)
+
+        # Update with string "true"
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": "true"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertTrue(instance.concern)
+
+        # Update with string "false"
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": "false"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertFalse(instance.concern)
+
+        # Update with null
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": None},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNone(instance.concern)
+
+        # Update with invalid value should fail
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": "not_a_bool"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "concern", status_code=400)
+
+    def test_update_array(self):
         """
         Test updating an array field.
         """
@@ -898,7 +1194,7 @@ class TestUpdateView(OnyxTestCase):
         instance = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(instance.scores, [1, 2, 3, 4, 5])
 
-    def test_update_structure_field(self):
+    def test_update_structure(self):
         """
         Test updating a structure (JSON) field.
         """
@@ -911,3 +1207,73 @@ class TestUpdateView(OnyxTestCase):
 
         instance = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(instance.structure, {"key": "value", "nested": {"number": 42}})
+
+    def test_update_analysis_identifiers(self):
+        """
+        Test updating an identifiers field on an analysis.
+        """
+
+        # Create test identifiers
+        identifier_1 = Anonymiser.objects.create(
+            project=self.project,
+            site=self.site,
+            field="test_field",
+            hash="test_hash_1",
+            prefix="I-",
+        )
+        identifier_2 = Anonymiser.objects.create(
+            project=self.project,
+            site=self.site,
+            field="test_field",
+            hash="test_hash_2",
+            prefix="I-",
+        )
+        identifier_3 = Anonymiser.objects.create(
+            project=self.project,
+            site=self.site,
+            field="test_field",
+            hash="test_hash_3",
+            prefix="I-",
+        )
+
+        # Create an analysis with the first identifier
+        analysis_payload = {
+            "name": "Test Analysis",
+            "analysis_date": "2024-01-01",
+            "pipeline_name": "Test Pipeline",
+            "pipeline_version": "0.1.0",
+            "result": "Test Result",
+            "report": "s3://test-bucket/test-report.html",
+            "identifiers": [identifier_1.identifier],
+        }
+        response = self.client.post(
+            reverse(
+                "projects.testproject.analysis",
+                kwargs={"code": self.project.code},
+            ),
+            data=analysis_payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        analysis_id = response.json()["data"]["analysis_id"]
+
+        # Verify the analysis has the first identifier
+        instance = Analysis.objects.get(analysis_id=analysis_id)
+        self.assertEqual(instance.identifiers.count(), 1)
+        self.assertIn(identifier_1, instance.identifiers.all())
+
+        # Update the identifiers to a new set
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.analysis.analysis_id",
+                kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            ),
+            data={"identifiers": [identifier_2.identifier, identifier_3.identifier]},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify the identifiers have been updated
+        instance.refresh_from_db()
+        self.assertEqual(instance.identifiers.count(), 2)
+        self.assertNotIn(identifier_1, instance.identifiers.all())
+        self.assertIn(identifier_2, instance.identifiers.all())
+        self.assertIn(identifier_3, instance.identifiers.all())

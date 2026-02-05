@@ -146,6 +146,7 @@ class TestCreateView(OnyxTestCase):
         payload["climb_id"] = "helloooo"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "climb_id", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -158,6 +159,7 @@ class TestCreateView(OnyxTestCase):
         payload["uuid"] = "helloooo"  # UUID is not accessible anywhere
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "uuid", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -171,6 +173,8 @@ class TestCreateView(OnyxTestCase):
         payload["goodbye"] = "bye"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "hello", status_code=400)
+        self.assertContains(response, "goodbye", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -183,6 +187,7 @@ class TestCreateView(OnyxTestCase):
         payload.pop("sample_id")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "sample_id", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -195,6 +200,7 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0].pop("test_id")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_id", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -207,6 +213,7 @@ class TestCreateView(OnyxTestCase):
         payload.pop("country")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "country", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -221,6 +228,7 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0]["score_c"] = 42.3
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "score_c", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -249,6 +257,7 @@ class TestCreateView(OnyxTestCase):
         payload.pop("required_when_published")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "required_when_published", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -274,6 +283,7 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0].pop("test_result")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_result", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -299,6 +309,8 @@ class TestCreateView(OnyxTestCase):
         payload.pop("optional_when_published_2")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "optional_when_published_1", status_code=400)
+        self.assertContains(response, "optional_when_published_2", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -319,6 +331,7 @@ class TestCreateView(OnyxTestCase):
         # either can be provided when the record is being published
         payload = copy.deepcopy(default_payload)
         payload["sample_id"] = "sample-2345"
+        payload["unique_together_1"] = "unique3"
         payload["optional_when_published_1"] = "hello"
         payload.pop("optional_when_published_2")
         response = self.client.post(self.endpoint, data=payload)
@@ -332,6 +345,7 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         payload["sample_id"] = "sample-3456"
+        payload["unique_together_1"] = "unique4"
         payload.pop("optional_when_published_1")
         payload["optional_when_published_2"] = "hello"
         response = self.client.post(self.endpoint, data=payload)
@@ -362,6 +376,7 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         payload["sample_id"] = "sample-2345"
+        payload["unique_together_1"] = "unique3"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert TestProject.objects.count() == 2
@@ -373,6 +388,7 @@ class TestCreateView(OnyxTestCase):
 
         payload = copy.deepcopy(default_payload)
         payload["run_name"] = "run-2"
+        payload["unique_together_1"] = "unique4"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         assert TestProject.objects.count() == 3
@@ -385,6 +401,10 @@ class TestCreateView(OnyxTestCase):
         payload = copy.deepcopy(default_payload)
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "sample_id", status_code=400)
+        self.assertContains(response, "run_name", status_code=400)
+        self.assertContains(response, "unique_together_1", status_code=400)
+        self.assertContains(response, "unique_together_2", status_code=400)
         assert TestProject.objects.count() == 3
         assert TestProjectRecord.objects.count() == 6
         assert (
@@ -405,6 +425,7 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0]["test_id"] = payload["records"][1]["test_id"]
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_id", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -418,6 +439,8 @@ class TestCreateView(OnyxTestCase):
         payload.pop("received_month")
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "collection_month", status_code=400)
+        self.assertContains(response, "received_month", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -444,6 +467,8 @@ class TestCreateView(OnyxTestCase):
         payload["records"][0].pop("score_b", None)
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "score_a", status_code=400)
+        self.assertContains(response, "score_b", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -458,6 +483,8 @@ class TestCreateView(OnyxTestCase):
         payload["received_month"] = "2023-01"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "collection_month", status_code=400)
+        self.assertContains(response, "received_month", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -469,6 +496,8 @@ class TestCreateView(OnyxTestCase):
         payload["start"] = end
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "start", status_code=400)
+        self.assertContains(response, "end", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -482,6 +511,8 @@ class TestCreateView(OnyxTestCase):
         payload["records"][1]["test_end"] = "2023-03"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_start", status_code=400)
+        self.assertContains(response, "test_end", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -494,6 +525,7 @@ class TestCreateView(OnyxTestCase):
         payload["country"] = "wales"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "country", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -501,6 +533,7 @@ class TestCreateView(OnyxTestCase):
         payload["region"] = "other"
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "region", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -522,6 +555,7 @@ class TestCreateView(OnyxTestCase):
         )
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "collection_month", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -531,6 +565,7 @@ class TestCreateView(OnyxTestCase):
         )
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "submission_date", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -550,6 +585,7 @@ class TestCreateView(OnyxTestCase):
         payload["char_max_length_20"] = "X" * 21
         response = self.client.post(self.endpoint, data=payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "char_max_length_20", status_code=400)
         assert TestProject.objects.count() == 0
         assert TestProjectRecord.objects.count() == 0
 
@@ -595,6 +631,7 @@ class TestCreateView(OnyxTestCase):
             payload["text_option_1"] = bad_text
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "text_option_1", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -644,6 +681,7 @@ class TestCreateView(OnyxTestCase):
             payload["region"] = bad_choice
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "region", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -691,6 +729,7 @@ class TestCreateView(OnyxTestCase):
             payload["tests"] = bad_int
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "tests", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -738,6 +777,7 @@ class TestCreateView(OnyxTestCase):
             payload["score"] = bad_float
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "score", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -795,6 +835,7 @@ class TestCreateView(OnyxTestCase):
             payload["collection_month"] = bad_yearmonth
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "collection_month", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -853,6 +894,7 @@ class TestCreateView(OnyxTestCase):
             payload["submission_date"] = bad_date
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "submission_date", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0
 
@@ -900,5 +942,6 @@ class TestCreateView(OnyxTestCase):
             payload["concern"] = bad_bool
             response = self.client.post(self.endpoint, data=payload)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertContains(response, "concern", status_code=400)
             assert TestProject.objects.count() == 0
             assert TestProjectRecord.objects.count() == 0

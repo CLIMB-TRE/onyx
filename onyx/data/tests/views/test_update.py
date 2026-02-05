@@ -134,374 +134,6 @@ class TestUpdateView(OnyxTestCase):
         instance = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(instance.climb_id, self.climb_id)
 
-    def test_clear_text(self):
-        """
-        Test clearing a text field sets it to an empty string.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.text_option_2 = "some text"
-        instance.save()
-        instance.refresh_from_db()
-        self.assertNotEqual(instance.text_option_2, "")
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=text_option_2"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.text_option_2, "")
-
-    def test_clear_choice(self):
-        """
-        Test clearing a choice field sets it to an empty string.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.country = "eng"
-        instance.region = "london"
-        instance.save()
-        instance.refresh_from_db()
-        self.assertNotEqual(instance.country, "")
-        self.assertNotEqual(instance.region, "")
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=country&clear=region"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.country, "")
-        self.assertEqual(instance.region, "")
-
-    def test_clear_integer(self):
-        """
-        Test clearing an integer field sets it to null.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.tests = 5
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.tests)
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=tests")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertIsNone(instance.tests)
-
-    def test_clear_decimal(self):
-        """
-        Test clearing a decimal field sets it to null.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.score = 3.14
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.score)
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=score")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertIsNone(instance.score)
-
-    def test_clear_date(self):
-        """
-        Test clearing a date field sets it to null.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.collection_month = datetime(2023, 1, 15).date()
-        instance.received_month = datetime(2023, 2, 20).date()
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.collection_month)
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=collection_month"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertIsNone(instance.collection_month)
-        self.assertIsNotNone(instance.received_month)
-
-        # Test at least one required constraint fails when clearing
-        instance.received_month = datetime.now().date()
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.received_month)
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=received_month"
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.received_month)
-
-    def test_clear_bool(self):
-        """
-        Test clearing a boolean field sets it to null.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.concern = True
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.concern)
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=concern")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertIsNone(instance.concern)
-
-    def test_clear_relation(self):
-        """
-        Test clearing a relation field deletes all related objects.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.records.create(  #  type: ignore
-            user=self.admin_user,  # type: ignore
-            test_id=1000,
-            test_pass=False,
-            test_start=datetime.now().date(),
-            test_end=datetime.now().date(),
-            score_a=95.0,
-        )
-        instance.refresh_from_db()
-        self.assertGreater(instance.records.count(), 0)  #  type: ignore
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=records")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.records.count(), 0)  #  type: ignore
-
-    def test_clear_array(self):
-        """
-        Test clearing an array field sets it to an empty list.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.scores = [1, 2, 3]
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.scores)
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=scores")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.scores, [])
-
-    def test_clear_structure(self):
-        """
-        Test clearing a structure (JSON) field sets it to an empty dict.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.structure = {"key": "value", "nested": {"number": 42}}
-        instance.save()
-        instance.refresh_from_db()
-        self.assertIsNotNone(instance.structure)
-
-        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=structure")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.structure, {})
-
-    def test_clear_analysis_identifiers(self):
-        """
-        Test clearing an identifiers field on an analysis sets it to an empty list.
-        """
-
-        # Create test identifier
-        identifier = Anonymiser.objects.create(
-            project=self.project,
-            site=self.site,
-            field="test_field",
-            hash="test_hash",
-            prefix="I-",
-        )
-
-        # Create an analysis with the identifier
-        analysis_payload = {
-            "name": "Test Analysis",
-            "analysis_date": "2024-01-01",
-            "pipeline_name": "Test Pipeline",
-            "pipeline_version": "0.1.0",
-            "result": "Test Result",
-            "report": "s3://test-bucket/test-report.html",
-            "identifiers": [identifier.identifier],
-        }
-        response = self.client.post(
-            reverse(
-                "projects.testproject.analysis",
-                kwargs={"code": self.project.code},
-            ),
-            data=analysis_payload,
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        analysis_id = response.json()["data"]["analysis_id"]
-
-        # Verify the analysis has the identifier
-        instance = Analysis.objects.get(analysis_id=analysis_id)
-        self.assertEqual(instance.identifiers.count(), 1)
-
-        # Clear the identifiers field
-        response = self.client.patch(
-            reverse(
-                "projects.testproject.analysis.analysis_id",
-                kwargs={"code": self.project.code, "analysis_id": analysis_id},
-            )
-            + "?clear=identifiers"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Verify the identifiers are now empty
-        instance.refresh_from_db()
-        self.assertEqual(instance.identifiers.count(), 0)
-
-    def test_clear_multiple_fields(self):
-        """
-        Test clearing multiple fields at once.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.tests = 10
-        instance.score = 5.5
-        instance.text_option_2 = "some text"
-        instance.save()
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=tests&clear=score&clear=text_option_2",
-            data={},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        instance.refresh_from_db()
-        self.assertIsNone(instance.tests)
-        self.assertIsNone(instance.score)
-        self.assertEqual(instance.text_option_2, "")
-
-    def test_clear_with_update(self):
-        """
-        Test clearing fields while also updating other fields.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.tests = 10
-        instance.score = 5.5
-        instance.save()
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=score",
-            data={"tests": 20},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.tests, 20)
-        self.assertIsNone(instance.score)
-
-    def test_clear_unknown_field(self):
-        """
-        Test that clearing an unknown field fails.
-        """
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=unknown_field"
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertContains(response, "unknown_field", status_code=400)
-
-    def test_clear_nested_field_fails(self):
-        """
-        Test that clearing a nested field (with __) fails.
-        """
-
-        response = self.client.patch(
-            f"{self.endpoint(self.climb_id)}?clear=records__test_id"
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertContains(response, "records__test_id", status_code=400)
-
-    def test_clear_test(self):
-        """
-        Test that clearing in test mode does not actually clear the fields.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        original_value = instance.text_option_2
-
-        response = self.client.patch(
-            reverse(
-                "projects.testproject.test.climb_id",
-                kwargs={"code": self.project.code, "climb_id": self.climb_id},
-            )
-            + "?clear=text_option_2"
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["data"], {})
-        instance.refresh_from_db()
-        self.assertEqual(instance.text_option_2, original_value)
-
-    def test_add_nested_record(self):
-        """
-        Test adding a new nested record during update.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        initial_count = instance.records.count()  # type: ignore
-
-        response = self.client.patch(
-            self.endpoint(self.climb_id),
-            data={
-                "records": [
-                    {
-                        "test_id": 999,
-                        "test_pass": False,
-                        "test_start": "2023-01",
-                        "test_end": "2023-02",
-                        "score_a": 1.0,
-                        "score_b": 2.0,
-                    }
-                ]
-            },
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        instance.refresh_from_db()
-        self.assertEqual(instance.records.count(), initial_count + 1)  # type: ignore
-        self.assertTrue(instance.records.filter(test_id=999).exists())  # type: ignore
-
-    def test_update_nested_record(self):
-        """
-        Test updating an existing nested record.
-        """
-
-        instance = TestProject.objects.get(climb_id=self.climb_id)
-        instance.records.create(  # type: ignore
-            user=self.admin_user,  # type: ignore
-            test_id=500,
-            test_pass=False,
-            test_start=datetime.now().date(),
-            test_end=datetime.now().date(),
-            score_a=1.0,
-            score_b=2.0,
-        )
-        instance.refresh_from_db()
-        nested_record = instance.records.get(test_id=500)  # type: ignore
-
-        response = self.client.patch(
-            self.endpoint(self.climb_id),
-            data={
-                "records": [
-                    {"test_id": 500, "test_pass": True, "test_result": "updated"}
-                ]
-            },
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        nested_record.refresh_from_db()
-        self.assertTrue(nested_record.test_pass)
-        self.assertEqual(nested_record.test_result, "updated")
-
     def test_unknown_fields(self):
         """
         Test that a payload with unknown fields fails.
@@ -538,7 +170,7 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "records__unknown_field", status_code=400)
 
-    def test_suppressed_record_admin_can_update(self):
+    def test_admin_can_update_suppressed(self):
         """
         Test that admin users can still update suppressed records.
         """
@@ -554,6 +186,49 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         instance.refresh_from_db()
         self.assertEqual(instance.tests, 100)
+
+    def test_admin_can_update_unpublished(self):
+        """
+        Test that admin users can still update unpublished records.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.is_published = False
+        instance.save()
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 100)
+
+    def test_analyst_cannot_update(self):
+        """
+        Test that an analyst user cannot update records.
+        """
+
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_update(self):
+        """
+        Test that an unauthenticated user cannot update records.
+        """
+
+        self.client.force_authenticate(None)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_unique_together(self):
         """
@@ -710,32 +385,6 @@ class TestUpdateView(OnyxTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "concern", status_code=400)
-
-    def test_analyst_cannot_update(self):
-        """
-        Test that an analyst user cannot update records.
-        """
-
-        self.client.force_authenticate(self.analyst_user)  # type: ignore
-
-        response = self.client.patch(
-            self.endpoint(self.climb_id),
-            data={"tests": 100},
-        )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_unauthenticated_cannot_update(self):
-        """
-        Test that an unauthenticated user cannot update records.
-        """
-
-        self.client.force_authenticate(None)  # type: ignore
-
-        response = self.client.patch(
-            self.endpoint(self.climb_id),
-            data={"tests": 100},
-        )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_update_preserves_unmodified_fields(self):
         """
@@ -921,6 +570,24 @@ class TestUpdateView(OnyxTestCase):
         instance.refresh_from_db()
         self.assertEqual(instance.text_option_2, "")
 
+    def test_clear_text(self):
+        """
+        Test clearing a text field sets it to an empty string.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.text_option_2 = "some text"
+        instance.save()
+        instance.refresh_from_db()
+        self.assertNotEqual(instance.text_option_2, "")
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=text_option_2"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.text_option_2, "")
+
     def test_update_choice(self):
         """
         Test updating a choice field.
@@ -966,6 +633,27 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "region", status_code=400)
 
+    def test_clear_choice(self):
+        """
+        Test clearing a choice field sets it to an empty string.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.country = "eng"
+        instance.region = "london"
+        instance.save()
+        instance.refresh_from_db()
+        self.assertNotEqual(instance.country, "")
+        self.assertNotEqual(instance.region, "")
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=country&clear=region"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.country, "")
+        self.assertEqual(instance.region, "")
+
     def test_update_integer(self):
         """
         Test updating an integer field.
@@ -1010,6 +698,22 @@ class TestUpdateView(OnyxTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "tests", status_code=400)
+
+    def test_clear_integer(self):
+        """
+        Test clearing an integer field sets it to null.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.tests = 5
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.tests)
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=tests")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertIsNone(instance.tests)
 
     def test_update_decimal(self):
         """
@@ -1068,6 +772,22 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "score", status_code=400)
 
+    def test_clear_decimal(self):
+        """
+        Test clearing a decimal field sets it to null.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.score = 3.14
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.score)
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=score")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertIsNone(instance.score)
+
     def test_update_date(self):
         """
         Test updating a date field.
@@ -1115,7 +835,40 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "submission_date", status_code=400)
 
-    def test_update_boolean(self):
+    def test_clear_date(self):
+        """
+        Test clearing a date field sets it to null.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.collection_month = datetime(2023, 1, 15).date()
+        instance.received_month = datetime(2023, 2, 20).date()
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.collection_month)
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=collection_month"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertIsNone(instance.collection_month)
+        self.assertIsNotNone(instance.received_month)
+
+        # Test at least one required constraint fails when clearing
+        instance.received_month = datetime.now().date()
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.received_month)
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=received_month"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.received_month)
+
+    def test_update_bool(self):
         """
         Test updating a boolean field.
         """
@@ -1180,6 +933,22 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertContains(response, "concern", status_code=400)
 
+    def test_clear_bool(self):
+        """
+        Test clearing a boolean field sets it to null.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.concern = True
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.concern)
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=concern")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertIsNone(instance.concern)
+
     def test_update_array(self):
         """
         Test updating an array field.
@@ -1194,6 +963,22 @@ class TestUpdateView(OnyxTestCase):
         instance = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(instance.scores, [1, 2, 3, 4, 5])
 
+    def test_clear_array(self):
+        """
+        Test clearing an array field sets it to an empty list.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.scores = [1, 2, 3]
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.scores)
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=scores")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.scores, [])
+
     def test_update_structure(self):
         """
         Test updating a structure (JSON) field.
@@ -1207,6 +992,22 @@ class TestUpdateView(OnyxTestCase):
 
         instance = TestProject.objects.get(climb_id=self.climb_id)
         self.assertEqual(instance.structure, {"key": "value", "nested": {"number": 42}})
+
+    def test_clear_structure(self):
+        """
+        Test clearing a structure (JSON) field sets it to an empty dict.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.structure = {"key": "value", "nested": {"number": 42}}
+        instance.save()
+        instance.refresh_from_db()
+        self.assertIsNotNone(instance.structure)
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=structure")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.structure, {})
 
     def test_update_analysis_identifiers(self):
         """
@@ -1277,3 +1078,219 @@ class TestUpdateView(OnyxTestCase):
         self.assertNotIn(identifier_1, instance.identifiers.all())
         self.assertIn(identifier_2, instance.identifiers.all())
         self.assertIn(identifier_3, instance.identifiers.all())
+
+    def test_clear_analysis_identifiers(self):
+        """
+        Test clearing an identifiers field on an analysis sets it to an empty list.
+        """
+
+        # Create test identifier
+        identifier = Anonymiser.objects.create(
+            project=self.project,
+            site=self.site,
+            field="test_field",
+            hash="test_hash",
+            prefix="I-",
+        )
+
+        # Create an analysis with the identifier
+        analysis_payload = {
+            "name": "Test Analysis",
+            "analysis_date": "2024-01-01",
+            "pipeline_name": "Test Pipeline",
+            "pipeline_version": "0.1.0",
+            "result": "Test Result",
+            "report": "s3://test-bucket/test-report.html",
+            "identifiers": [identifier.identifier],
+        }
+        response = self.client.post(
+            reverse(
+                "projects.testproject.analysis",
+                kwargs={"code": self.project.code},
+            ),
+            data=analysis_payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        analysis_id = response.json()["data"]["analysis_id"]
+
+        # Verify the analysis has the identifier
+        instance = Analysis.objects.get(analysis_id=analysis_id)
+        self.assertEqual(instance.identifiers.count(), 1)
+
+        # Clear the identifiers field
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.analysis.analysis_id",
+                kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            )
+            + "?clear=identifiers"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify the identifiers are now empty
+        instance.refresh_from_db()
+        self.assertEqual(instance.identifiers.count(), 0)
+
+    def test_add_nested_record(self):
+        """
+        Test adding a new nested record during update.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        initial_count = instance.records.count()  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {
+                        "test_id": 999,
+                        "test_pass": False,
+                        "test_start": "2023-01",
+                        "test_end": "2023-02",
+                        "score_a": 1.0,
+                        "score_b": 2.0,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.records.count(), initial_count + 1)  # type: ignore
+        self.assertTrue(instance.records.filter(test_id=999).exists())  # type: ignore
+
+    def test_update_nested_record(self):
+        """
+        Test updating an existing nested record.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=500,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+        instance.refresh_from_db()
+        nested_record = instance.records.get(test_id=500)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {"test_id": 500, "test_pass": True, "test_result": "updated"}
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        nested_record.refresh_from_db()
+        self.assertTrue(nested_record.test_pass)
+        self.assertEqual(nested_record.test_result, "updated")
+
+    def test_clear_nested_records(self):
+        """
+        Test clearing a relation field deletes all related objects.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  #  type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=1000,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=95.0,
+        )
+        instance.refresh_from_db()
+        self.assertGreater(instance.records.count(), 0)  #  type: ignore
+
+        response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=records")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.records.count(), 0)  #  type: ignore
+
+    def test_clear_multiple_fields(self):
+        """
+        Test clearing multiple fields at once.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.tests = 10
+        instance.score = 5.5
+        instance.text_option_2 = "some text"
+        instance.save()
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=tests&clear=score&clear=text_option_2",
+            data={},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertIsNone(instance.tests)
+        self.assertIsNone(instance.score)
+        self.assertEqual(instance.text_option_2, "")
+
+    def test_clear_with_update(self):
+        """
+        Test clearing fields while also updating other fields.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.tests = 10
+        instance.score = 5.5
+        instance.save()
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=score",
+            data={"tests": 20},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 20)
+        self.assertIsNone(instance.score)
+
+    def test_clear_unknown_field(self):
+        """
+        Test that clearing an unknown field fails.
+        """
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=unknown_field"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "unknown_field", status_code=400)
+
+    def test_clear_nested_field_fails(self):
+        """
+        Test that clearing a nested field (with __) fails.
+        """
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=records__test_id"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "records__test_id", status_code=400)
+
+    def test_clear_test(self):
+        """
+        Test that clearing in test mode does not actually clear the fields.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        original_value = instance.text_option_2
+
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.test.climb_id",
+                kwargs={"code": self.project.code, "climb_id": self.climb_id},
+            )
+            + "?clear=text_option_2"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], {})
+        instance.refresh_from_db()
+        self.assertEqual(instance.text_option_2, original_value)

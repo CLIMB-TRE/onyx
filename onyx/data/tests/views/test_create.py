@@ -32,6 +32,8 @@ default_payload = {
     "required_when_published": "hello",
     "optional_when_published_1": "optional text",
     "optional_when_published_2": "",
+    "unique_together_1": "unique1",
+    "unique_together_2": "unique2",
     "records": [
         {
             "test_id": 1,

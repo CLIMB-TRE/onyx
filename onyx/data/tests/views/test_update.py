@@ -1,9 +1,12 @@
 from datetime import datetime
+import copy
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import ClimbIDNotFound
+from data.models import Anonymiser, Analysis
 from projects.testproject.models import TestProject
+from .test_create import default_payload
 
 
 # TODO: Tests for update endpoint
@@ -305,6 +308,58 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         instance.refresh_from_db()
         self.assertEqual(instance.structure, {})
+
+    def test_clear_analysis_identifiers(self):
+        """
+        Test clearing an identifiers field on an analysis sets it to an empty list.
+        """
+
+        # Create test identifier
+        identifier = Anonymiser.objects.create(
+            project=self.project,
+            site=self.site,
+            field="test_field",
+            hash="test_hash",
+            prefix="I-",
+        )
+
+        # Create an analysis with the identifier
+        analysis_payload = {
+            "name": "Test Analysis",
+            "analysis_date": "2024-01-01",
+            "pipeline_name": "Test Pipeline",
+            "pipeline_version": "0.1.0",
+            "result": "Test Result",
+            "report": "s3://test-bucket/test-report.html",
+            "identifiers": [identifier.identifier],
+        }
+        response = self.client.post(
+            reverse(
+                "projects.testproject.analysis",
+                kwargs={"code": self.project.code},
+            ),
+            data=analysis_payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        analysis_id = response.json()["data"]["analysis_id"]
+
+        # Verify the analysis has the identifier
+        instance = Analysis.objects.get(analysis_id=analysis_id)
+        self.assertEqual(instance.identifiers.count(), 1)
+
+        # Clear the identifiers field
+        response = self.client.patch(
+            reverse(
+                "projects.testproject.analysis.analysis_id",
+                kwargs={"code": self.project.code, "analysis_id": analysis_id},
+            )
+            + "?clear=identifiers"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify the identifiers are now empty
+        instance.refresh_from_db()
+        self.assertEqual(instance.identifiers.count(), 0)
 
     def test_clear_multiple_fields(self):
         """

@@ -9,7 +9,6 @@ from projects.testproject.models import TestProject
 from .test_create import default_payload
 
 
-# TODO: Tests for update endpoint
 # TODO: Test failing to update a record in a different site
 
 
@@ -411,6 +410,7 @@ class TestUpdateView(OnyxTestCase):
             f"{self.endpoint(self.climb_id)}?clear=unknown_field"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "unknown_field", status_code=400)
 
     def test_clear_nested_field_fails(self):
         """
@@ -421,6 +421,7 @@ class TestUpdateView(OnyxTestCase):
             f"{self.endpoint(self.climb_id)}?clear=records__test_id"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "records__test_id", status_code=400)
 
     def test_clear_test(self):
         """
@@ -441,3 +442,472 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(response.json()["data"], {})
         instance.refresh_from_db()
         self.assertEqual(instance.text_option_2, original_value)
+
+    def test_add_nested_record(self):
+        """
+        Test adding a new nested record during update.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        initial_count = instance.records.count()  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {
+                        "test_id": 999,
+                        "test_pass": False,
+                        "test_start": "2023-01",
+                        "test_end": "2023-02",
+                        "score_a": 1.0,
+                        "score_b": 2.0,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.records.count(), initial_count + 1)  # type: ignore
+        self.assertTrue(instance.records.filter(test_id=999).exists())  # type: ignore
+
+    def test_update_nested_record(self):
+        """
+        Test updating an existing nested record.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=500,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+        instance.refresh_from_db()
+        nested_record = instance.records.get(test_id=500)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {"test_id": 500, "test_pass": True, "test_result": "updated"}
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        nested_record.refresh_from_db()
+        self.assertTrue(nested_record.test_pass)
+        self.assertEqual(nested_record.test_result, "updated")
+
+    def test_unknown_fields(self):
+        """
+        Test that a payload with unknown fields fails.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"unknown_field": "value", "another_unknown": 123},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "unknown_field", status_code=400)
+        self.assertContains(response, "another_unknown", status_code=400)
+
+    def test_unknown_nested_fields(self):
+        """
+        Test that a payload with unknown nested fields fails.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=500,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"records": [{"test_id": 500, "unknown_field": "value"}]},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "records__unknown_field", status_code=400)
+
+    def test_suppressed_record_admin_can_update(self):
+        """
+        Test that admin users can still update suppressed records.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.is_suppressed = True
+        instance.save()
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 100)
+
+    def test_unique_together(self):
+        """
+        Test that a unique together constraint is enforced on update.
+        """
+
+        # Create a second record
+        payload = copy.deepcopy(default_payload)
+        payload["sample_id"] = "sample-9999"
+        payload["run_name"] = "run-9999"
+        payload["unique_together_1"] = "unique9999"
+        payload["unique_together_2"] = "unique9999"
+        response = self.client.post(
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
+            data=payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        second_climb_id = response.json()["data"]["climb_id"]
+
+        # Try to update the second record to have the same unique_together_1/unique_together_2 as the first
+        first_instance = TestProject.objects.get(climb_id=self.climb_id)
+        response = self.client.patch(
+            self.endpoint(second_climb_id),
+            data={
+                "unique_together_1": first_instance.unique_together_1,
+                "unique_together_2": first_instance.unique_together_2,
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "unique_together_1", status_code=400)
+        self.assertContains(response, "unique_together_2", status_code=400)
+
+    def test_ordering(self):
+        """
+        Test that an ordering constraint is enforced on update.
+        """
+
+        # start must be less than end
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"start": 10, "end": 5},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "start", status_code=400)
+        self.assertContains(response, "end", status_code=400)
+
+    def test_conditional_required_fields(self):
+        """
+        Test that a conditional required constraint is enforced on update.
+        """
+
+        # region requires country
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.country = ""
+        instance.region = ""
+        instance.save()
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"region": "other"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "region", status_code=400)
+
+    def test_optional_value_group(self):
+        """
+        Test that an optional value group constraint is enforced on update.
+        """
+
+        # Initially both have values - verify we can clear one at a time
+        # Clear text_option_1 while text_option_2 still has a value
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=text_option_1"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Now try to clear text_option_2 as well - this should fail because
+        # at least one of the fields must have a value
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=text_option_2"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "text_option_1", status_code=400)
+        self.assertContains(response, "text_option_2", status_code=400)
+
+    def test_max_length(self):
+        """
+        Test that max length constraint is enforced on update.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"char_max_length_20": "X" * 21},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "char_max_length_20", status_code=400)
+
+    def test_invalid_choice(self):
+        """
+        Test that invalid choice values are rejected.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"country": "invalid_country"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "country", status_code=400)
+
+    def test_invalid_date_format(self):
+        """
+        Test that invalid date formats are rejected.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"collection_month": "not-a-date"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "collection_month", status_code=400)
+
+    def test_invalid_integer(self):
+        """
+        Test that invalid integer values are rejected.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": "not-an-integer"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "tests", status_code=400)
+
+    def test_invalid_decimal(self):
+        """
+        Test that invalid decimal values are rejected.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"score": "not-a-decimal"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "score", status_code=400)
+
+    def test_invalid_boolean(self):
+        """
+        Test that invalid boolean values are rejected.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"concern": "not-a-boolean"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "concern", status_code=400)
+
+    def test_analyst_cannot_update(self):
+        """
+        Test that an analyst user cannot update records.
+        """
+
+        self.client.force_authenticate(self.analyst_user)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_update(self):
+        """
+        Test that an unauthenticated user cannot update records.
+        """
+
+        self.client.force_authenticate(None)  # type: ignore
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_preserves_unmodified_fields(self):
+        """
+        Test that updating some fields preserves other fields.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        original_sample_id = instance.sample_id
+        original_run_name = instance.run_name
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"tests": 999},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 999)
+        self.assertEqual(instance.sample_id, original_sample_id)
+        self.assertEqual(instance.run_name, original_run_name)
+
+    def test_update_nested_preserves_other_nested(self):
+        """
+        Test that updating one nested record preserves other nested records.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=100,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=200,
+            test_pass=True,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            test_result="original",
+            score_a=3.0,
+            score_b=4.0,
+        )
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {"test_id": 100, "test_pass": True, "test_result": "updated"}
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance.refresh_from_db()
+        record_100 = instance.records.get(test_id=100)  # type: ignore
+        record_200 = instance.records.get(test_id=200)  # type: ignore
+        self.assertTrue(record_100.test_pass)
+        self.assertEqual(record_100.test_result, "updated")
+        self.assertTrue(record_200.test_pass)
+        self.assertEqual(record_200.test_result, "original")
+
+    def test_nested_unique_together(self):
+        """
+        Test that a nested unique together constraint is enforced on update.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        records_count = instance.records.count()  # type: ignore
+        test_nested_record = {
+            "test_id": 100,
+            "test_pass": False,
+            "test_start": "2023-01",
+            "test_end": "2023-02",
+            "score_a": 1.0,
+            "score_b": 2.0,
+        }
+
+        # Try to update record 200 to have the same test_id as record 100
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"records": [test_nested_record, test_nested_record]},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_id", status_code=400)
+        self.assertContains(response, "unique", status_code=400)
+
+        # The original records should still exist unchanged
+        instance.refresh_from_db()
+        self.assertEqual(instance.records.count(), records_count)  # type: ignore
+
+    def test_nested_ordering(self):
+        """
+        Test that a nested ordering constraint is enforced on update.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=100,
+            test_pass=False,
+            test_start=datetime(2023, 1, 1).date(),
+            test_end=datetime(2023, 6, 1).date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+
+        # test_start must be before test_end
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={
+                "records": [
+                    {"test_id": 100, "test_start": "2023-06", "test_end": "2023-01"}
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_start", status_code=400)
+        self.assertContains(response, "test_end", status_code=400)
+
+    def test_nested_conditional_value_required_fields(self):
+        """
+        Test that a nested conditional value required constraint is enforced on update.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.records.create(  # type: ignore
+            user=self.admin_user,  # type: ignore
+            test_id=100,
+            test_pass=False,
+            test_start=datetime.now().date(),
+            test_end=datetime.now().date(),
+            score_a=1.0,
+            score_b=2.0,
+        )
+
+        # test_pass=True requires test_result
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"records": [{"test_id": 100, "test_pass": True}]},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "test_pass", status_code=400)
+        self.assertContains(response, "test_result", status_code=400)
+
+    def test_update_array_field(self):
+        """
+        Test updating an array field.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"scores": "[1, 2, 3, 4, 5]"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        self.assertEqual(instance.scores, [1, 2, 3, 4, 5])
+
+    def test_update_structure_field(self):
+        """
+        Test updating a structure (JSON) field.
+        """
+
+        response = self.client.patch(
+            self.endpoint(self.climb_id),
+            data={"structure": '{"key": "value", "nested": {"number": 42}}'},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        self.assertEqual(instance.structure, {"key": "value", "nested": {"number": 42}})

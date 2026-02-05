@@ -1,29 +1,50 @@
 [tool.poetry]
 name = "onyx"
-version = "0.16.10"
-description = "API for pathogen metadata."
-authors = ["Thomas Brier <t.brier@outlook.com>"]
+version = "0.20.7"
+description = "API for Pathogen Metadata."
+authors = ["Thomas Brier <t.o.brier@bham.ac.uk>"]
 license = "LICENSE"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-gunicorn = "^22.0.0"
+gunicorn = "^23.0.0"
 psycopg2-binary = "^2.9.9"
 python-dotenv = "^1.0.1"
-django = "^5.0.6"
+django = "^5.1.14"
 djangorestframework = "^3.14.0"
 django-rest-knox = "^4.2.0"
 django-filter = "^24.2"
 django-simple-history = "^3.5.0"
-pydantic = "^2.8.0"
+pydantic = "^2.8.2"
 django-cors-headers = "^4.3.1"
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-coverage = "^7.5.4"
+coverage = "^7.6.1"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.11.2"
+
+[tool.coverage.run]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/tests.py",
+    "*/asgi.py",
+    "*/wsgi.py",
+    "*/admin.py",
+    "*/manage.py",
+]
+
+source = ["."]
+[tool.coverage.report]
+sort = "-miss"
 
 [build-system]
 requires = ["poetry-core"]

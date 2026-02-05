@@ -4,7 +4,7 @@ from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import IdentifierNotFound
 from data.models import Anonymiser
-from projects.testproject.models import TestModel
+from projects.testproject.models import TestProject
 
 
 # TODO: Test permissions to retrieve identifiers for users from different sites
@@ -27,9 +27,10 @@ class TestIdentifyView(OnyxTestCase):
         Test creating/retrieving identifiers for anonymised fields.
         """
 
-        # Create records from testsite_1 and testsite_2
-        test_record_1 = next(iter(generate_test_data(n=1)))
-        test_record_2 = next(iter(generate_test_data(n=1)))
+        # Create records from testsite_a and testsite_b
+        test_data = iter(generate_test_data(n=2))
+        test_record_1 = next(test_data)
+        test_record_2 = next(test_data)
         test_record_2["site"] = self.extra_site.code
 
         for i, (record, site) in enumerate(
@@ -113,9 +114,9 @@ class TestIdentifyView(OnyxTestCase):
         self.assertNotEqual(output_sample_id_1, output_sample_id_2)
         self.assertEqual(test_record_1["run_name"], test_record_2["run_name"])
         self.assertEqual(output_run_name_1, output_run_name_2)
-        assert TestModel.objects.count() == 2
+        assert TestProject.objects.count() == 2
         assert Anonymiser.objects.count() == 3
-        assert Anonymiser.objects.filter(site__code="testsite_1").count() == 3
+        assert Anonymiser.objects.filter(site__code="testsite_a").count() == 3
         assert Anonymiser.objects.filter(field="sample_id").count() == 2
         assert Anonymiser.objects.filter(field="run_name").count() == 1
         assert Anonymiser.objects.filter(identifier=output_sample_id_1).count() == 1
@@ -154,10 +155,10 @@ class TestIdentifyView(OnyxTestCase):
         self.assertNotEqual(output_sample_id_1, output_sample_id_2)
         self.assertNotEqual(output_run_name_1, output_run_name_2)
 
-        assert TestModel.objects.count() == 2
+        assert TestProject.objects.count() == 2
         assert Anonymiser.objects.count() == 4
-        assert Anonymiser.objects.filter(site__code="testsite_1").count() == 2
-        assert Anonymiser.objects.filter(site__code="testsite_2").count() == 2
+        assert Anonymiser.objects.filter(site__code="testsite_a").count() == 2
+        assert Anonymiser.objects.filter(site__code="testsite_b").count() == 2
         assert Anonymiser.objects.filter(field="sample_id").count() == 2
         assert Anonymiser.objects.filter(field="run_name").count() == 2
         assert Anonymiser.objects.filter(identifier=output_sample_id_1).count() == 1

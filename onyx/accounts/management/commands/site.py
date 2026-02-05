@@ -79,9 +79,7 @@ class Command(base.BaseCommand):
         roles_parser.add_argument("-r", "--revoke", nargs="+")
 
         # LIST SITES
-        list_parser = command.add_parser(
-            "list", help="Print a table of all sites, with their roles."
-        )
+        command.add_parser("list", help="Print a table of all sites, with their roles.")
 
     def print(self, *args, **kwargs):
         if not self.quiet:

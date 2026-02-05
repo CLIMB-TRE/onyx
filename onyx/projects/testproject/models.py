@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from utils.fields import UpperCharField, ChoiceField
 from utils.constraints import (
     unique_together,
@@ -7,6 +8,7 @@ from utils.constraints import (
     non_futures,
     conditional_required,
     conditional_value_required,
+    conditional_value_optional_value_group,
 )
 from data.models import BaseRecord, ProjectRecord
 
@@ -17,7 +19,7 @@ from data.models import BaseRecord, ProjectRecord
 __version__ = "0.1.0"
 
 
-class TestModel(ProjectRecord):
+class BaseTestProject(ProjectRecord):
     @classmethod
     def version(cls):
         return __version__
@@ -38,8 +40,15 @@ class TestModel(ProjectRecord):
     start = models.IntegerField()
     end = models.IntegerField()
     required_when_published = models.TextField(blank=True)
+    optional_when_published_1 = models.TextField(blank=True)
+    optional_when_published_2 = models.TextField(blank=True)
+    scores = ArrayField(models.IntegerField(), default=list, size=10)
+    structure = models.JSONField(default=dict)
+    unique_together_1 = models.CharField(max_length=50, blank=True)
+    unique_together_2 = models.CharField(max_length=50, blank=True)
 
     class Meta:
+        abstract = True
         default_permissions = []
         indexes = [
             models.Index(fields=["created"]),
@@ -58,6 +67,9 @@ class TestModel(ProjectRecord):
         constraints = [
             unique_together(
                 fields=["sample_id", "run_name"],
+            ),
+            unique_together(
+                fields=["unique_together_1", "unique_together_2"],
             ),
             optional_value_group(
                 fields=["collection_month", "received_month"],
@@ -88,13 +100,15 @@ class TestModel(ProjectRecord):
                 value=True,
                 required=["required_when_published"],
             ),
+            conditional_value_optional_value_group(
+                field="is_published",
+                value=True,
+                optional=["optional_when_published_1", "optional_when_published_2"],
+            ),
         ]
 
 
-class TestModelRecord(BaseRecord):
-    link = models.ForeignKey(
-        TestModel, on_delete=models.CASCADE, related_name="records"
-    )
+class BaseTestProjectRecord(BaseRecord):
     test_id = models.IntegerField()
     test_pass = models.BooleanField()
     test_start = models.DateField()
@@ -105,6 +119,7 @@ class TestModelRecord(BaseRecord):
     test_result = models.TextField(blank=True)
 
     class Meta:
+        abstract = True
         default_permissions = []
         indexes = [
             models.Index(fields=["created"]),
@@ -138,3 +153,13 @@ class TestModelRecord(BaseRecord):
                 required=["test_result"],
             ),
         ]
+
+
+class TestProject(BaseTestProject):
+    pass
+
+
+class TestProjectRecord(BaseTestProjectRecord):
+    link = models.ForeignKey(
+        TestProject, on_delete=models.CASCADE, related_name="records"
+    )

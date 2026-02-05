@@ -1,13 +1,15 @@
 import os
+import json
 import logging
 import itertools
 from django.core.management import call_command
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APITestCase
 from accounts.models import User, Site
-from ..models import Project
-from projects.testproject.models import TestModel, TestModelRecord
+from ..models import Project, Analysis
+from projects.testproject.models import TestProject, TestProjectRecord
 
 
 class OnyxTestCase(APITestCase):
@@ -23,37 +25,45 @@ class OnyxTestCase(APITestCase):
         )
         cls.project = Project.objects.get(code="testproject")
 
+        # Set up extra project
+        cls.extra_project = Project.objects.create(
+            code="extra_project",
+            name="Extra Project",
+            description="Extra Project for testing",
+            content_type=ContentType.objects.get_for_model(Analysis),
+        )
+
         # Set up test sites
         call_command(
             "site",
             "create",
-            "testsite_1",
+            "testsite_a",
             "--projects",
             cls.project.code,
             "--description",
-            "Department of Testing 1",
+            "Department of Testing A",
             quiet=True,
         )
         call_command(
             "site",
             "create",
-            "testsite_2",
+            "testsite_b",
             "--projects",
             cls.project.code,
             "--description",
-            "University of Testing 2",
+            "University of Testing B",
             quiet=True,
         )
-        call_command("site", "roles", "testsite_1", "--grant", "is_active", quiet=True)
-        call_command("site", "roles", "testsite_2", "--grant", "is_active", quiet=True)
-        cls.site = Site.objects.get(code="testsite_1")
-        cls.extra_site = Site.objects.get(code="testsite_2")
+        call_command("site", "roles", "testsite_a", "--grant", "is_active", quiet=True)
+        call_command("site", "roles", "testsite_b", "--grant", "is_active", quiet=True)
+        cls.site = Site.objects.get(code="testsite_a")
+        cls.extra_site = Site.objects.get(code="testsite_b")
 
         # Set up testproject admin staff
         cls.admin_staff = cls.create_user(
             "test_admin_staff",
             cls.site,
-            roles=["is_staff"],
+            roles=["is_approved", "is_staff"],
             groups=["testproject.admin"],
         )
 
@@ -73,17 +83,26 @@ class OnyxTestCase(APITestCase):
             groups=["testproject.analyst"],
         )
 
+        # Set up testproject analyst user from the extra site
+        cls.analyst_user_extra = cls.create_user(
+            "test_analyst_user_extra",
+            cls.extra_site,
+            roles=["is_approved"],
+            groups=["testproject.analyst"],
+        )
+
     @classmethod
     def create_user(cls, username, site, roles=None, groups=None):
         """
         Create a user with the given username and roles/groups.
         """
 
-        user = User.objects.create(username=username, site=site)
-
         if roles:
-            for role in roles:
-                setattr(user, role, True)
+            roles = {role: True for role in roles}
+        else:
+            roles = {}
+
+        user = User.objects.create(username=username, site=site, **roles)
 
         if groups:
             for group in groups:
@@ -193,8 +212,24 @@ class OnyxTestCase(APITestCase):
             qs_values,
         )
 
+    def assertEqualOrderedClimbIDs(self, records, qs):
+        """
+        Assert that the CLIMB IDs in the records match the CLIMB IDs in the queryset.
 
-def generate_test_data(n: int):
+        Also asserts that the order of the records is the same as the order of the queryset.
+        """
+
+        record_values = [record["climb_id"] for record in records]
+        qs_values = list(qs.values_list("climb_id", flat=True))
+        self.assertTrue(record_values)
+        self.assertTrue(qs_values)
+        self.assertEqual(
+            record_values,
+            qs_values,
+        )
+
+
+def generate_test_data(n: int, api_call: bool = True):
     """
     Generate test data.
     """
@@ -203,9 +238,9 @@ def generate_test_data(n: int):
     run_names = ["run-1", "run-2", "run-3"]
     collection_months = [f"2022-{i}" for i in range(1, 4)] + [None]
     received_months = [f"2023-{i}" for i in range(1, 13)]
-    char_max_length_20 = ["X" * 20, "Y" * 15, "Z" * 10]
-    text_option_1 = ["hello", "world", "hey", "world world", "y", ""]
-    text_option_2 = ["hello", "bye"]
+    char_max_length_20s = ["X" * 20, "Y" * 15, "Z" * 10]
+    text_option_1s = ["hello", "world", "hey", "world world", "y", ""]
+    text_option_2s = ["hello", "bye"]
     submission_dates = [f"2023-{i}-{j}" for i in [1, 8, 12] for j in [1, 10, 15]] + [
         None
     ]
@@ -223,6 +258,28 @@ def generate_test_data(n: int):
     starts = [1, 2, 3, 4, 5]
     ends = [6, 7, 8, 9, 10]
     required_when_publisheds = ["hello", "world"]
+    optional_when_published_1s = ["value 1", ""]
+    optional_when_published_2s = ["", "value 2"]
+    many_scores = (
+        [[]]
+        + [[1, 2, 3]] * 3
+        + [[1, 2, 3, 4]] * 4
+        + [[1, 2, 3, 4, 5]] * 5
+        + [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]] * 10
+    )
+    structures = [
+        {},
+        {"hello": "world", "goodbye": "universe"},
+        {"numbers": [1, 2, 3]},
+        {"hello": "world", "numbers": [1, 2, 3]},
+    ]
+    unique_together_1s = [f"unique{i}" for i in range(n)]
+    unique_together_2s = ["groupA", "groupB", "groupC"]
+
+    if api_call:
+        many_scores = [json.dumps(x) for x in many_scores]
+        structures = [json.dumps(x) for x in structures]
+
     has_nesteds = [True, False]
     nested_ranges = [
         (1, 10),
@@ -247,11 +304,17 @@ def generate_test_data(n: int):
         submission_date,
         country,
         concern,
-        tests,
+        test,
         score,
         start,
         end,
         required_when_published,
+        optional_when_published_1s,
+        optional_when_published_2s,
+        scores,
+        structure,
+        unique_together_1,
+        unique_together_2,
         has_nested,
         nested_range,
     ) in enumerate(
@@ -260,9 +323,9 @@ def generate_test_data(n: int):
             itertools.cycle(run_names),
             itertools.cycle(collection_months),
             itertools.cycle(received_months),
-            itertools.cycle(char_max_length_20),
-            itertools.cycle(text_option_1),
-            itertools.cycle(text_option_2),
+            itertools.cycle(char_max_length_20s),
+            itertools.cycle(text_option_1s),
+            itertools.cycle(text_option_2s),
             itertools.cycle(submission_dates),
             itertools.cycle(countries),
             itertools.cycle(concerns),
@@ -271,6 +334,12 @@ def generate_test_data(n: int):
             itertools.cycle(starts),
             itertools.cycle(ends),
             itertools.cycle(required_when_publisheds),
+            itertools.cycle(optional_when_published_1s),
+            itertools.cycle(optional_when_published_2s),
+            itertools.cycle(many_scores),
+            itertools.cycle(structures),
+            itertools.cycle(unique_together_1s),
+            itertools.cycle(unique_together_2s),
             itertools.cycle(has_nesteds),
             itertools.cycle(nested_ranges),
         )
@@ -287,11 +356,17 @@ def generate_test_data(n: int):
             "country": country,
             "region": regions[country]() if country != "eng" else regions[country](i),
             "concern": concern,
-            "tests": tests,
+            "tests": test,
             "score": score,
             "start": start,
             "end": end,
             "required_when_published": required_when_published,
+            "optional_when_published_1": optional_when_published_1s,
+            "optional_when_published_2": optional_when_published_2s,
+            "scores": scores,
+            "structure": structure,
+            "unique_together_1": unique_together_1,
+            "unique_together_2": unique_together_2,
         }
 
         if has_nested:
@@ -354,12 +429,12 @@ def generate_test_data(n: int):
 
 
 class OnyxDataTestCase(OnyxTestCase):
-    NUM_RECORDS = 100
+    NUM_RECORDS = 50
 
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        for data in generate_test_data(n=cls.NUM_RECORDS):
+        for data in generate_test_data(n=cls.NUM_RECORDS, api_call=False):
             nested_records = data.pop("records", [])
             data["site"] = cls.site
             data["user"] = cls.admin_user
@@ -370,7 +445,7 @@ class OnyxDataTestCase(OnyxTestCase):
             if data.get("received_month"):
                 data["received_month"] += "-01"
 
-            record = TestModel.objects.create(**data)
+            record = TestProject.objects.create(**data)
             for nested_record in nested_records:
                 nested_record["link"] = record
                 nested_record["user"] = cls.admin_user
@@ -381,4 +456,4 @@ class OnyxDataTestCase(OnyxTestCase):
                 if nested_record.get("test_end"):
                     nested_record["test_end"] += "-01"
 
-                TestModelRecord.objects.create(**nested_record)
+                TestProjectRecord.objects.create(**nested_record)

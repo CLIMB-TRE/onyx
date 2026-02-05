@@ -1,26 +1,16 @@
+from rest_framework import serializers
 from utils.validators import OnyxUniqueTogetherValidator
-from utils.fieldserializers import (
-    CharField,
-    IntegerField,
-    FloatField,
-    DateField,
-    ChoiceField,
-)
+from utils.fieldserializers import DateField, ArrayField, StructureField
 from data.serializers import BaseRecordSerializer, ProjectRecordSerializer
-from .models import TestModel, TestModelRecord
+from .models import TestProject, TestProjectRecord
 
 
-class TestModelRecordSerializer(BaseRecordSerializer):
-    test_id = IntegerField()
+class TestProjectRecordSerializer(BaseRecordSerializer):
     test_start = DateField("%Y-%m", input_formats=["%Y-%m"])
     test_end = DateField("%Y-%m", input_formats=["%Y-%m"])
-    score_a = FloatField(required=False, allow_null=True)
-    score_b = FloatField(required=False, allow_null=True)
-    score_c = FloatField(required=False, allow_null=True)
-    test_result = CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = TestModelRecord
+        model = TestProjectRecord
         fields = BaseRecordSerializer.Meta.fields + [
             "test_id",
             "test_pass",
@@ -49,9 +39,7 @@ class TestModelRecordSerializer(BaseRecordSerializer):
         )
 
 
-class TestModelSerializer(ProjectRecordSerializer):
-    sample_id = CharField(max_length=50)
-    run_name = CharField(max_length=100)
+class TestProjectSerializer(ProjectRecordSerializer):
     collection_month = DateField(
         "%Y-%m",
         input_formats=["%Y-%m"],
@@ -64,25 +52,19 @@ class TestModelSerializer(ProjectRecordSerializer):
         required=False,
         allow_null=True,
     )
-    char_max_length_20 = CharField(max_length=20, required=False, allow_blank=True)
-    text_option_1 = CharField(required=False, allow_blank=True)
-    text_option_2 = CharField(required=False, allow_blank=True)
     submission_date = DateField(
         "%Y-%m-%d",
         input_formats=["%Y-%m-%d"],
         required=False,
         allow_null=True,
     )
-    country = ChoiceField("country", required=False, allow_blank=True)
-    region = ChoiceField("region", required=False, allow_blank=True)
-    tests = IntegerField(required=False, allow_null=True)
-    score = FloatField(required=False, allow_null=True)
-    start = IntegerField()
-    end = IntegerField()
-    required_when_published = CharField(required=False, allow_blank=True)
+    scores = ArrayField(
+        child=serializers.IntegerField(min_value=0), required=False, max_length=10
+    )
+    structure = StructureField(required=False)
 
     class Meta:
-        model = TestModel
+        model = TestProject
         fields = ProjectRecordSerializer.Meta.fields + [
             "sample_id",
             "run_name",
@@ -100,17 +82,27 @@ class TestModelSerializer(ProjectRecordSerializer):
             "start",
             "end",
             "required_when_published",
+            "optional_when_published_1",
+            "optional_when_published_2",
+            "scores",
+            "structure",
+            "unique_together_1",
+            "unique_together_2",
         ]
         validators = [
             OnyxUniqueTogetherValidator(
-                queryset=TestModel.objects.all(),
+                queryset=TestProject.objects.all(),
                 fields=["sample_id", "run_name"],
-            )
+            ),
+            OnyxUniqueTogetherValidator(
+                queryset=TestProject.objects.all(),
+                fields=["unique_together_1", "unique_together_2"],
+            ),
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):
         relations = ProjectRecordSerializer.OnyxMeta.relations | {
-            "records": TestModelRecordSerializer,
+            "records": TestProjectRecordSerializer,
         }
         relation_options = ProjectRecordSerializer.OnyxMeta.relation_options | {
             "records": {
@@ -145,6 +137,15 @@ class TestModelSerializer(ProjectRecordSerializer):
             | {
                 ("is_published", True, True): [
                     "required_when_published",
+                ]
+            }
+        )
+        conditional_value_optional_value_groups = (
+            ProjectRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): [
+                    "optional_when_published_1",
+                    "optional_when_published_2",
                 ]
             }
         )

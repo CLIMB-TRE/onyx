@@ -14,10 +14,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-import os
-
 # from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
 
 
 urlpatterns = [
@@ -25,8 +24,8 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("projects/", include("data.urls")),
 ] + [
-    path(f"projects/{project}/", include(f"projects.{project}.urls"))
-    for project in os.environ["ONYX_PROJECTS"].split(",")
+    path("projects/", include(f"projects.{project_app}.urls"))
+    for project_app in settings.ONYX_PROJECT_APPS
 ]
 
 handler404 = "internal.views.custom_page_not_found_view"

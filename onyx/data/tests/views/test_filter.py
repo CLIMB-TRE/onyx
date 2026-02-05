@@ -1,8 +1,9 @@
+import json
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.reverse import reverse
 from ..utils import OnyxDataTestCase
-from projects.testproject.models import TestModel, TestModelRecord
+from projects.testproject.models import TestProject, TestProjectRecord
 from data.fields import flatten_fields
 
 
@@ -40,7 +41,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.all(),
+            TestProject.objects.all(),
         )
 
     def test_unknown_field(self):
@@ -57,7 +58,7 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         # Test that a suppressed record is not returned
-        record = TestModel.objects.first()
+        record = TestProject.objects.first()
         assert record is not None
         record.is_suppressed = True
         record.save()
@@ -66,7 +67,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.exclude(is_suppressed=True),
+            TestProject.objects.exclude(is_suppressed=True),
         )
         self.assertNotIn(
             record.climb_id, [x["climb_id"] for x in response.json()["data"]]
@@ -80,7 +81,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.all(),
+            TestProject.objects.all(),
         )
 
     def test_unpublished(self):
@@ -89,7 +90,7 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         # Test that an unpublished record is not returned
-        record = TestModel.objects.first()
+        record = TestProject.objects.first()
         assert record is not None
         record.is_published = False
         record.save()
@@ -98,7 +99,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.filter(is_published=True),
+            TestProject.objects.filter(is_published=True),
         )
         self.assertNotIn(
             record.climb_id, [x["climb_id"] for x in response.json()["data"]]
@@ -112,7 +113,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.all(),
+            TestProject.objects.all(),
         )
 
     def test_site_restricted(self):
@@ -121,7 +122,7 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         # Test that a site-restricted record from another site is not returned
-        record = TestModel.objects.first()
+        record = TestProject.objects.first()
         assert record is not None
         record.is_site_restricted = True
         record.site = self.extra_site
@@ -131,7 +132,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.filter(
+            TestProject.objects.filter(
                 Q(is_site_restricted=False)
                 | (Q(is_site_restricted=True) & Q(site=self.site))
             ),
@@ -148,7 +149,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.filter(
+            TestProject.objects.filter(
                 Q(is_site_restricted=False)
                 | (Q(is_site_restricted=True) & Q(site=self.site))
             ),
@@ -163,7 +164,7 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqualClimbIDs(
             response.json()["data"],
-            TestModel.objects.all(),
+            TestProject.objects.all(),
         )
 
     def test_include_exclude(self):
@@ -217,6 +218,51 @@ class TestFilterView(OnyxDataTestCase):
         response = self.client.get(self.endpoint, data={"exclude": "hello"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_ordering(self):
+        """
+        Test ordering records.
+        """
+
+        for field in [
+            "climb_id",
+            "site",
+            "published_date",
+            "sample_id",
+            "run_name",
+            "collection_month",
+            "submission_date",
+            "country",
+            "score",
+            "scores",
+            "structure",
+        ]:
+            response = self.client.get(self.endpoint, data={"order": field})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqualOrderedClimbIDs(
+                response.json()["data"],
+                TestProject.objects.order_by(field, "created"),
+            )
+
+            response = self.client.get(self.endpoint, data={"order": f"-{field}"})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqualOrderedClimbIDs(
+                response.json()["data"],
+                TestProject.objects.order_by(f"-{field}", "-created"),
+            )
+
+    def test_ordering_bad_field(self):
+        """
+        Test that ordering by an invalid field fails.
+        """
+
+        # Cannot provide a lookup with an ordering field
+        response = self.client.get(self.endpoint, data={"order": "site__in"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # This field is unknown
+        response = self.client.get(self.endpoint, data={"order": "hello"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_text(self):
         """
         Test filtering a text field.
@@ -238,82 +284,86 @@ class TestFilterView(OnyxDataTestCase):
             ],
         }.items():
             for lookup, value, qs in [
-                ("", values[0], TestModel.objects.filter(**{field: values[0]})),
+                ("", values[0], TestProject.objects.filter(**{field: values[0]})),
                 (
                     "exact",
                     values[0],
-                    TestModel.objects.filter(**{f"{field}__exact": values[0]}),
+                    TestProject.objects.filter(**{f"{field}__exact": values[0]}),
                 ),
-                ("ne", values[0], TestModel.objects.exclude(**{field: values[0]})),
+                ("ne", values[0], TestProject.objects.exclude(**{field: values[0]})),
                 (
                     "in",
                     ", ".join(values[-4:]),
-                    TestModel.objects.filter(**{f"{field}__in": values[-4:]}),
+                    TestProject.objects.filter(**{f"{field}__in": values[-4:]}),
                 ),
                 (
                     "notin",
                     ", ".join(values[-4:]),
-                    TestModel.objects.exclude(**{f"{field}__in": values[-4:]}),
+                    TestProject.objects.exclude(**{f"{field}__in": values[-4:]}),
                 ),
                 (
                     "contains",
                     values[1][1:-1],
-                    TestModel.objects.filter(**{f"{field}__contains": values[1][1:-1]}),
+                    TestProject.objects.filter(
+                        **{f"{field}__contains": values[1][1:-1]}
+                    ),
                 ),
                 (
                     "startswith",
                     values[1][:-1],
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{f"{field}__startswith": values[1][:-1]}
                     ),
                 ),
                 (
                     "endswith",
                     values[1][1:],
-                    TestModel.objects.filter(**{f"{field}__endswith": values[1][1:]}),
+                    TestProject.objects.filter(**{f"{field}__endswith": values[1][1:]}),
                 ),
                 (
                     "iexact",
                     values[2].upper(),
-                    TestModel.objects.filter(**{f"{field}__iexact": values[2].upper()}),
+                    TestProject.objects.filter(
+                        **{f"{field}__iexact": values[2].upper()}
+                    ),
                 ),
                 (
                     "icontains",
                     values[2][1:-1].upper(),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{f"{field}__icontains": values[2][1:-1].upper()}
                     ),
                 ),
                 (
                     "istartswith",
                     values[2][:-1].upper(),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{f"{field}__istartswith": values[2][:-1].upper()}
                     ),
                 ),
                 (
                     "iendswith",
                     values[2][1:].upper(),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{f"{field}__iendswith": values[2][1:].upper()}
                     ),
                 ),
                 (
                     "length",
                     len(values[3]),
-                    TestModel.objects.filter(**{f"{field}__length": len(values[3])}),
+                    TestProject.objects.filter(**{f"{field}__length": len(values[3])}),
                 ),
                 (
                     "length__in",
                     ", ".join([str(len(x)) for x in values[3:5]]),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{f"{field}__length__in": [len(x) for x in values[3:5]]}
                     ),
                 ),
                 (
                     "length__range",
                     ", ".join(str(x) for x in sorted([len(values[3]), len(values[5])])),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{
                             f"{field}__length__range": sorted(
                                 [len(values[3]), len(values[5])]
@@ -321,20 +371,20 @@ class TestFilterView(OnyxDataTestCase):
                         }
                     ),
                 ),
-                ("", "", TestModel.objects.filter(**{f"{field}__isnull": True})),
-                ("ne", "", TestModel.objects.exclude(**{f"{field}__isnull": True})),
+                ("", "", TestProject.objects.filter(**{f"{field}__isnull": True})),
+                ("ne", "", TestProject.objects.exclude(**{f"{field}__isnull": True})),
                 (
                     "isnull",
                     True,
-                    TestModel.objects.filter(**{f"{field}__isnull": True}),
+                    TestProject.objects.filter(**{f"{field}__isnull": True}),
                 ),
                 (
                     "isnull",
                     False,
-                    TestModel.objects.exclude(**{f"{field}__isnull": True}),
+                    TestProject.objects.exclude(**{f"{field}__isnull": True}),
                 ),
-                ("isnull", True, TestModel.objects.filter(**{field: ""})),
-                ("isnull", False, TestModel.objects.exclude(**{field: ""})),
+                ("isnull", True, TestProject.objects.filter(**{field: ""})),
+                ("isnull", False, TestProject.objects.exclude(**{field: ""})),
             ]:
                 self._test_filter(
                     field=field,
@@ -370,19 +420,19 @@ class TestFilterView(OnyxDataTestCase):
 
         for lookup, value, qs in (
             [
-                (l, x, TestModel.objects.filter(country=x.strip().lower()))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(country=x.strip().lower()))
+                for lo in ["", "exact"]
                 for x in choice_values
             ]
             + [
-                ("ne", x, TestModel.objects.exclude(country=x.strip().lower()))
+                ("ne", x, TestProject.objects.exclude(country=x.strip().lower()))
                 for x in choice_values
             ]
             + [
                 (
                     "in",
                     ", ".join(x),
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         country__in=[y.strip().lower() for y in x]
                     ),
                 )
@@ -392,19 +442,19 @@ class TestFilterView(OnyxDataTestCase):
                 (
                     "notin",
                     ", ".join(x),
-                    TestModel.objects.exclude(
+                    TestProject.objects.exclude(
                         country__in=[y.strip().lower() for y in x]
                     ),
                 )
                 for x in zip(choice_1_values, choice_2_values)
             ]
             + [
-                ("", "", TestModel.objects.filter(country__isnull=True)),
-                ("ne", "", TestModel.objects.exclude(country__isnull=True)),
-                ("isnull", True, TestModel.objects.filter(country__isnull=True)),
-                ("isnull", False, TestModel.objects.exclude(country__isnull=True)),
-                ("isnull", True, TestModel.objects.filter(country="")),
-                ("isnull", False, TestModel.objects.exclude(country="")),
+                ("", "", TestProject.objects.filter(country__isnull=True)),
+                ("ne", "", TestProject.objects.exclude(country__isnull=True)),
+                ("isnull", True, TestProject.objects.filter(country__isnull=True)),
+                ("isnull", False, TestProject.objects.exclude(country__isnull=True)),
+                ("isnull", True, TestProject.objects.filter(country="")),
+                ("isnull", False, TestProject.objects.exclude(country="")),
             ]
         ):
             self._test_filter(
@@ -429,28 +479,30 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1, TestModel.objects.filter(tests=1)),
-            ("exact", 1, TestModel.objects.filter(tests__exact=1)),
-            ("ne", 1, TestModel.objects.exclude(tests=1)),
+            ("", 1, TestProject.objects.filter(tests=1)),
+            ("exact", 1, TestProject.objects.filter(tests__exact=1)),
+            ("ne", 1, TestProject.objects.exclude(tests=1)),
             (
                 "in",
                 "1, 2, ,",
-                TestModel.objects.filter(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+                TestProject.objects.filter(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
             ),
             (
                 "notin",
                 "1, 2, ,",
-                TestModel.objects.exclude(Q(tests__in=[1, 2]) | Q(tests__isnull=True)),
+                TestProject.objects.exclude(
+                    Q(tests__in=[1, 2]) | Q(tests__isnull=True)
+                ),
             ),
-            ("lt", 3, TestModel.objects.filter(tests__lt=3)),
-            ("lte", 3, TestModel.objects.filter(tests__lte=3)),
-            ("gt", 2, TestModel.objects.filter(tests__gt=2)),
-            ("gte", 2, TestModel.objects.filter(tests__gte=2)),
-            ("range", "1, 3", TestModel.objects.filter(tests__range=[1, 3])),
-            ("", "", TestModel.objects.filter(tests__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(tests__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(tests__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(tests__isnull=True)),
+            ("lt", 3, TestProject.objects.filter(tests__lt=3)),
+            ("lte", 3, TestProject.objects.filter(tests__lte=3)),
+            ("gt", 2, TestProject.objects.filter(tests__gt=2)),
+            ("gte", 2, TestProject.objects.filter(tests__gte=2)),
+            ("range", "1, 3", TestProject.objects.filter(tests__range=[1, 3])),
+            ("", "", TestProject.objects.filter(tests__isnull=True)),
+            ("ne", "", TestProject.objects.exclude(tests__isnull=True)),
+            ("isnull", True, TestProject.objects.filter(tests__isnull=True)),
+            ("isnull", False, TestProject.objects.exclude(tests__isnull=True)),
         ]:
             self._test_filter(
                 field="tests",
@@ -470,36 +522,36 @@ class TestFilterView(OnyxDataTestCase):
         """
 
         for lookup, value, qs in [
-            ("", 1.12345, TestModel.objects.filter(score=1.12345)),
-            ("exact", 1.12345, TestModel.objects.filter(score__exact=1.12345)),
-            ("ne", 1.12345, TestModel.objects.exclude(score=1.12345)),
+            ("", 1.12345, TestProject.objects.filter(score=1.12345)),
+            ("exact", 1.12345, TestProject.objects.filter(score__exact=1.12345)),
+            ("ne", 1.12345, TestProject.objects.exclude(score=1.12345)),
             (
                 "in",
                 "1.12345, 2.12345, 3.12345, ,",
-                TestModel.objects.filter(
+                TestProject.objects.filter(
                     Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
                 ),
             ),
             (
                 "notin",
                 "1.12345, 2.12345, 3.12345, ,",
-                TestModel.objects.exclude(
+                TestProject.objects.exclude(
                     Q(score__in=[1.12345, 2.12345, 3.12345]) | Q(score__isnull=True)
                 ),
             ),
-            ("lt", 3.12345, TestModel.objects.filter(score__lt=3.12345)),
-            ("lte", 3.12345, TestModel.objects.filter(score__lte=3.12345)),
-            ("gt", 4.12345, TestModel.objects.filter(score__gt=4.12345)),
-            ("gte", 4.12345, TestModel.objects.filter(score__gte=4.12345)),
+            ("lt", 3.12345, TestProject.objects.filter(score__lt=3.12345)),
+            ("lte", 3.12345, TestProject.objects.filter(score__lte=3.12345)),
+            ("gt", 4.12345, TestProject.objects.filter(score__gt=4.12345)),
+            ("gte", 4.12345, TestProject.objects.filter(score__gte=4.12345)),
             (
                 "range",
                 "1.12345, 9.12345",
-                TestModel.objects.filter(score__range=[1.12345, 9.12345]),
+                TestProject.objects.filter(score__range=[1.12345, 9.12345]),
             ),
-            ("", "", TestModel.objects.filter(score__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(score__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(score__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(score__isnull=True)),
+            ("", "", TestProject.objects.filter(score__isnull=True)),
+            ("ne", "", TestProject.objects.exclude(score__isnull=True)),
+            ("isnull", True, TestProject.objects.filter(score__isnull=True)),
+            ("isnull", False, TestProject.objects.exclude(score__isnull=True)),
         ]:
             self._test_filter(
                 field="score",
@@ -522,22 +574,22 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "",
                 "2022-01",
-                TestModel.objects.filter(collection_month="2022-01-01"),
+                TestProject.objects.filter(collection_month="2022-01-01"),
             ),
             (
                 "exact",
                 "2022-01",
-                TestModel.objects.filter(collection_month__exact="2022-01-01"),
+                TestProject.objects.filter(collection_month__exact="2022-01-01"),
             ),
             (
                 "ne",
                 "2022-01",
-                TestModel.objects.exclude(collection_month="2022-01-01"),
+                TestProject.objects.exclude(collection_month="2022-01-01"),
             ),
             (
                 "in",
                 "2022-01, 2022-03, ,",
-                TestModel.objects.filter(
+                TestProject.objects.filter(
                     Q(collection_month__in=["2022-01-01", "2022-03-01"])
                     | Q(collection_month__isnull=True)
                 ),
@@ -545,7 +597,7 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "notin",
                 "2022-01, 2022-03, ,",
-                TestModel.objects.exclude(
+                TestProject.objects.exclude(
                     Q(collection_month__in=["2022-01-01", "2022-03-01"])
                     | Q(collection_month__isnull=True)
                 ),
@@ -553,34 +605,38 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "lt",
                 "2022-03",
-                TestModel.objects.filter(collection_month__lt="2022-03-01"),
+                TestProject.objects.filter(collection_month__lt="2022-03-01"),
             ),
             (
                 "lte",
                 "2022-03",
-                TestModel.objects.filter(collection_month__lte="2022-03-01"),
+                TestProject.objects.filter(collection_month__lte="2022-03-01"),
             ),
             (
                 "gt",
                 "2022-02",
-                TestModel.objects.filter(collection_month__gt="2022-02-01"),
+                TestProject.objects.filter(collection_month__gt="2022-02-01"),
             ),
             (
                 "gte",
                 "2022-02",
-                TestModel.objects.filter(collection_month__gte="2022-02-01"),
+                TestProject.objects.filter(collection_month__gte="2022-02-01"),
             ),
             (
                 "range",
                 "2022-01, 2022-03",
-                TestModel.objects.filter(
+                TestProject.objects.filter(
                     collection_month__range=["2022-01-01", "2022-03-01"]
                 ),
             ),
-            ("", "", TestModel.objects.filter(collection_month__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(collection_month__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(collection_month__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(collection_month__isnull=True)),
+            ("", "", TestProject.objects.filter(collection_month__isnull=True)),
+            ("ne", "", TestProject.objects.exclude(collection_month__isnull=True)),
+            ("isnull", True, TestProject.objects.filter(collection_month__isnull=True)),
+            (
+                "isnull",
+                False,
+                TestProject.objects.exclude(collection_month__isnull=True),
+            ),
         ]:
             self._test_filter(
                 field="collection_month",
@@ -605,22 +661,22 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "",
                 "2023-01-01",
-                TestModel.objects.filter(submission_date="2023-01-01"),
+                TestProject.objects.filter(submission_date="2023-01-01"),
             ),
             (
                 "exact",
                 "2023-01-01",
-                TestModel.objects.filter(submission_date="2023-01-01"),
+                TestProject.objects.filter(submission_date="2023-01-01"),
             ),
             (
                 "ne",
                 "2023-01-01",
-                TestModel.objects.exclude(submission_date="2023-01-01"),
+                TestProject.objects.exclude(submission_date="2023-01-01"),
             ),
             (
                 "in",
                 "2023-01-01, 2023-01-03, ,",
-                TestModel.objects.filter(
+                TestProject.objects.filter(
                     Q(submission_date__in=["2023-01-01", "2023-01-03"])
                     | Q(submission_date__isnull=True)
                 ),
@@ -628,7 +684,7 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "notin",
                 "2023-01-01, 2023-01-03, ,",
-                TestModel.objects.exclude(
+                TestProject.objects.exclude(
                     Q(submission_date__in=["2023-01-01", "2023-01-03"])
                     | Q(submission_date__isnull=True)
                 ),
@@ -636,64 +692,70 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "lt",
                 "2023-01-03",
-                TestModel.objects.filter(submission_date__lt="2023-01-03"),
+                TestProject.objects.filter(submission_date__lt="2023-01-03"),
             ),
             (
                 "lte",
                 "2023-01-03",
-                TestModel.objects.filter(submission_date__lte="2023-01-03"),
+                TestProject.objects.filter(submission_date__lte="2023-01-03"),
             ),
             (
                 "gt",
                 "2023-01-02",
-                TestModel.objects.filter(submission_date__gt="2023-01-02"),
+                TestProject.objects.filter(submission_date__gt="2023-01-02"),
             ),
             (
                 "gte",
                 "2023-01-02",
-                TestModel.objects.filter(submission_date__gte="2023-01-02"),
+                TestProject.objects.filter(submission_date__gte="2023-01-02"),
             ),
             (
                 "range",
                 "2023-01-01, 2023-06-03",
-                TestModel.objects.filter(
+                TestProject.objects.filter(
                     submission_date__range=["2023-01-01", "2023-06-03"]
                 ),
             ),
             (
                 "iso_year",
                 2023,
-                TestModel.objects.filter(submission_date__iso_year=2023),
+                TestProject.objects.filter(submission_date__iso_year=2023),
             ),
             (
                 "iso_year__in",
                 "2023, 2024",
-                TestModel.objects.filter(submission_date__iso_year__in=[2023, 2024]),
+                TestProject.objects.filter(submission_date__iso_year__in=[2023, 2024]),
             ),
             (
                 "iso_year__range",
                 "2023, 2024",
-                TestModel.objects.filter(submission_date__iso_year__range=[2023, 2024]),
+                TestProject.objects.filter(
+                    submission_date__iso_year__range=[2023, 2024]
+                ),
             ),
             (
                 "week",
                 32,
-                TestModel.objects.filter(submission_date__week=32),
+                TestProject.objects.filter(submission_date__week=32),
             ),
             (
                 "week__in",
                 "32, 33",
-                TestModel.objects.filter(submission_date__week__in=[32, 33]),
+                TestProject.objects.filter(submission_date__week__in=[32, 33]),
             ),
             (
                 "week__range",
                 "10, 33",
-                TestModel.objects.filter(submission_date__week__range=[10, 33]),
+                TestProject.objects.filter(submission_date__week__range=[10, 33]),
             ),
-            ("", "", TestModel.objects.filter(submission_date__isnull=True)),
-            ("ne", "", TestModel.objects.exclude(submission_date__isnull=True)),
-            ("isnull", True, TestModel.objects.filter(submission_date__isnull=True)),
-            ("isnull", False, TestModel.objects.exclude(submission_date__isnull=True)),
+            ("", "", TestProject.objects.filter(submission_date__isnull=True)),
+            ("ne", "", TestProject.objects.exclude(submission_date__isnull=True)),
+            ("isnull", True, TestProject.objects.filter(submission_date__isnull=True)),
+            (
+                "isnull",
+                False,
+                TestProject.objects.exclude(submission_date__isnull=True),
+            ),
         ]:
             self._test_filter(
                 field="submission_date",
@@ -719,46 +781,49 @@ class TestFilterView(OnyxDataTestCase):
 
         for lookup, value, qs in (
             [
-                (l, x, TestModel.objects.filter(concern=True))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(concern=True))
+                for lo in ["", "exact"]
                 for x in true_values
             ]
             + [
-                (l, x, TestModel.objects.filter(concern=False))
-                for l in ["", "exact"]
+                (lo, x, TestProject.objects.filter(concern=False))
+                for lo in ["", "exact"]
                 for x in false_values
             ]
-            + [("ne", x, TestModel.objects.exclude(concern=True)) for x in true_values]
             + [
-                ("ne", x, TestModel.objects.exclude(concern=False))
+                ("ne", x, TestProject.objects.exclude(concern=True))
+                for x in true_values
+            ]
+            + [
+                ("ne", x, TestProject.objects.exclude(concern=False))
                 for x in false_values
             ]
             + [
                 (
                     "in",
                     "True, ,",
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         Q(concern__in=[True]) | Q(concern__isnull=True)
                     ),
                 ),
                 (
                     "notin",
                     "True, ,",
-                    TestModel.objects.exclude(
+                    TestProject.objects.exclude(
                         Q(concern__in=[True]) | Q(concern__isnull=True)
                     ),
                 ),
-                ("", "", TestModel.objects.filter(concern__isnull=True)),
-                ("ne", "", TestModel.objects.exclude(concern__isnull=True)),
+                ("", "", TestProject.objects.filter(concern__isnull=True)),
+                ("ne", "", TestProject.objects.exclude(concern__isnull=True)),
                 (
                     "isnull",
                     True,
-                    TestModel.objects.filter(concern__isnull=True),
+                    TestProject.objects.filter(concern__isnull=True),
                 ),
                 (
                     "isnull",
                     False,
-                    TestModel.objects.exclude(concern__isnull=True),
+                    TestProject.objects.exclude(concern__isnull=True),
                 ),
             ]
         ):
@@ -783,12 +848,12 @@ class TestFilterView(OnyxDataTestCase):
             (
                 "isnull",
                 True,
-                TestModel.objects.filter(records__isnull=True),
+                TestProject.objects.filter(records__isnull=True),
             ),
             (
                 "isnull",
                 False,
-                TestModel.objects.filter(records__isnull=False),
+                TestProject.objects.filter(records__isnull=False),
             ),
         ]:
             self._test_filter(
@@ -806,6 +871,141 @@ class TestFilterView(OnyxDataTestCase):
         # Test filtering the relation field with an invalid lookup
         response = self.client.get(self.endpoint, data={"records": 1})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_array(self):
+        """
+        Test filtering an array field.
+        """
+
+        for lookup, value, qs in [
+            (
+                "",
+                "1, 2, 3",
+                TestProject.objects.filter(scores=[1, 2, 3]),
+            ),
+            (
+                "exact",
+                "1, 2, 3",
+                TestProject.objects.filter(scores__exact=[1, 2, 3]),
+            ),
+            (
+                "contains",
+                "1, 2",
+                TestProject.objects.filter(scores__contains=[1, 2]),
+            ),
+            (
+                "contained_by",
+                "1, 2, 3, -1",
+                TestProject.objects.filter(scores__contained_by=[1, 2, 3, -1]),
+            ),
+            (
+                "overlap",
+                "1, 2, -1",
+                TestProject.objects.filter(scores__overlap=[1, 2, -1]),
+            ),
+            (
+                "length",
+                "3",
+                TestProject.objects.filter(scores__len=3),
+            ),
+            (
+                "length__in",
+                "1, 3",
+                TestProject.objects.filter(scores__len__in=[1, 3]),
+            ),
+            (
+                "length__range",
+                "1, 3",
+                TestProject.objects.filter(scores__len__range=[1, 3]),
+            ),
+            (
+                "isnull",
+                True,
+                TestProject.objects.filter(scores__len=0),
+            ),
+            (
+                "isnull",
+                False,
+                TestProject.objects.exclude(scores__len=0),
+            ),
+        ]:
+            self._test_filter(
+                field="scores",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+            )
+
+    def test_structure(self):
+        """
+        Test filtering a structure field.
+        """
+
+        for lookup, value, qs in [
+            (
+                "",
+                json.dumps({"hello": "world", "goodbye": "universe"}),
+                TestProject.objects.filter(
+                    structure={"hello": "world", "goodbye": "universe"}
+                ),
+            ),
+            (
+                "exact",
+                json.dumps({"hello": "world", "goodbye": "universe"}),
+                TestProject.objects.filter(
+                    structure={"hello": "world", "goodbye": "universe"}
+                ),
+            ),
+            (
+                "contains",
+                json.dumps({"goodbye": "universe"}),
+                TestProject.objects.filter(structure__contains={"goodbye": "universe"}),
+            ),
+            (
+                "contained_by",
+                json.dumps({"hello": "world", "goodbye": "universe", "extra": "field"}),
+                TestProject.objects.filter(
+                    structure__contained_by={
+                        "hello": "world",
+                        "goodbye": "universe",
+                        "extra": "field",
+                    }
+                ),
+            ),
+            (
+                "has_key",
+                "hello",
+                TestProject.objects.filter(structure__has_key="hello"),
+            ),
+            (
+                "has_keys",
+                "hello, goodbye",
+                TestProject.objects.filter(structure__has_keys=["hello", "goodbye"]),
+            ),
+            (
+                "has_any_keys",
+                "hello, goodbye, extra",
+                TestProject.objects.filter(
+                    structure__has_any_keys=["hello", "goodbye", "extra"]
+                ),
+            ),
+            (
+                "isnull",
+                True,
+                TestProject.objects.filter(structure={}),
+            ),
+            (
+                "isnull",
+                False,
+                TestProject.objects.exclude(structure={}),
+            ),
+        ]:
+            self._test_filter(
+                field="structure",
+                value=value,
+                qs=qs,
+                lookup=lookup,
+            )
 
     def test_empty_value(self):
         """
@@ -827,7 +1027,7 @@ class TestFilterView(OnyxDataTestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqualClimbIDs(
                     response.json()["data"],
-                    TestModel.objects.filter(**{f"{field}__isnull": True}),
+                    TestProject.objects.filter(**{f"{field}__isnull": True}),
                 )
 
                 # Not equal to empty
@@ -835,8 +1035,31 @@ class TestFilterView(OnyxDataTestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqualClimbIDs(
                     response.json()["data"],
-                    TestModel.objects.filter(**{f"{field}__isnull": False}),
+                    TestProject.objects.filter(**{f"{field}__isnull": False}),
                 )
+
+    def test_search(self):
+        """
+        Test searching for records.
+        """
+
+        response = self.client.get(self.endpoint, data={"search": "world bye"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(
+                (
+                    Q(text_option_1__icontains="world")
+                    | Q(text_option_2__icontains="world")
+                    | Q(required_when_published__icontains="world")
+                )
+                & (
+                    Q(text_option_1__icontains="bye")
+                    | Q(text_option_2__icontains="bye")
+                    | Q(required_when_published__icontains="bye")
+                )
+            ),
+        )
 
     def test_summarise(self):
         """
@@ -862,14 +1085,14 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.values(*fields).distinct().count(),
+                TestProject.objects.values(*fields).distinct().count(),
             )
 
             # Check that the counts match
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["count"],
-                    TestModel.objects.filter(
+                    TestProject.objects.filter(
                         **{field: row[field] for field in fields}
                     ).count(),
                 )
@@ -884,7 +1107,7 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.filter(country="eng")
+                TestProject.objects.filter(country="eng")
                 .values(*fields)
                 .distinct()
                 .count(),
@@ -894,7 +1117,7 @@ class TestFilterView(OnyxDataTestCase):
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["count"],
-                    TestModel.objects.filter(country="eng")
+                    TestProject.objects.filter(country="eng")
                     .filter(**{field: row[field] for field in fields})
                     .count(),
                 )
@@ -928,7 +1151,7 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.filter(records__isnull=False)
+                TestProject.objects.filter(records__isnull=False)
                 .values(*nested_fields)
                 .distinct()
                 .count(),
@@ -938,7 +1161,7 @@ class TestFilterView(OnyxDataTestCase):
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(
+                    TestProjectRecord.objects.filter(
                         **{
                             nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
@@ -961,7 +1184,7 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.filter(records__isnull=False)
+                TestProject.objects.filter(records__isnull=False)
                 .filter(records__test_result="details")
                 .values(*nested_fields)
                 .distinct()
@@ -972,7 +1195,7 @@ class TestFilterView(OnyxDataTestCase):
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(test_result="details")
+                    TestProjectRecord.objects.filter(test_result="details")
                     .filter(
                         **{
                             nested_field.removeprefix("records__"): row[nested_field]
@@ -1009,7 +1232,7 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.filter(records__isnull=False)
+                TestProject.objects.filter(records__isnull=False)
                 .values(*(fields + nested_fields))
                 .distinct()
                 .count(),
@@ -1019,7 +1242,7 @@ class TestFilterView(OnyxDataTestCase):
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(
+                    TestProjectRecord.objects.filter(
                         **{
                             nested_field.removeprefix("records__"): row[nested_field]
                             for nested_field in nested_fields
@@ -1043,7 +1266,7 @@ class TestFilterView(OnyxDataTestCase):
             # matches the number of distinct values in the database
             self.assertEqual(
                 len(response.json()["data"]),
-                TestModel.objects.filter(records__isnull=False)
+                TestProject.objects.filter(records__isnull=False)
                 .filter(country="eng")
                 .filter(records__test_result="details")
                 .values(*(fields + nested_fields))
@@ -1055,7 +1278,7 @@ class TestFilterView(OnyxDataTestCase):
             for row in response.json()["data"]:
                 self.assertEqual(
                     row["records__count"],
-                    TestModelRecord.objects.filter(link__country="eng")
+                    TestProjectRecord.objects.filter(link__country="eng")
                     .filter(test_result="details")
                     .filter(
                         **{
@@ -1083,3 +1306,9 @@ class TestFilterView(OnyxDataTestCase):
         # This field is unknown
         response = self.client.get(self.endpoint, data={"summarise": "hello"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_page_number_pagination(self):
+        pass  # TODO: Test page number pagination
+
+    def test_cursor_pagination(self):
+        pass  # TODO: Test cursor pagination

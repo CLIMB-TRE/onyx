@@ -5,16 +5,26 @@ from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
 from simple_history.utils import bulk_create_with_history
 from accounts.models import User
-from utils.defaults import CurrentUserSiteDefault
-from utils.fieldserializers import DateField, SiteField
+from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
+from utils.fieldserializers import (
+    CharField,
+    IntegerField,
+    FloatField,
+    DateField,
+    ChoiceField,
+    SiteField,
+    StructureField,
+)
 from utils.functions import get_date_output_format
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
-from .models import Anonymiser
+from .models import Project, Anonymiser, Analysis
 
 
 # Mapping of OnyxType to Django REST Framework serializer field
+# TODO: Currently not possible to initialise with nested date and nested array fields
+# Solution would be to have serializer field instances attached to OnyxField objects
 FIELDS = {
     OnyxType.TEXT: serializers.CharField,
     OnyxType.CHOICE: serializers.CharField,
@@ -23,6 +33,8 @@ FIELDS = {
     OnyxType.DATE: lambda format: DateField(format=format),
     OnyxType.DATETIME: lambda format: serializers.DateTimeField(format=format),
     OnyxType.BOOLEAN: serializers.BooleanField,
+    OnyxType.ARRAY: lambda child: serializers.ListField(child=child),
+    OnyxType.STRUCTURE: serializers.JSONField,
 }
 
 
@@ -37,7 +49,7 @@ class HistoryDiffSerializer(serializers.Serializer):
     def __init__(
         self,
         *args,
-        serializer_cls: type[ProjectRecordSerializer],
+        serializer_cls: type[PrimaryRecordSerializer],
         onyx_field: OnyxField,
         show_values: bool,
         **kwargs,
@@ -45,21 +57,28 @@ class HistoryDiffSerializer(serializers.Serializer):
         # Instantiate the superclass normally
         super().__init__(*args, **kwargs)
 
-        serlializer_instance = serializer_cls()
-        assert isinstance(serlializer_instance, ProjectRecordSerializer)
-        serializer_fields = serlializer_instance.get_fields()
+        serializer_instance = serializer_cls()
+        assert isinstance(serializer_instance, PrimaryRecordSerializer)
+        serializer_fields = serializer_instance.get_fields()
 
         if not show_values:
             self.fields["from"] = serializers.CharField()
             self.fields["to"] = serializers.CharField()
         elif onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
-            # TODO: Currently this does not work for nested date fields
-            # Ideal solution would be to have serializer field instances attached to OnyxField objects
             output_format = get_date_output_format(
                 serializer_fields[onyx_field.field_name]
             )
             self.fields["from"] = FIELDS[onyx_field.onyx_type](format=output_format)
             self.fields["to"] = FIELDS[onyx_field.onyx_type](format=output_format)
+        elif onyx_field.onyx_type == OnyxType.ARRAY:
+            base_onyx_field = onyx_field.base_onyx_field
+            assert base_onyx_field is not None
+            self.fields["from"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
+            self.fields["to"] = FIELDS[onyx_field.onyx_type](
+                child=FIELDS[base_onyx_field.onyx_type]()
+            )
         else:
             self.fields["from"] = FIELDS[onyx_field.onyx_type]()
             self.fields["to"] = FIELDS[onyx_field.onyx_type]()
@@ -74,6 +93,10 @@ class IdentifierSerializer(serializers.Serializer):
     value = serializers.CharField()
 
 
+class QueryOptionSerializer(serializers.Serializer):
+    page_size = serializers.IntegerField(min_value=1, max_value=1000)
+
+
 class SummarySerializer(serializers.Serializer):
     """
     Serializer for multi-field count aggregates.
@@ -82,7 +105,7 @@ class SummarySerializer(serializers.Serializer):
     def __init__(
         self,
         *args,
-        serializer_cls: type[ProjectRecordSerializer],
+        serializer_cls: type[PrimaryRecordSerializer],
         onyx_fields: dict[str, OnyxField],
         count_name: str,
         **kwargs,
@@ -91,13 +114,19 @@ class SummarySerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
         serlializer_instance = serializer_cls()
-        assert isinstance(serlializer_instance, ProjectRecordSerializer)
+        assert isinstance(serlializer_instance, PrimaryRecordSerializer)
         serializer_fields = serlializer_instance.get_fields()
 
         for field_name, onyx_field in onyx_fields.items():
             if onyx_field.onyx_type in {OnyxType.DATE, OnyxType.DATETIME}:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type](
                     format=get_date_output_format(serializer_fields[field_name])
+                )
+            elif onyx_field.onyx_type == OnyxType.ARRAY:
+                base_onyx_field = onyx_field.base_onyx_field
+                assert base_onyx_field is not None
+                self.fields[field_name] = FIELDS[onyx_field.onyx_type](
+                    child=FIELDS[base_onyx_field.onyx_type]()
                 )
             else:
                 self.fields[field_name] = FIELDS[onyx_field.onyx_type]()
@@ -110,6 +139,19 @@ class BaseRecordSerializer(serializers.ModelSerializer):
     """
     Base serializer for all project data.
     """
+
+    # Override ModelSerializer serializer_field_mapping to allow for custom field types
+    # https://www.django-rest-framework.org/api-guide/serializers/#customizing-field-mappings
+    serializer_field_mapping = {
+        **serializers.ModelSerializer.serializer_field_mapping,
+        models.CharField: CharField,
+        models.DateField: DateField,
+        models.FloatField: FloatField,
+        models.IntegerField: IntegerField,
+        models.BigIntegerField: IntegerField,
+        models.TextField: CharField,
+    }
+    serializer_choice_field = ChoiceField
 
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), default=serializers.CurrentUserDefault()
@@ -207,7 +249,7 @@ class BaseRecordSerializer(serializers.ModelSerializer):
                 errors=errors,
                 data=data,
                 choice_constraints=self.OnyxMeta.choice_constraints,
-                project=self.context["project"].code,
+                project=self.context["project"],
                 instance=self.instance,
             )
 
@@ -228,6 +270,13 @@ class BaseRecordSerializer(serializers.ModelSerializer):
                 errors=errors,
                 data=data,
                 conditional_value_required=self.OnyxMeta.conditional_value_required,
+                instance=self.instance,
+            )
+
+            validators.validate_conditional_value_optional_value_groups(
+                errors=errors,
+                data=data,
+                conditional_value_optional_value_groups=self.OnyxMeta.conditional_value_optional_value_groups,
                 instance=self.instance,
             )
 
@@ -254,20 +303,21 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         choice_constraints: list[tuple[str, str]] = []
         conditional_required: dict[str, list[str]] = {}
         conditional_value_required: dict[tuple[str, Any, Any], list[str]] = {}
+        conditional_value_optional_value_groups: dict[
+            tuple[str, Any, Any], list[str]
+        ] = {}
 
 
-class ProjectRecordSerializer(BaseRecordSerializer):
+class PrimaryRecordSerializer(BaseRecordSerializer):
     """
-    Serializer for the 'root' model of a project.
+    Base serializer for records and analyses in a project.
     """
 
-    climb_id = serializers.CharField(required=False)
     site = SiteField(default=CurrentUserSiteDefault())
 
     class Meta:
         model: models.Model | None = None
         fields = BaseRecordSerializer.Meta.fields + [
-            "climb_id",
             "is_published",
             "published_date",
             "is_suppressed",
@@ -277,6 +327,20 @@ class ProjectRecordSerializer(BaseRecordSerializer):
 
     class OnyxMeta(BaseRecordSerializer.OnyxMeta):
         anonymised_fields: dict[str, str] = {}
+
+
+class ProjectRecordSerializer(PrimaryRecordSerializer):
+    """
+    Serializer for all project records, on the 'root' model of a project.
+    """
+
+    climb_id = CharField(required=False)
+
+    class Meta:
+        model: models.Model | None = None
+        fields = PrimaryRecordSerializer.Meta.fields + [
+            "climb_id",
+        ]
 
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
@@ -307,6 +371,105 @@ class ProjectRecordSerializer(BaseRecordSerializer):
                 data[field] = anonymiser.identifier
 
         return data
+
+
+class AnonymiserRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        queryset = Anonymiser.objects.filter(project=self.context["project"])
+        return queryset
+
+
+class AnalysisRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        queryset = Analysis.objects.filter(project=self.context["project"])
+        return queryset
+
+
+class ProjectRecordRelatedField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        model = self.context["project"].content_type.model_class()
+        queryset = model.objects.all()
+        return queryset
+
+
+class AnalysisSerializer(PrimaryRecordSerializer):
+    """
+    Serializer for all project analyses.
+    """
+
+    project = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Project.objects.all(),
+        default=CurrentProjectDefault(),
+    )
+    analysis_id = CharField(required=False)
+    methods = StructureField(required=False)
+    result_metrics = StructureField(required=False)
+    upstream_analyses = AnalysisRelatedField(
+        many=True, required=False, slug_field="analysis_id"
+    )
+    downstream_analyses = AnalysisRelatedField(
+        many=True,
+        required=False,
+        slug_field="analysis_id",
+        help_text="The analyses that depend on this analysis.",
+    )
+    identifiers = AnonymiserRelatedField(
+        many=True, required=False, slug_field="identifier"
+    )
+
+    def __init__(self, *args, fields: dict[str, Any] | None = None, **kwargs):
+        super().__init__(*args, fields=fields, **kwargs)
+
+        if self.context.get("project"):
+            records_field = f"{self.context['project'].code}_records"
+
+            if (fields is None) or (fields is not None and records_field in fields):
+                self.fields[records_field] = ProjectRecordRelatedField(
+                    many=True,
+                    required=False,
+                    slug_field="climb_id",
+                    help_text="The records this analysis was produced from.",
+                )
+
+    class Meta:
+        model = Analysis
+        fields = PrimaryRecordSerializer.Meta.fields + [
+            "project",
+            "analysis_id",
+            "analysis_date",
+            "name",
+            "description",
+            "pipeline_name",
+            "pipeline_url",
+            "pipeline_version",
+            "pipeline_command",
+            "methods",
+            "result",
+            "result_metrics",
+            "report",
+            "outputs",
+            "upstream_analyses",
+            "downstream_analyses",
+            "identifiers",
+        ]
+
+    class OnyxMeta(PrimaryRecordSerializer.OnyxMeta):
+        non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [
+            "analysis_date",
+        ]
+        conditional_value_required = (
+            PrimaryRecordSerializer.OnyxMeta.conditional_value_required
+            | {
+                ("is_published", True, True): ["result"],
+            }
+        )
+        conditional_value_optional_value_groups = (
+            PrimaryRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): ["report", "outputs"],
+            }
+        )
 
 
 # TODO: Race condition testing + preventions.

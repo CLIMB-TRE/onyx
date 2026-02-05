@@ -1,31 +1,33 @@
 from __future__ import annotations
 import hashlib
-import pydantic.validators
 from typing_extensions import Annotated
 from collections import namedtuple
 import pydantic
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Count, Subquery, Q
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSetMixin
 from utils.functions import parse_permission, pydantic_to_drf_error
 from accounts.permissions import Approved, ProjectApproved, IsSiteMember
-from .models import Project, Choice, ProjectRecord, Anonymiser
+from accounts.models import Site
+from .models import Project, Choice, Anonymiser, PrimaryRecord, Analysis
 from .serializers import (
     HistoryDiffSerializer,
-    SummarySerializer,
     IdentifierSerializer,
+    QueryOptionSerializer,
+    SummarySerializer,
     SerializerNode,
 )
-from .exceptions import ClimbIDNotFound, IdentifierNotFound
+from .exceptions import ClimbIDNotFound, IdentifierNotFound, AnalysisIdNotFound
 from .query import QuerySymbol, QueryBuilder
+from .search import build_search
 from .queryset import init_project_queryset, prefetch_nested
-from .types import OnyxType, OnyxLookup
-from .actions import Actions
+from .types import Actions, Objects, OnyxType, OnyxLookup
 from .spec import generate_fields_spec
 from .fields import (
     FieldHandler,
@@ -35,23 +37,45 @@ from .fields import (
 )
 
 
+def get_project_and_model(code: str) -> tuple[Project, type[PrimaryRecord]]:
+    """
+    Get the project and model for the given code.
+
+    Args:
+        code: The project code.
+
+    Returns:
+        The project and model.
+    """
+
+    # Get the project
+    project = Project.objects.get(code__iexact=code)
+
+    # Get the project's model
+    model = project.content_type.model_class()
+    assert model is not None
+    assert issubclass(model, PrimaryRecord)
+
+    return project, model
+
+
 def get_discriminator_value(obj):
-    if type(obj) == dict:
+    if type(obj) is dict:
         return "dict"
 
-    elif type(obj) == list:
+    elif type(obj) is list:
         return "list"
 
-    elif type(obj) == str:
+    elif type(obj) is str:
         return "str"
 
-    elif type(obj) == int:
+    elif type(obj) is int:
         return "int"
 
-    elif type(obj) == float:
+    elif type(obj) is float:
         return "float"
 
-    elif type(obj) == bool:
+    elif type(obj) is bool:
         return "bool"
 
     elif obj is None:
@@ -73,7 +97,7 @@ class RequestBody(pydantic.RootModel):
         Annotated[
             Annotated[RequestBody, pydantic.Tag("dict")]
             | Annotated[
-                list[RequestBody],
+                list[RequestBody | str | int | float | bool | None],
                 pydantic.Tag("list"),
                 pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"]),
             ]
@@ -87,36 +111,48 @@ class RequestBody(pydantic.RootModel):
     ] = pydantic.Field(max_length=settings.ONYX_CONFIG["MAX_ITERABLE_INPUT"])
 
 
-class ProjectAPIView(APIView):
+class PrimaryRecordAPIView(APIView):
     """
-    `APIView` with some additional initial setup for working with a specific project.
+    `APIView` with some additional initial setup for working with Primary Records.
     """
+
+    permission_classes = ProjectApproved + [IsSiteMember]
+    project_action = Actions.NO_ACCESS
+    object_type = Objects.RECORD
+    id_field = "climb_id"
+    NotFound = ClimbIDNotFound
 
     def initial(self, request: Request, *args, **kwargs):
         """
-        Initial setup for working with project data.
+        Initial setup for working with primary records.
         """
 
         super().initial(request, *args, **kwargs)
 
-        # Get the project
-        self.project = Project.objects.get(code__iexact=kwargs["code"])
-
-        # Get the project's model
-        model = self.project.content_type.model_class()
-        assert model is not None
-        assert issubclass(model, ProjectRecord)
-        self.model = model
+        # Get the project and model
+        self.project, self.model = get_project_and_model(self.kwargs["code"])
 
         # Get the model's serializer
         self.serializer_cls = self.kwargs["serializer_class"]
         self.kwargs.pop("serializer_class")
 
+        # Get the serializer context
+        self.context = {"project": self.project, "request": self.request}
+
         # Initialise field handler for the project, action and user
         self.handler = FieldHandler(
             project=self.project,
-            action=self.project_action.label,  # type: ignore
+            action=self.project_action.label,
+            object_type=self.object_type.label,
+            model=self.model,
             user=request.user,
+        )
+
+        # Initial queryset
+        self.qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
         )
 
         # Build request query parameters
@@ -124,12 +160,29 @@ class ProjectAPIView(APIView):
             {field: value}
             for field in request.query_params
             for value in request.query_params.getlist(field)
-            if field not in {"cursor", "include", "exclude", "summarise", "search"}
+            if field
+            not in {
+                "cursor",
+                "page",
+                "page_size",
+                "include",
+                "exclude",
+                "order",
+                "summarise",
+                "search",
+                "clear",
+            }
         ]
 
         # Build extra query parameters
-        # Cursor pagination
+        # Cursor for pagination
         self.cursor = request.query_params.get("cursor")
+
+        # Page number for pagination
+        self.page = request.query_params.get("page")
+
+        # Page size for pagination
+        self.page_size = request.query_params.get("page_size")
 
         # Include fields in output of get/filter/query
         self.include = list(request.query_params.getlist("include"))
@@ -137,11 +190,17 @@ class ProjectAPIView(APIView):
         # Excluding fields in output of get/filter/query
         self.exclude = list(request.query_params.getlist("exclude"))
 
+        # Order of fields in filter/query
+        self.order = request.query_params.get("order")
+
         # Summary aggregate in filter/query
         self.summarise = list(request.query_params.getlist("summarise"))
 
         # Search used in filter/query
         self.search = request.query_params.get("search")
+
+        # Clear fields used in update
+        self.clear = list(request.query_params.getlist("clear"))
 
         # Build request body
         try:
@@ -154,6 +213,45 @@ class ProjectAPIView(APIView):
             raise pydantic_to_drf_error(e)
 
 
+class ProjectRecordAPIView(PrimaryRecordAPIView):
+    object_type = Objects.RECORD
+    id_field = "climb_id"
+    NotFound = ClimbIDNotFound
+
+
+class AnalysisAPIView(PrimaryRecordAPIView):
+    object_type = Objects.ANALYSIS
+    id_field = "analysis_id"
+    NotFound = AnalysisIdNotFound
+
+    def initial(self, request: Request, *args, **kwargs):
+        """
+        Initial setup for working with analysis data.
+        """
+
+        super().initial(request, *args, **kwargs)
+
+        # Assign the analysis model
+        self.model = Analysis
+
+        # Override field handler with correct model
+        self.handler = FieldHandler(
+            project=self.project,
+            action=self.project_action.label,
+            object_type=self.object_type.label,
+            model=self.model,
+            user=request.user,
+        )
+
+        # Override initial queryset with correct model,
+        # filtered by project
+        self.qs = init_project_queryset(
+            model=self.model,
+            user=request.user,
+            fields=self.handler.get_fields(),
+        ).filter(project=self.project)
+
+
 class ProjectsView(APIView):
     permission_classes = Approved
 
@@ -162,28 +260,29 @@ class ProjectsView(APIView):
         List all projects that the user has allowed actions on.
         """
 
-        # Filter user groups to determine all (project, scope, actions) tuples
-        project_groups = []
-        for project, scope, actions_str in (
-            request.user.groups.filter(projectgroup__isnull=False)
-            .values_list(
-                "projectgroup__project__code",
-                "projectgroup__scope",
-                "projectgroup__actions",
+        # Filter user groups to determine all (project, name, scope, actions) tuples
+        project_groups = [
+            {
+                "project": project,
+                "name": name,
+                "scope": scope,
+                "actions": [
+                    action.label
+                    for action in Actions
+                    if action != Actions.ACCESS and action.label in actions
+                ],
+            }
+            for project, name, scope, actions in (
+                request.user.groups.filter(projectgroup__isnull=False)
+                .values_list(
+                    "projectgroup__project__code",
+                    "projectgroup__project__name",
+                    "projectgroup__scope",
+                    "projectgroup__actions",
+                )
+                .distinct()
             )
-            .distinct()
-        ):
-            project_groups.append(
-                {
-                    "project": project,
-                    "scope": scope,
-                    "actions": [
-                        action.label
-                        for action in Actions
-                        if action != Actions.ACCESS and action.label in actions_str
-                    ],
-                }
-            )
+        ]
 
         # Return list of allowed project groups
         return Response(project_groups)
@@ -237,8 +336,7 @@ class LookupsView(APIView):
         return Response(lookups)
 
 
-class FieldsView(ProjectAPIView):
-    permission_classes = ProjectApproved
+class FieldsView(PrimaryRecordAPIView):
     project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str) -> Response:
@@ -252,11 +350,15 @@ class FieldsView(ProjectAPIView):
         # Get all actions for each field (excluding access)
         actions_map = {}
         for permission in request.user.get_all_permissions():
-            _, action, project, field = parse_permission(permission)
+            app_label, action, project, object_type, field = parse_permission(
+                permission
+            )
 
             if (
-                action != Actions.ACCESS.label
+                app_label == self.project.content_type.app_label
+                and action != Actions.ACCESS.label
                 and project == self.project.code
+                and object_type == self.object_type.label
                 and field in fields
             ):
                 actions_map.setdefault(field, []).append(action)
@@ -270,6 +372,7 @@ class FieldsView(ProjectAPIView):
             onyx_fields=onyx_fields,
             actions_map=actions_map,
             serializer=self.serializer_cls,
+            context=self.context,
         )
 
         # Return response with project information and fields
@@ -277,14 +380,24 @@ class FieldsView(ProjectAPIView):
             {
                 "name": self.project.name,
                 "description": self.project.description,
+                "object_type": self.object_type.label,
                 "version": self.model.version(),
                 "fields": fields_spec,
             }
         )
 
 
-class ChoicesView(ProjectAPIView):
-    permission_classes = ProjectApproved
+class ProjectRecordFieldsView(FieldsView, ProjectRecordAPIView):
+    def get(self, request: Request, code: str) -> Response:
+        return super().get(request, code)
+
+
+class AnalysisFieldsView(FieldsView, AnalysisAPIView):
+    def get(self, request: Request, code: str) -> Response:
+        return super().get(request, code)
+
+
+class ChoicesView(PrimaryRecordAPIView):
     project_action = Actions.ACCESS
 
     def get(self, request: Request, code: str, field: str) -> Response:
@@ -318,32 +431,48 @@ class ChoicesView(ProjectAPIView):
             )
         }
 
+        # Populate site choice descriptions from the Site model description
+        if onyx_field.field_name == "site":
+            descriptions = {
+                site_code: description
+                for site_code, description in Site.objects.values_list(
+                    "code", "description"
+                )
+            }
+
+            for choice, data in choices.items():
+                if not data["description"]:
+                    data["description"] = descriptions.get(choice.lower(), "")
+
         # Return choices for the field
         return Response(choices)
 
 
-class HistoryView(ProjectAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
+class ProjectRecordChoicesView(ChoicesView, ProjectRecordAPIView):
+    def get(self, request: Request, code: str, field: str) -> Response:
+        return super().get(request, code, field)
+
+
+class AnalysisChoicesView(ChoicesView, AnalysisAPIView):
+    def get(self, request: Request, code: str, field: str) -> Response:
+        return super().get(request, code, field)
+
+
+# TODO: Should be able to return history of deleted objects
+class HistoryView(PrimaryRecordAPIView):
     project_action = Actions.HISTORY
 
-    def get(self, request: Request, code: str, climb_id: str) -> Response:
+    def get(self, request: Request, code: str, id_value: str) -> Response:
         """
-        Use the `climb_id` to retrieve the history of an instance for the given project `code`.
+        Use the `id_value` to retrieve the history of an instance for the given project `code`.
         """
-
-        # Initial queryset
-        qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
 
         # Get the instance
         # If the instance does not exist, return 404
         try:
-            instance = qs.get(climb_id=climb_id)
+            instance = self.qs.get(**{self.id_field: id_value})
         except self.model.DoesNotExist:
-            raise ClimbIDNotFound
+            raise self.NotFound
 
         # Check permissions to view the history of the instance
         try:
@@ -362,7 +491,11 @@ class HistoryView(ProjectAPIView):
 
         # Non-nested fields to include in the history
         included_fields = [
-            field for field in self.serializer_cls.Meta.fields if field in fields
+            field
+            for field in self.serializer_cls.Meta.fields
+            if field in fields
+            # TODO: Many-to-many fields are not tracked in history
+            and fields[field].onyx_type != OnyxType.IDENTIFIERS
         ]
 
         # Nested fields to include in the history
@@ -388,6 +521,7 @@ class HistoryView(ProjectAPIView):
                 "username": h.history_user.username if h.history_user else None,
                 "timestamp": h.history_date,
                 "action": actions[h.history_type],
+                "changes": [],
             }
 
             # If the history type is a change, then include the changes
@@ -395,7 +529,7 @@ class HistoryView(ProjectAPIView):
                 # Create a list of all direct changes to the instance
                 # These changes need to be serialized so the output field
                 # values are represented correctly (e.g. the correct date format)
-                diff["changes"] = [
+                diff["changes"].extend(
                     HistoryDiffSerializer(
                         {
                             "field": change.field,
@@ -411,7 +545,7 @@ class HistoryView(ProjectAPIView):
                         history[i - 1],
                         included_fields=included_fields,
                     ).changes
-                ]
+                )
 
                 # Date of the next history entry by the same user
                 next_user_history_date = None
@@ -430,9 +564,11 @@ class HistoryView(ProjectAPIView):
                         # then include all user changes up to the present
                         nested_diffs = (
                             nested_history_model.objects.filter(
-                                link__climb_id=climb_id,
-                                history_user=h.history_user,
-                                history_date__gte=h.history_date,
+                                **{
+                                    f"link__{self.id_field}": id_value,
+                                    "history_user": h.history_user,
+                                    "history_date__gte": h.history_date,
+                                },
                             )
                             .values("history_type")
                             .annotate(count=Count("history_type"))
@@ -441,10 +577,12 @@ class HistoryView(ProjectAPIView):
                         # Otherwise, include all changes up to the user's next history entry
                         nested_diffs = (
                             nested_history_model.objects.filter(
-                                link__climb_id=climb_id,
-                                history_user=h.history_user,
-                                history_date__gte=h.history_date,
-                                history_date__lt=next_user_history_date,
+                                **{
+                                    f"link__{self.id_field}": id_value,
+                                    "history_user": h.history_user,
+                                    "history_date__gte": h.history_date,
+                                    "history_date__lt": next_user_history_date,
+                                }
                             )
                             .values("history_type")
                             .annotate(count=Count("history_type"))
@@ -463,16 +601,22 @@ class HistoryView(ProjectAPIView):
             diffs.append(diff)
 
         # Return history
-        return Response(
-            {
-                "climb_id": climb_id,
-                "history": diffs,
-            }
-        )
+        return Response({self.id_field: id_value, "history": diffs})
 
 
-class IdentifyView(ProjectAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
+class ProjectRecordHistoryView(HistoryView, ProjectRecordAPIView):
+    def get(self, request: Request, code: str, climb_id: str) -> Response:
+        return super().get(request, code, climb_id)
+
+
+class AnalysisHistoryView(HistoryView, AnalysisAPIView):
+    def get(self, request: Request, code: str, analysis_id: str) -> Response:
+        return super().get(request, code, analysis_id)
+
+
+# TODO: Anonymiser does not accept a content type parameter
+# So can only really be used for records at this point
+class IdentifyView(ProjectRecordAPIView):
     project_action = Actions.IDENTIFY
 
     def post(self, request: Request, code: str, field: str) -> Response:
@@ -489,10 +633,7 @@ class IdentifyView(ProjectAPIView):
         # Validate request body
         serializer = IdentifierSerializer(
             data=self.request_data,
-            context={
-                "project": self.project,
-                "request": self.request,
-            },
+            context=self.context,
         )
         if not serializer.is_valid():
             raise exceptions.ValidationError(serializer.errors)
@@ -532,13 +673,18 @@ class IdentifyView(ProjectAPIView):
         )
 
 
-class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
-    permission_classes = ProjectApproved + [IsSiteMember]
+class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
+    """
+    `ViewSet` with some additional initial setup for working with Primary Records.
+    """
 
     def initial(self, request: Request, *args, **kwargs):
         match (self.request.method, self.action):
             case ("POST", "create"):
-                self.project_action = Actions.ADD
+                if kwargs.get("test"):
+                    self.project_action = Actions.TEST_ADD
+                else:
+                    self.project_action = Actions.ADD
 
             case ("POST", "list"):
                 self.project_action = Actions.LIST
@@ -550,7 +696,10 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 self.project_action = Actions.LIST
 
             case ("PATCH", "partial_update"):
-                self.project_action = Actions.CHANGE
+                if kwargs.get("test"):
+                    self.project_action = Actions.TEST_CHANGE
+                else:
+                    self.project_action = Actions.CHANGE
 
             case ("DELETE", "destroy"):
                 self.project_action = Actions.DELETE
@@ -575,10 +724,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         node = SerializerNode(
             self.serializer_cls,
             data=self.request_data,
-            context={
-                "project": self.project,
-                "request": self.request,
-            },
+            context=self.context,
         )
 
         if not node.is_valid():
@@ -589,8 +735,8 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             instance = node.save()
 
             # Set of fields to return in response
-            # This includes the climb_id and any anonymised fields
-            identifier_fields = ["climb_id"] + list(
+            # This includes the id_field and any anonymised fields
+            identifier_fields = [self.id_field] + list(
                 self.serializer_cls.OnyxMeta.anonymised_fields.keys()
             )
 
@@ -606,27 +752,20 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Return response indicating creation
         return Response(data, status=status.HTTP_201_CREATED)
 
-    def retrieve(self, request: Request, code: str, climb_id: str) -> Response:
+    def retrieve(self, request: Request, code: str, id_value: str) -> Response:
         """
-        Use the `climb_id` to retrieve an instance for the given project `code`.
+        Use the `id_value` to retrieve an instance for the given project `code`.
         """
 
         # Validate the include/exclude fields
         self.handler.resolve_fields(self.include + self.exclude)
 
-        # Initial queryset
-        qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
-
         # Get the instance
         # If the instance does not exist, return 404
         try:
-            instance = qs.get(climb_id=climb_id)
+            instance = self.qs.get(**{self.id_field: id_value})
         except self.model.DoesNotExist:
-            raise ClimbIDNotFound
+            raise self.NotFound
 
         # Fields returned in response
         fields = include_exclude_fields(
@@ -638,13 +777,14 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Serialize the result
         serializer = self.serializer_cls(
             instance,
+            context=self.context,
             fields=unflatten_fields(fields),
         )
 
         # Return response with data
         return Response(serializer.data)
 
-    def list(self, request: Request, code: str) -> Response:
+    def list(self, request: Request, code: str, count: bool = False) -> Response:
         """
         Filter and list instances for the given project `code`.
         """
@@ -662,17 +802,26 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         filter_handler = FieldHandler(
             project=self.project,
             action=Actions.FILTER.label,
+            object_type=self.object_type.label,
+            model=self.model,
             user=request.user,
         )
 
         # Validate include/exclude fields
-        include_exclude = self.include + self.exclude
-        for field in include_exclude:
+        for field in self.include + self.exclude:
             try:
                 # Lookups are not allowed for include/exclude fields
                 self.handler.resolve_field(field)
             except exceptions.ValidationError as e:
                 errors.setdefault(field, []).append(e.args[0])
+
+        # Validate order field
+        if self.order:
+            try:
+                # Lookups are not allowed for the order field
+                self.handler.resolve_field(self.order.removeprefix("-"))
+            except exceptions.ValidationError as e:
+                errors.setdefault(self.order, []).append(e.args[0])
 
         # Validate the query fields
         if data:
@@ -709,13 +858,6 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         if errors:
             raise exceptions.ValidationError(errors)
 
-        # Initial queryset
-        init_qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
-
         # Fields returned in response
         fields = include_exclude_fields(
             fields=self.handler.get_fields(),
@@ -724,7 +866,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         )
 
         # Prefetch nested fields returned in response
-        qs = prefetch_nested(init_qs, unflatten_fields(fields))
+        qs = prefetch_nested(self.qs, unflatten_fields(fields))
 
         # Q object for the user's search and query
         q_object = Q()
@@ -732,35 +874,16 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # If the search parameter was provided
         # Form the Q object for it, and add it to the user's Q object
         if self.search:
-            # Split the search string into individual words
-            words = []
-            for word in self.search.split():
-                w = word.strip().strip("'").strip('"').strip()
-                if w:
-                    words.append(w)
+            # Get the fields to search over
+            search_fields = [
+                field
+                for field, onyx_field in self.handler.resolve_fields(fields).items()
+                if onyx_field.onyx_type == OnyxType.TEXT
+                or onyx_field.onyx_type == OnyxType.CHOICE
+            ]
 
-            if words:
-                # Get the fields to search over
-                search_fields = [
-                    field
-                    for field, onyx_field in self.handler.resolve_fields(fields).items()
-                    if onyx_field.onyx_type == OnyxType.TEXT
-                    or onyx_field.onyx_type == OnyxType.CHOICE
-                ]
-
-                # Form the Q object for the search
-                search = Q()
-                for word in words:
-                    s = Q()
-                    for field in search_fields:
-                        if field == "site":
-                            s |= Q(**{f"{field}__code__icontains": word})
-                        else:
-                            s |= Q(**{f"{field}__icontains": word})
-                    search &= s
-
-                # Add to the user Q object
-                q_object &= search
+            # Form the Q object for the search, and add it to the user's Q object
+            q_object &= build_search(self.search, search_fields)
 
         # If a valid query was provided
         # Form the Q object for it, and add it to the user's Q object
@@ -768,6 +891,11 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             q_object &= query.build()
 
         if self.summarise:
+            if any(onyx_field.many_to_many for onyx_field in summary_fields.values()):
+                raise exceptions.ValidationError(
+                    {"detail": "Cannot summarise over many-to-many fields."}
+                )
+
             # Filter the queryset with the user's Q object
             if q_object:
                 qs = qs.filter(q_object)
@@ -795,7 +923,7 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 # or the number of rows in the main table that have no related rows.
                 qs = qs.filter(
                     id__in=Subquery(
-                        init_qs.filter(**{f"{relation}__isnull": False}).values("id")
+                        self.qs.filter(**{f"{relation}__isnull": False}).values("id")
                     )
                 )
                 count_name = f"{relation}__count"
@@ -834,9 +962,32 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
             if q_object:
                 qs = qs.filter(id__in=Subquery(qs.filter(q_object).values("id")))
 
+            # If the count option is True, return the queryset count instead of results
+            if count:
+                return Response({"count": qs.count()})
+
             # Prepare paginator
-            self.paginator = CursorPagination()
-            self.paginator.ordering = "created"
+            if self.order or self.page or self.page_size:
+                self.paginator = PageNumberPagination()
+
+                if self.page_size:
+                    page_size_serializer = QueryOptionSerializer(
+                        data={"page_size": self.page_size}
+                    )
+                    if not page_size_serializer.is_valid():
+                        raise exceptions.ValidationError(page_size_serializer.errors)
+
+                    self.paginator.page_size = page_size_serializer.data["page_size"]  # type: ignore
+
+                if self.order:
+                    reverse = self.order.startswith("-")
+
+                    qs = qs.order_by(self.order, f"{'-' if reverse else ''}created")
+                else:
+                    qs = qs.order_by("created")
+            else:
+                self.paginator = CursorPagination()
+                self.paginator.ordering = "created"
 
             # Paginate the response
             result_page = self.paginator.paginate_queryset(qs, request)
@@ -846,34 +997,69 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
                 result_page,
                 many=True,
                 fields=unflatten_fields(fields),
+                context=self.context,
             )
 
         # Return response with either filtered set of data, or summarised values
         return Response(serializer.data)
 
     def partial_update(
-        self, request: Request, code: str, climb_id: str, test: bool = False
+        self, request: Request, code: str, id_value: str, test: bool = False
     ) -> Response:
         """
-        Use the `climb_id` to update an instance for the given project `code`.
+        Use the `id_value` to update an instance for the given project `code`.
         """
 
-        # Validate the request data fields
-        self.handler.resolve_fields(flatten_fields(self.request_data))
+        errors = {}
 
-        # Initial queryset
-        qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
+        # Validate any fields to clear
+        relations_to_clear = set()
+        for field in self.clear:
+            if "__" in field:
+                msg = "You cannot clear this field."
+                errors.setdefault(field, []).append(msg)
+                continue
+
+            if field in self.request_data:
+                msg = "You cannot both update and clear this field in the same request."
+                errors.setdefault(field, []).append(msg)
+                continue
+
+            try:
+                onyx_field = self.handler.resolve_field(field)
+
+                if onyx_field.onyx_type in {OnyxType.TEXT, OnyxType.CHOICE}:
+                    self.request_data[field] = ""
+                elif onyx_field.onyx_type == OnyxType.ARRAY:
+                    self.request_data[field] = "[]"
+                elif onyx_field.onyx_type == OnyxType.STRUCTURE:
+                    self.request_data[field] = "{}"
+                elif onyx_field.onyx_type == OnyxType.IDENTIFIERS:
+                    self.request_data[field] = []
+                elif onyx_field.onyx_type == OnyxType.RELATION:
+                    self.request_data[field] = []
+                    relations_to_clear.add(field)
+                else:
+                    self.request_data[field] = None
+            except exceptions.ValidationError as e:
+                errors.setdefault(field, []).append(e.args[0])
+
+        # Validate the request data fields
+        for field in flatten_fields(self.request_data):
+            try:
+                self.handler.resolve_field(field)
+            except exceptions.ValidationError as e:
+                errors.setdefault(field, []).append(e.args[0])
+
+        if errors:
+            raise exceptions.ValidationError(errors)
 
         # Get the instance to be updated
         # If the instance does not exist, return 404
         try:
-            instance = qs.get(climb_id=climb_id)
+            instance = self.qs.get(**{self.id_field: id_value})
         except self.model.DoesNotExist:
-            raise ClimbIDNotFound
+            raise self.NotFound
 
         # Check permissions to update the instance
         self.check_object_permissions(request, instance)
@@ -882,22 +1068,24 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         node = SerializerNode(
             self.serializer_cls,
             data=self.request_data,
-            context={
-                "project": self.project,
-                "request": self.request,
-            },
+            context=self.context,
         )
 
         if not node.is_valid(instance=instance):
             raise exceptions.ValidationError(node.errors)
 
         if not test:
-            # Update the instance
-            instance = node.save()
+            with transaction.atomic():
+                # Update the instance
+                instance = node.save()
+
+                # Handle any relational fields that need to be cleared
+                for relation in relations_to_clear:
+                    getattr(instance, relation).all().delete()
 
             # Set of fields to return in response
-            # This includes the climb_id and any anonymised fields
-            identifier_fields = ["climb_id"] + list(
+            # This includes the id_field and any anonymised fields
+            identifier_fields = [self.id_field] + list(
                 self.serializer_cls.OnyxMeta.anonymised_fields.keys()
             )
 
@@ -913,24 +1101,17 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         # Return response indicating update
         return Response(data)
 
-    def destroy(self, request: Request, code: str, climb_id: str) -> Response:
+    def destroy(self, request: Request, code: str, id_value: str) -> Response:
         """
-        Use the `climb_id` to permanently delete an instance of the given project `code`.
+        Use the `id_value` to permanently delete an instance of the given project `code`.
         """
-
-        # Initial queryset
-        qs = init_project_queryset(
-            model=self.model,
-            user=request.user,
-            fields=self.handler.get_fields(),
-        )
 
         # Get the instance to be deleted
         # If the instance does not exist, return 404
         try:
-            instance = qs.get(climb_id=climb_id)
+            instance = self.qs.get(**{self.id_field: id_value})
         except self.model.DoesNotExist:
-            raise ClimbIDNotFound
+            raise self.NotFound
 
         # Check permissions to delete the instance
         self.check_object_permissions(request, instance)
@@ -939,8 +1120,8 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
         instance.delete()
 
         # Set of fields to return in response
-        # This includes the climb_id and any anonymised fields
-        identifier_fields = ["climb_id"] + list(
+        # This includes the id_field and any anonymised fields
+        identifier_fields = [self.id_field] + list(
             self.serializer_cls.OnyxMeta.anonymised_fields.keys()
         )
 
@@ -953,3 +1134,123 @@ class ProjectRecordsViewSet(ViewSetMixin, ProjectAPIView):
 
         # Return response indicating deletion
         return Response(data)
+
+
+class ProjectRecordsViewSet(PrimaryRecordViewSet, ProjectRecordAPIView):
+    def retrieve(self, request: Request, code: str, climb_id: str) -> Response:
+        return super().retrieve(request, code, climb_id)
+
+    def partial_update(
+        self, request: Request, code: str, climb_id: str, test: bool = False
+    ) -> Response:
+        return super().partial_update(request, code, climb_id, test)
+
+    def destroy(self, request: Request, code: str, climb_id: str) -> Response:
+        return super().destroy(request, code, climb_id)
+
+
+class AnalysisViewSet(PrimaryRecordViewSet, AnalysisAPIView):
+    def retrieve(self, request: Request, code: str, analysis_id: str) -> Response:
+        return super().retrieve(request, code, analysis_id)
+
+    def partial_update(
+        self, request: Request, code: str, analysis_id: str, test: bool = False
+    ) -> Response:
+        return super().partial_update(request, code, analysis_id, test)
+
+    def destroy(self, request: Request, code: str, analysis_id: str) -> Response:
+        return super().destroy(request, code, analysis_id)
+
+
+class RecordAnalysesView(AnalysisAPIView):
+    project_action = Actions.LIST
+
+    def get(self, request: Request, code: str, climb_id: str) -> Response:
+        """
+        Use the `climb_id` to retrieve the analyses of an instance for the given project `code`.
+        """
+
+        # Get the record model
+        _, record_model = get_project_and_model(self.project.code)
+
+        # Initialise record field handler
+        record_handler = FieldHandler(
+            project=self.project,
+            action=Actions.GET.label,
+            object_type=Objects.RECORD.label,
+            model=record_model,
+            user=request.user,
+        )
+
+        # Initial record queryset
+        record_qs = init_project_queryset(
+            model=record_model,
+            user=request.user,
+            fields=record_handler.get_fields(),
+        )
+
+        # Check the instance exists
+        # If the instance does not exist, return 404
+        if not record_qs.filter(climb_id=climb_id).exists():
+            raise self.NotFound
+
+        # Filter the analyses with the instance's climb_id
+        qs = self.qs.filter(
+            **{
+                "project__code": self.project.code,
+                f"{self.project.code}_records__climb_id": climb_id,
+            }
+        )
+
+        # Serialize the results
+        serializer = self.serializer_cls(
+            qs,
+            many=True,
+            fields=unflatten_fields(self.handler.get_fields()),
+        )
+
+        # Return response with data
+        return Response(serializer.data)
+
+
+class AnalysisRecordsView(ProjectRecordAPIView):
+    project_action = Actions.LIST
+
+    def get(self, request: Request, code: str, analysis_id: str) -> Response:
+        """
+        Use the `analysis_id` to retrieve the records of an instance for the given project `code`.
+        """
+
+        # Initialise analysis field handler
+        analysis_handler = FieldHandler(
+            project=self.project,
+            action=Actions.GET.label,
+            object_type=Objects.ANALYSIS.label,
+            model=Analysis,
+            user=request.user,
+        )
+
+        # Initial analysis queryset
+        analysis_qs = init_project_queryset(
+            model=Analysis,
+            user=request.user,
+            fields=analysis_handler.get_fields(),
+        )
+
+        # Check the instance exists
+        # If the instance does not exist, return 404
+        if not analysis_qs.filter(analysis_id=analysis_id).exists():
+            raise self.NotFound
+
+        # Filter the records with the instance's analysis_id
+        qs = self.qs.filter(analyses__analysis_id=analysis_id)
+
+        # Serialize the results
+        serializer = self.serializer_cls(
+            qs,
+            many=True,
+            fields=unflatten_fields(["climb_id", "published_date", "site"]),
+        )
+
+        # Return response with data
+        return Response(serializer.data)

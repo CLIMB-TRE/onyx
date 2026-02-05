@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import empty
 from django.utils.translation import gettext_lazy as _
 from data.models import Choice
 from accounts.models import Site
@@ -20,6 +21,7 @@ class CharField(serializers.CharField):
             "N/A",
             "N.A.",
             "N.A",
+            "NAN",
             "EMPTY",
             "NULL",
             "NONE",
@@ -61,7 +63,7 @@ class FloatField(serializers.FloatField):
 
 
 class DateField(serializers.DateField):
-    def __init__(self, format: str, input_formats=None, **kwargs):
+    def __init__(self, format: type[empty] | str = empty, input_formats=None, **kwargs):
         super().__init__(
             format,  #  type: ignore
             input_formats=input_formats,
@@ -78,10 +80,6 @@ class DateField(serializers.DateField):
 class ChoiceField(serializers.ChoiceField):
     default_error_messages = {"invalid_choice": _("{suggestions}")}
 
-    def __init__(self, field, **kwargs):
-        self.field = field
-        super().__init__([], **kwargs)
-
     def validate_empty_values(self, data):
         if data is None:
             data = ""
@@ -91,16 +89,27 @@ class ChoiceField(serializers.ChoiceField):
     def to_internal_value(self, data):
         data = str(data).strip().lower()
 
-        self.choices = list(
-            Choice.objects.filter(
-                project_id=self.context["project"],
-                field=self.field,
-                is_active=True,
-            ).values_list(
-                "choice",
-                flat=True,
+        # Check if the choices for this field have been cached in the context
+        choices = self.context.setdefault("choices", {}).get(self.field_name)
+
+        if choices:
+            self.choices = choices
+        else:
+            # If not, fetch the choices from the database
+            self.choices = list(
+                Choice.objects.filter(
+                    project=self.context["project"],
+                    field=self.field_name,
+                    is_active=True,
+                ).values_list(
+                    "choice",
+                    flat=True,
+                )
             )
-        )
+
+            # Cache the choices in the context
+            self.context["choices"][self.field_name] = self.choices
+
         self.choice_map = {choice.lower().strip(): choice for choice in self.choices}
 
         if data in self.choice_map:
@@ -130,7 +139,10 @@ class SiteField(ChoiceField):
     }
 
     def __init__(self, **kwargs):
-        super().__init__("site", **kwargs)
+        # Choices are a required argument on initialisation
+        # The SiteField model field does not provide any
+        kwargs["choices"] = [("choice", "Choice")]
+        super().__init__(**kwargs)
 
     def to_internal_value(self, data):
         value = super().to_internal_value(data)
@@ -143,3 +155,20 @@ class SiteField(ChoiceField):
 
     def to_representation(self, site):
         return site.code
+
+
+class JSONFieldMixin:
+    def to_internal_value(self, data):
+        data = serializers.JSONField(
+            binary=True if isinstance(data, str) else False
+        ).to_internal_value(data)
+
+        return super().to_internal_value(data)  # type: ignore
+
+
+class ArrayField(JSONFieldMixin, serializers.ListField):
+    pass
+
+
+class StructureField(JSONFieldMixin, serializers.DictField):
+    pass

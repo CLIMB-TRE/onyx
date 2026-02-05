@@ -12,7 +12,8 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
-import os, sys
+import os
+import sys
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -36,6 +37,14 @@ ALLOWED_HOSTS = [os.environ["HOST_NAME"]]
 
 # ADMINS = [(os.environ["ADMIN_NAME"], os.environ["ADMIN_EMAIL"])]
 
+ONYX_PROJECT_APPS = sorted(
+    [
+        p.name
+        for p in (BASE_DIR / "projects").iterdir()
+        if p.is_dir() and (p / "__init__.py").exists() and (p / "apps.py").exists()
+    ]
+)
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -53,11 +62,7 @@ INSTALLED_APPS = [
     "internal",
     "data",
     "accounts",
-] + [
-    f"projects.{project}"
-    for project in os.getenv("ONYX_PROJECTS", "").split(",")
-    if project
-]
+] + [f"projects.{project_app}" for project_app in ONYX_PROJECT_APPS]
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",

@@ -1,7 +1,7 @@
 from typing import Any
 from django.db import models
 from datetime import datetime
-from .models import Choice
+from .models import Choice, Project
 
 
 EMPTY_VALUES = [None, ""]
@@ -129,7 +129,7 @@ def validate_choice_constraints(
     errors: dict[str, list[str]],
     data: dict[str, Any],
     choice_constraints: list[tuple[str, str]],
-    project: str,
+    project: Project,
     instance: type[models.Model] | None = None,
 ):
     """
@@ -145,7 +145,7 @@ def validate_choice_constraints(
             for constraint in choice.constraints.all()
         }
         for choice in Choice.objects.prefetch_related("constraints")
-        .filter(project_id=project)
+        .filter(project=project)
         .filter(
             field__in=set(
                 field
@@ -241,3 +241,43 @@ def validate_conditional_value_required(
                     errors.setdefault(requirements[i], []).append(
                         f"This field is required if {field} equals {value}."
                     )
+
+
+def validate_conditional_value_optional_value_groups(
+    errors: dict[str, list[str]],
+    data: dict[str, Any],
+    conditional_value_optional_value_groups: dict[tuple[str, Any, Any], list[str]],
+    instance: type[models.Model] | None = None,
+):
+    """
+    Ensure at least one conditional-value-optional-value-group field is provided.
+    """
+
+    for (
+        field,
+        value,
+        default,
+    ), requirements in conditional_value_optional_value_groups.items():
+        if instance:
+            required_values = [
+                data.get(req, getattr(instance, req)) for req in requirements
+            ]
+            field_value = data.get(field, getattr(instance, field))
+        else:
+            required_values = [data.get(req) for req in requirements]
+            field_value = data.get(field)
+
+        if field_value in EMPTY_VALUES and default not in EMPTY_VALUES:
+            field_value = default
+
+        if field_value == value:
+            req_provided = False
+            for req in required_values:
+                if req not in EMPTY_VALUES:
+                    req_provided = True
+                    break
+
+            if not req_provided:
+                errors.setdefault("non_field_errors", []).append(
+                    f"At least one of {', '.join(requirements)} is required if {field} equals {value}."
+                )

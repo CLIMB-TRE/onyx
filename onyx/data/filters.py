@@ -1,7 +1,7 @@
+import json
 from datetime import datetime
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 from rest_framework.serializers import BooleanField
 from django_filters import rest_framework as filters, fields as filter_fields
 from utils.functions import get_suggestions, strtobool
@@ -14,7 +14,7 @@ class StrictFieldMixin:
         value = super().clean(value)  #  type: ignore
 
         if value is None:
-            raise ValidationError(f"Value cannot be null.")
+            raise ValidationError("Value cannot be null.")
 
         return value
 
@@ -25,7 +25,7 @@ class StrictFieldListMixin:
         assert isinstance(value, list)
 
         if not value or None in value:
-            raise ValidationError(f"Value cannot be null.")
+            raise ValidationError("Value cannot be null.")
 
         return value
 
@@ -264,6 +264,30 @@ class StrictBooleanFilter(BooleanFilter):
     field_class = StrictBooleanForm
 
 
+class StructureFieldForm(forms.CharField):
+    def clean(self, value):
+        value = super().clean(value)
+
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            raise ValidationError("Value must be a valid JSON object.")
+
+        return value
+
+
+class StrictStructureFieldForm(StrictFieldMixin, StructureFieldForm):
+    pass
+
+
+class StructureFilter(filters.Filter):
+    field_class = StructureFieldForm
+
+
+class StrictStructureFilter(StructureFilter):
+    field_class = StrictStructureFieldForm
+
+
 # Mappings from field type + lookup to filter
 FILTERS = {
     OnyxType.TEXT: {lookup: filters.CharFilter for lookup in OnyxType.TEXT.lookups}
@@ -346,6 +370,36 @@ FILTERS = {
     OnyxType.RELATION: {
         "isnull": StrictBooleanFilter,
     },
+    OnyxType.ARRAY: {
+        OnyxType.TEXT: {lookup: CharInFilter for lookup in OnyxType.ARRAY.lookups}
+        | {
+            "length": StrictNumberFilter,
+            "length__in": StrictNumberInFilter,
+            "length__range": NumberRangeFilter,
+            "isnull": StrictBooleanFilter,
+        },
+        OnyxType.INTEGER: {lookup: NumberInFilter for lookup in OnyxType.ARRAY.lookups}
+        | {
+            "length": StrictNumberFilter,
+            "length__in": StrictNumberInFilter,
+            "length__range": NumberRangeFilter,
+            "isnull": StrictBooleanFilter,
+        },
+    },
+    OnyxType.STRUCTURE: {
+        lookup: StructureFilter for lookup in OnyxType.STRUCTURE.lookups
+    }
+    | {
+        "contains": StrictStructureFilter,
+        "contained_by": StrictStructureFilter,
+        "has_key": filters.CharFilter,
+        "has_keys": CharInFilter,
+        "has_any_keys": CharInFilter,
+        "isnull": StrictBooleanFilter,
+    },
+    OnyxType.IDENTIFIERS: {
+        "isnull": StrictBooleanFilter,
+    },
 }
 
 
@@ -358,7 +412,14 @@ class OnyxFilter(filters.FilterSet):
         # Validating the values provided by the user for the fields
         # Returning cleaned values from user inputs, using the filterset's underlying form
         for field_name, onyx_field in onyx_fields.items():
-            filter = FILTERS[onyx_field.onyx_type][onyx_field.lookup]
+            if onyx_field.onyx_type == OnyxType.ARRAY:
+                base_onyx_field = onyx_field.base_onyx_field
+                assert base_onyx_field is not None
+                filter = FILTERS[onyx_field.onyx_type][base_onyx_field.onyx_type][
+                    onyx_field.lookup
+                ]
+            else:
+                filter = FILTERS[onyx_field.onyx_type][onyx_field.lookup]
 
             if onyx_field.onyx_type == OnyxType.CHOICE:
                 choices = [(x, x) for x in onyx_field.choices]

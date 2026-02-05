@@ -1020,13 +1020,15 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                 errors.setdefault(field, []).append(msg)
                 continue
 
+            if field in self.request_data:
+                msg = "You cannot both update and clear this field in the same request."
+                errors.setdefault(field, []).append(msg)
+                continue
+
             try:
                 onyx_field = self.handler.resolve_field(field)
 
-                if (
-                    onyx_field.onyx_type == OnyxType.TEXT
-                    or onyx_field.onyx_type == OnyxType.CHOICE
-                ):
+                if onyx_field.onyx_type in {OnyxType.TEXT, OnyxType.CHOICE}:
                     self.request_data[field] = ""
                 elif onyx_field.onyx_type == OnyxType.ARRAY:
                     self.request_data[field] = "[]"
@@ -1035,6 +1037,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                 elif onyx_field.onyx_type == OnyxType.IDENTIFIERS:
                     self.request_data[field] = []
                 elif onyx_field.onyx_type == OnyxType.RELATION:
+                    self.request_data[field] = []
                     relations_to_clear.add(field)
                 else:
                     self.request_data[field] = None

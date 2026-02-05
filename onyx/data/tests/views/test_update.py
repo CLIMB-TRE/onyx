@@ -1253,6 +1253,26 @@ class TestUpdateView(OnyxTestCase):
         self.assertEqual(instance.tests, 20)
         self.assertIsNone(instance.score)
 
+    def test_clear_and_update_same_field_fails(self):
+        """
+        Test that clearing and updating the same field at the same time fails.
+        """
+
+        instance = TestProject.objects.get(climb_id=self.climb_id)
+        instance.tests = 10
+        instance.save()
+
+        response = self.client.patch(
+            f"{self.endpoint(self.climb_id)}?clear=tests",
+            data={"tests": 20},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(response, "tests", status_code=400)
+
+        # Verify the field was not modified
+        instance.refresh_from_db()
+        self.assertEqual(instance.tests, 10)
+
     def test_clear_unknown_field(self):
         """
         Test that clearing an unknown field fails.

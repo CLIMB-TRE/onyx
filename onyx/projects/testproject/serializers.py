@@ -86,12 +86,18 @@ class TestProjectSerializer(ProjectRecordSerializer):
             "optional_when_published_2",
             "scores",
             "structure",
+            "unique_together_1",
+            "unique_together_2",
         ]
         validators = [
             OnyxUniqueTogetherValidator(
                 queryset=TestProject.objects.all(),
                 fields=["sample_id", "run_name"],
-            )
+            ),
+            OnyxUniqueTogetherValidator(
+                queryset=TestProject.objects.all(),
+                fields=["unique_together_1", "unique_together_2"],
+            ),
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):

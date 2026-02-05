@@ -4,6 +4,7 @@ from typing_extensions import Annotated
 from collections import namedtuple
 import pydantic
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Count, Subquery, Q
 from rest_framework import status, exceptions
 from rest_framework.request import Request
@@ -162,13 +163,14 @@ class PrimaryRecordAPIView(APIView):
             if field
             not in {
                 "cursor",
-                "include",
-                "exclude",
-                "summarise",
-                "search",
                 "page",
                 "page_size",
+                "include",
+                "exclude",
                 "order",
+                "summarise",
+                "search",
+                "clear",
             }
         ]
 
@@ -196,6 +198,9 @@ class PrimaryRecordAPIView(APIView):
 
         # Search used in filter/query
         self.search = request.query_params.get("search")
+
+        # Clear fields used in update
+        self.clear = list(request.query_params.getlist("clear"))
 
         # Build request body
         try:
@@ -972,7 +977,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                     if not page_size_serializer.is_valid():
                         raise exceptions.ValidationError(page_size_serializer.errors)
 
-                    self.paginator.page_size = page_size_serializer.data["page_size"]
+                    self.paginator.page_size = page_size_serializer.data["page_size"]  # type: ignore
 
                 if self.order:
                     reverse = self.order.startswith("-")
@@ -1005,8 +1010,49 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         Use the `id_value` to update an instance for the given project `code`.
         """
 
+        errors = {}
+
+        # Validate any fields to clear
+        relations_to_clear = set()
+        for field in self.clear:
+            if "__" in field:
+                msg = "You cannot clear this field."
+                errors.setdefault(field, []).append(msg)
+                continue
+
+            if field in self.request_data:
+                msg = "You cannot both update and clear this field in the same request."
+                errors.setdefault(field, []).append(msg)
+                continue
+
+            try:
+                onyx_field = self.handler.resolve_field(field)
+
+                if onyx_field.onyx_type in {OnyxType.TEXT, OnyxType.CHOICE}:
+                    self.request_data[field] = ""
+                elif onyx_field.onyx_type == OnyxType.ARRAY:
+                    self.request_data[field] = "[]"
+                elif onyx_field.onyx_type == OnyxType.STRUCTURE:
+                    self.request_data[field] = "{}"
+                elif onyx_field.onyx_type == OnyxType.IDENTIFIERS:
+                    self.request_data[field] = []
+                elif onyx_field.onyx_type == OnyxType.RELATION:
+                    self.request_data[field] = []
+                    relations_to_clear.add(field)
+                else:
+                    self.request_data[field] = None
+            except exceptions.ValidationError as e:
+                errors.setdefault(field, []).append(e.args[0])
+
         # Validate the request data fields
-        self.handler.resolve_fields(flatten_fields(self.request_data))
+        for field in flatten_fields(self.request_data):
+            try:
+                self.handler.resolve_field(field)
+            except exceptions.ValidationError as e:
+                errors.setdefault(field, []).append(e.args[0])
+
+        if errors:
+            raise exceptions.ValidationError(errors)
 
         # Get the instance to be updated
         # If the instance does not exist, return 404
@@ -1029,8 +1075,13 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
             raise exceptions.ValidationError(node.errors)
 
         if not test:
-            # Update the instance
-            instance = node.save()
+            with transaction.atomic():
+                # Update the instance
+                instance = node.save()
+
+                # Handle any relational fields that need to be cleared
+                for relation in relations_to_clear:
+                    getattr(instance, relation).all().delete()
 
             # Set of fields to return in response
             # This includes the id_field and any anonymised fields

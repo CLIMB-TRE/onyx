@@ -44,6 +44,8 @@ class BaseTestProject(ProjectRecord):
     optional_when_published_2 = models.TextField(blank=True)
     scores = ArrayField(models.IntegerField(), default=list, size=10)
     structure = models.JSONField(default=dict)
+    unique_together_1 = models.CharField(max_length=50, blank=True)
+    unique_together_2 = models.CharField(max_length=50, blank=True)
 
     class Meta:
         abstract = True
@@ -65,6 +67,9 @@ class BaseTestProject(ProjectRecord):
         constraints = [
             unique_together(
                 fields=["sample_id", "run_name"],
+            ),
+            unique_together(
+                fields=["unique_together_1", "unique_together_2"],
             ),
             optional_value_group(
                 fields=["collection_month", "received_month"],

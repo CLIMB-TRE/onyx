@@ -1015,16 +1015,15 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # Validate any fields to clear
         relations_to_clear = set()
         for field in self.clear:
+            if "__" in field:
+                msg = "You cannot clear this field."
+                errors.setdefault(field, []).append(msg)
+                continue
+
             try:
                 onyx_field = self.handler.resolve_field(field)
 
-                if "__" in field or onyx_field.field_type == OnyxType.IDENTIFIERS:
-                    errors.setdefault(field, []).append("You cannot clear this field.")
-                    continue
-
-                if onyx_field.onyx_type == OnyxType.RELATION:
-                    relations_to_clear.add(field)
-                elif (
+                if (
                     onyx_field.onyx_type == OnyxType.TEXT
                     or onyx_field.onyx_type == OnyxType.CHOICE
                 ):
@@ -1033,17 +1032,21 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
                     self.request_data[field] = "[]"
                 elif onyx_field.onyx_type == OnyxType.STRUCTURE:
                     self.request_data[field] = "{}"
+                elif onyx_field.onyx_type == OnyxType.IDENTIFIERS:
+                    self.request_data[field] = []
+                elif onyx_field.onyx_type == OnyxType.RELATION:
+                    relations_to_clear.add(field)
                 else:
                     self.request_data[field] = None
             except exceptions.ValidationError as e:
                 errors.setdefault(field, []).append(e.args[0])
 
         # Validate the request data fields
-        try:
-            for field in flatten_fields(self.request_data):
+        for field in flatten_fields(self.request_data):
+            try:
                 self.handler.resolve_field(field)
-        except exceptions.ValidationError as e:
-            errors.setdefault(field, []).append(e.args[0])
+            except exceptions.ValidationError as e:
+                errors.setdefault(field, []).append(e.args[0])
 
         if errors:
             raise exceptions.ValidationError(errors)

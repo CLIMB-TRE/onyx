@@ -720,8 +720,9 @@ class SerializerNode:
                                 )
                             )
                 if instances:
+                    serializer_model = node[0].serializer.Meta.model
                     bulk_create_with_history(
-                        instances, n.serializer.Meta.model, batch_size=100
+                        instances, serializer_model, batch_size=100
                     )
             else:
                 node._save(link=instance)

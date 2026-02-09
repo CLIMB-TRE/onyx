@@ -1089,6 +1089,57 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["data"], [])
 
+    def test_summarise_search(self):
+        """
+        Test searching with summarise searches over summary fields only.
+        """
+
+        # Searching for "eng" should find records when summarising by country
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": "country",
+                "search": "eng",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only return the "eng" country summary
+        self.assertEqual(len(response.json()["data"]), 1)
+        self.assertEqual(response.json()["data"][0]["country"], "eng")
+        self.assertEqual(
+            response.json()["data"][0]["count"],
+            TestProject.objects.filter(country="eng").count(),
+        )
+
+        # Searching for a term that exists in text fields but not in summary fields
+        # should return no results
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": "country",
+                "search": "hello",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should return no results since "hello" is not in any country values
+        self.assertEqual(response.json()["data"], [])
+
+        # Searching with multiple summary fields
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": ["country", "region"],
+                "search": "eng",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # All results should have country containing "eng"
+        for row in response.json()["data"]:
+            self.assertTrue(
+                "eng" in row["country"].lower()
+                or "eng" in (row["region"] or "").lower()
+            )
+
     def test_summarise(self):
         """
         Test filtering and summarising columns.

@@ -1,5 +1,5 @@
 from django.db.models import Q
-from data.fields import OnyxField, OnyxType
+from .fields import OnyxField, OnyxType
 
 
 def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:

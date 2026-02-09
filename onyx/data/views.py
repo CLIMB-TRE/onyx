@@ -876,7 +876,8 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         if self.search:
             q_object &= build_search(
                 self.search,
-                self.handler.resolve_fields(self.handler.get_fields()),
+                # Only search over fields returned in the response
+                self.handler.resolve_fields(fields),
             )
 
         # If a valid query was provided

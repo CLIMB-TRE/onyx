@@ -1061,6 +1061,34 @@ class TestFilterView(OnyxDataTestCase):
             ),
         )
 
+    def test_search_include_exclude(self):
+        """
+        Test searching works only on fields included in the results.
+        """
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng",
+                "include": ["country", "climb_id"],
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(country__icontains="eng"),
+        )
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng",
+                "exclude": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
     def test_summarise(self):
         """
         Test filtering and summarising columns.

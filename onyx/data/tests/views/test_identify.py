@@ -28,8 +28,9 @@ class TestIdentifyView(OnyxTestCase):
         """
 
         # Create records from testsite_a and testsite_b
-        test_record_1 = next(iter(generate_test_data(n=1)))
-        test_record_2 = next(iter(generate_test_data(n=1)))
+        test_data = iter(generate_test_data(n=2))
+        test_record_1 = next(test_data)
+        test_record_2 = next(test_data)
         test_record_2["site"] = self.extra_site.code
 
         for i, (record, site) in enumerate(

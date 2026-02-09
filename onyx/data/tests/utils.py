@@ -258,6 +258,8 @@ def generate_test_data(n: int, api_call: bool = True):
     starts = [1, 2, 3, 4, 5]
     ends = [6, 7, 8, 9, 10]
     required_when_publisheds = ["hello", "world"]
+    optional_when_published_1s = ["value 1", ""]
+    optional_when_published_2s = ["", "value 2"]
     many_scores = (
         [[]]
         + [[1, 2, 3]] * 3
@@ -271,6 +273,8 @@ def generate_test_data(n: int, api_call: bool = True):
         {"numbers": [1, 2, 3]},
         {"hello": "world", "numbers": [1, 2, 3]},
     ]
+    unique_together_1s = [f"unique{i}" for i in range(n)]
+    unique_together_2s = ["groupA", "groupB", "groupC"]
 
     if api_call:
         many_scores = [json.dumps(x) for x in many_scores]
@@ -305,8 +309,12 @@ def generate_test_data(n: int, api_call: bool = True):
         start,
         end,
         required_when_published,
+        optional_when_published_1s,
+        optional_when_published_2s,
         scores,
         structure,
+        unique_together_1,
+        unique_together_2,
         has_nested,
         nested_range,
     ) in enumerate(
@@ -326,8 +334,12 @@ def generate_test_data(n: int, api_call: bool = True):
             itertools.cycle(starts),
             itertools.cycle(ends),
             itertools.cycle(required_when_publisheds),
+            itertools.cycle(optional_when_published_1s),
+            itertools.cycle(optional_when_published_2s),
             itertools.cycle(many_scores),
             itertools.cycle(structures),
+            itertools.cycle(unique_together_1s),
+            itertools.cycle(unique_together_2s),
             itertools.cycle(has_nesteds),
             itertools.cycle(nested_ranges),
         )
@@ -349,8 +361,12 @@ def generate_test_data(n: int, api_call: bool = True):
             "start": start,
             "end": end,
             "required_when_published": required_when_published,
+            "optional_when_published_1": optional_when_published_1s,
+            "optional_when_published_2": optional_when_published_2s,
             "scores": scores,
             "structure": structure,
+            "unique_together_1": unique_together_1,
+            "unique_together_2": unique_together_2,
         }
 
         if has_nested:

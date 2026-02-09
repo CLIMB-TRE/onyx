@@ -8,6 +8,7 @@ from utils.constraints import (
     non_futures,
     conditional_required,
     conditional_value_required,
+    conditional_value_optional_value_group,
 )
 from data.models import BaseRecord, ProjectRecord
 
@@ -39,8 +40,12 @@ class BaseTestProject(ProjectRecord):
     start = models.IntegerField()
     end = models.IntegerField()
     required_when_published = models.TextField(blank=True)
+    optional_when_published_1 = models.TextField(blank=True)
+    optional_when_published_2 = models.TextField(blank=True)
     scores = ArrayField(models.IntegerField(), default=list, size=10)
     structure = models.JSONField(default=dict)
+    unique_together_1 = models.CharField(max_length=50, blank=True)
+    unique_together_2 = models.CharField(max_length=50, blank=True)
 
     class Meta:
         abstract = True
@@ -62,6 +67,9 @@ class BaseTestProject(ProjectRecord):
         constraints = [
             unique_together(
                 fields=["sample_id", "run_name"],
+            ),
+            unique_together(
+                fields=["unique_together_1", "unique_together_2"],
             ),
             optional_value_group(
                 fields=["collection_month", "received_month"],
@@ -91,6 +99,11 @@ class BaseTestProject(ProjectRecord):
                 field="is_published",
                 value=True,
                 required=["required_when_published"],
+            ),
+            conditional_value_optional_value_group(
+                field="is_published",
+                value=True,
+                optional=["optional_when_published_1", "optional_when_published_2"],
             ),
         ]
 

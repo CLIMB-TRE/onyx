@@ -15,7 +15,6 @@ from utils.fieldserializers import (
     StructureField,
 )
 from utils.functions import get_date_output_format
-from utils.validators import OnyxUniqueTogetherValidator
 from . import validators
 from .types import OnyxType
 from .fields import OnyxField
@@ -273,6 +272,13 @@ class BaseRecordSerializer(serializers.ModelSerializer):
                 instance=self.instance,
             )
 
+            validators.validate_conditional_value_optional_value_groups(
+                errors=errors,
+                data=data,
+                conditional_value_optional_value_groups=self.OnyxMeta.conditional_value_optional_value_groups,
+                instance=self.instance,
+            )
+
         if errors:
             raise exceptions.ValidationError(errors)
 
@@ -296,6 +302,9 @@ class BaseRecordSerializer(serializers.ModelSerializer):
         choice_constraints: list[tuple[str, str]] = []
         conditional_required: dict[str, list[str]] = {}
         conditional_value_required: dict[tuple[str, Any, Any], list[str]] = {}
+        conditional_value_optional_value_groups: dict[
+            tuple[str, Any, Any], list[str]
+        ] = {}
 
 
 class PrimaryRecordSerializer(BaseRecordSerializer):
@@ -452,21 +461,8 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             "downstream_analyses",
             "identifiers",
         ]
-        validators = [
-            OnyxUniqueTogetherValidator(
-                queryset=Analysis.objects.all(),
-                fields=["project", "name"],
-            )
-        ]
 
     class OnyxMeta(PrimaryRecordSerializer.OnyxMeta):
-        optional_value_groups = (
-            PrimaryRecordSerializer.OnyxMeta.optional_value_groups
-            + [["report", "outputs"]]
-        )
-        non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [
-            "analysis_date",
-        ]
         default_fields = PrimaryRecordSerializer.OnyxMeta.default_fields + [
             "analysis_id",
             "analysis_date",
@@ -474,6 +470,21 @@ class AnalysisSerializer(PrimaryRecordSerializer):
             "report",
             "outputs",
         ]
+        non_futures = PrimaryRecordSerializer.OnyxMeta.non_futures + [
+            "analysis_date",
+        ]
+        conditional_value_required = (
+            PrimaryRecordSerializer.OnyxMeta.conditional_value_required
+            | {
+                ("is_published", True, True): ["result"],
+            }
+        )
+        conditional_value_optional_value_groups = (
+            PrimaryRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): ["report", "outputs"],
+            }
+        )
 
 
 # TODO: Race condition testing + preventions.

@@ -145,6 +145,19 @@ def generate_fields_spec(
         if onyx_type == OnyxType.TEXT and field_instance.max_length:
             restrictions.append(f"Max length: {field_instance.max_length}")
 
+        # Add min and max values
+        if onyx_type in {OnyxType.INTEGER, OnyxType.DECIMAL}:
+            min_value = serializer_instance.fields[field].min_value
+            max_value = serializer_instance.fields[field].max_value
+
+            # Default min/max values for Django IntegerField
+            # https://docs.djangoproject.com/en/5.2/ref/models/fields/#integerfield
+            if min_value is not None and min_value > -(2**31):
+                restrictions.append(f"Min value: {min_value}")
+
+            if max_value is not None and max_value < (2**31) - 1:
+                restrictions.append(f"Max value: {max_value}")
+
         # Add optional_value_groups
         for optional_value_group in serializer.OnyxMeta.optional_value_groups:
             if field in optional_value_group:

@@ -82,14 +82,22 @@ class TestProjectSerializer(ProjectRecordSerializer):
             "start",
             "end",
             "required_when_published",
+            "optional_when_published_1",
+            "optional_when_published_2",
             "scores",
             "structure",
+            "unique_together_1",
+            "unique_together_2",
         ]
         validators = [
             OnyxUniqueTogetherValidator(
                 queryset=TestProject.objects.all(),
                 fields=["sample_id", "run_name"],
-            )
+            ),
+            OnyxUniqueTogetherValidator(
+                queryset=TestProject.objects.all(),
+                fields=["unique_together_1", "unique_together_2"],
+            ),
         ]
 
     class OnyxMeta(ProjectRecordSerializer.OnyxMeta):
@@ -129,6 +137,15 @@ class TestProjectSerializer(ProjectRecordSerializer):
             | {
                 ("is_published", True, True): [
                     "required_when_published",
+                ]
+            }
+        )
+        conditional_value_optional_value_groups = (
+            ProjectRecordSerializer.OnyxMeta.conditional_value_optional_value_groups
+            | {
+                ("is_published", True, True): [
+                    "optional_when_published_1",
+                    "optional_when_published_2",
                 ]
             }
         )

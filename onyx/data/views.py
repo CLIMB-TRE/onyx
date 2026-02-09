@@ -874,16 +874,10 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the search parameter was provided
         # Form the Q object for it, and add it to the user's Q object
         if self.search:
-            # Get the fields to search over
-            search_fields = [
-                field
-                for field, onyx_field in self.handler.resolve_fields(fields).items()
-                if onyx_field.onyx_type == OnyxType.TEXT
-                or onyx_field.onyx_type == OnyxType.CHOICE
-            ]
-
-            # Form the Q object for the search, and add it to the user's Q object
-            q_object &= build_search(self.search, search_fields)
+            q_object &= build_search(
+                self.search,
+                self.handler.resolve_fields(self.handler.get_fields()),
+            )
 
         # If a valid query was provided
         # Form the Q object for it, and add it to the user's Q object

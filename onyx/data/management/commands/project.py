@@ -9,7 +9,6 @@ from ...models import Project, ProjectGroup, Choice
 from ...types import Actions, Scopes, Objects
 
 
-SCOPE_LABELS = [scope.label for scope in Scopes]
 OBJECT_TYPE_LABELS = [obj.label for obj in Objects]
 ACTION_LABELS = [action.label for action in Actions]
 
@@ -33,11 +32,6 @@ class GroupConfig(BaseModel):
     scope: str
     object_type: str = Objects.RECORD.label
     permissions: List[PermissionConfig]
-
-    @field_validator("scope")
-    def validate_scope(cls, value):
-        assert value in SCOPE_LABELS, f"Invalid scope: {value}"
-        return value
 
     @field_validator("object_type")
     def validate_object_type(cls, value):

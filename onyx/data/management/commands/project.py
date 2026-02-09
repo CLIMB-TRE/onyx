@@ -1,3 +1,4 @@
+import sys
 import json
 from typing import Optional, List, Dict
 from pydantic import BaseModel, field_validator
@@ -36,7 +37,11 @@ class GroupConfig(BaseModel):
 
     @field_validator("scope")
     def validate_scope(cls, value):
-        assert value in SCOPE_LABELS, f"Invalid scope: {value}"
+        if value not in SCOPE_LABELS:
+            print(
+                f"NOTE: Scope '{value}' is not in the list of default scopes: {SCOPE_LABELS}.",
+                file=sys.stderr,
+            )
         return value
 
     @field_validator("object_type")

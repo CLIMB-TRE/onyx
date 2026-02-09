@@ -1,3 +1,4 @@
+import sys
 import json
 from typing import Optional, List, Dict
 from pydantic import BaseModel, field_validator
@@ -9,6 +10,7 @@ from ...models import Project, ProjectGroup, Choice
 from ...types import Actions, Scopes, Objects
 
 
+SCOPE_LABELS = [scope.label for scope in Scopes]
 OBJECT_TYPE_LABELS = [obj.label for obj in Objects]
 ACTION_LABELS = [action.label for action in Actions]
 
@@ -32,6 +34,15 @@ class GroupConfig(BaseModel):
     scope: str
     object_type: str = Objects.RECORD.label
     permissions: List[PermissionConfig]
+
+    @field_validator("scope")
+    def validate_scope(cls, value):
+        if value not in SCOPE_LABELS:
+            print(
+                f"NOTE: Scope '{value}' is not in the list of default scopes: {SCOPE_LABELS}.",
+                file=sys.stderr,
+            )
+        return value
 
     @field_validator("object_type")
     def validate_object_type(cls, value):

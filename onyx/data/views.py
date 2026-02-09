@@ -30,7 +30,6 @@ from .queryset import init_project_queryset, prefetch_nested
 from .types import Actions, Objects, OnyxType, OnyxLookup
 from .spec import generate_fields_spec
 from .fields import (
-    OnyxField,
     FieldHandler,
     flatten_fields,
     unflatten_fields,
@@ -834,7 +833,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
             query = None
 
         # Validate summarise fields
-        summary_fields: dict[str, OnyxField] = {}
+        summary_fields = {}
         if self.summarise:
             for field in self.summarise:
                 try:

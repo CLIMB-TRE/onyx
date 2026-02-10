@@ -61,6 +61,31 @@ def get_date_value(search_term: str) -> datetime | None:
     try:
         return datetime.fromisoformat(search_term)
     except Exception:
+        pass
+
+    for fmt in ["%Y-%m-%d", "%Y-%m", "%Y"]:
+        try:
+            return datetime.strptime(search_term, fmt)
+        except Exception:
+            pass
+
+    return None
+
+
+def get_year_value(search_term: str) -> int | None:
+    """
+    Attempt to parse the search term into a year.
+
+    Args:
+        search_term: The search term to parse.
+
+    Returns:
+        The year value of the search term, or None if it cannot be parsed into a year.
+    """
+
+    try:
+        return datetime.strptime(search_term, "%Y").year
+    except Exception:
         return None
 
 
@@ -145,7 +170,7 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
             for field in number_fields:
                 q |= Q(**{field: number_value})
 
-        # If the search term can be parsed into a date, search over date/datetime fields
+        # If the search term can be parsed into a date, search over date fields
         date_value = get_date_value(search_term)
 
         if date_value is not None:
@@ -153,6 +178,15 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
 
             for field in date_fields:
                 q |= Q(**{field: date_value})
+
+        # If the search term can be parsed into a year, search over date fields for that year
+        year_value = get_year_value(search_term)
+
+        if year_value is not None:
+            matched_field = True
+
+            for field in date_fields:
+                q |= Q(**{f"{field}__year": year_value})
 
         # If the search term can be parsed into bool, search over boolean fields
         bool_value = get_bool_value(search_term)

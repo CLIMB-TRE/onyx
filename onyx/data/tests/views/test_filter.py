@@ -1140,6 +1140,102 @@ class TestFilterView(OnyxDataTestCase):
                 or "eng" in (row["region"] or "").lower()
             )
 
+    def test_search_integer(self):
+        """
+        Test searching for records with integer values.
+        """
+
+        # Search for "1" should match records where tests=1 OR text fields contain "1"
+        response = self.client.get(self.endpoint, data={"search": "1"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Verify results include records with tests=1
+        self.assertIn(
+            list(
+                TestProject.objects.filter(tests=1).values_list("climb_id", flat=True)
+            )[0],
+            [rec["climb_id"] for rec in response.json()["data"]],
+        )
+
+    def test_search_decimal(self):
+        """
+        Test searching for records with decimal/float values.
+        """
+
+        # Search for "0.12345" should match records where score=0.12345
+        response = self.client.get(self.endpoint, data={"search": "0.12345"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(score=0.12345),
+        )
+
+    def test_search_date(self):
+        """
+        Test searching for records with date values using ISO format.
+        """
+
+        # Search for "2022-01" should match records where collection_month=2022-01
+        response = self.client.get(self.endpoint, data={"search": "2022-01"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(Q(collection_month="2022-01-01")),
+        )
+
+    def test_search_year(self):
+        """
+        Test searching for records by year values.
+        """
+
+        # Search for "2022" should match records where collection_month year is 2022
+        response = self.client.get(self.endpoint, data={"search": "2022"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(collection_month__year=2022),
+        )
+
+    def test_search_boolean(self):
+        """
+        Test searching for records with boolean values.
+        """
+
+        # Search for "true" should match records where concern=True
+        response = self.client.get(self.endpoint, data={"search": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(concern=True),
+        )
+
+        # Search for "false" should match records where concern=False
+        response = self.client.get(self.endpoint, data={"search": "false"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(concern=False),
+        )
+
+    def test_mixed_search(self):
+        """
+        Test searching with multiple search terms across different types.
+        """
+
+        # Search for "hello 2022" should match records where text fields contain "hello" AND collection_month year is 2022
+        response = self.client.get(self.endpoint, data={"search": "hello 2022"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(
+                Q(collection_month__year=2022)
+                & (
+                    Q(text_option_1__icontains="hello")
+                    | Q(text_option_2__icontains="hello")
+                    | Q(required_when_published__icontains="hello")
+                )
+            ),
+        )
+
     def test_summarise(self):
         """
         Test filtering and summarising columns.

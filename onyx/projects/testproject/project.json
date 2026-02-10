@@ -58,7 +58,7 @@
               ]
             },
             {
-              "action": ["get", "list", "filter", "history"],
+              "action": ["get", "filter", "list", "history"],
               "fields": [
                 "is_published",
                 "is_suppressed",
@@ -87,8 +87,16 @@
                 "scores",
                 "structure",
                 "unique_together_1",
-                "unique_together_2",
-                "records",
+                "unique_together_2"
+              ]
+            },
+            {
+              "action": ["get", "filter", "history"],
+              "fields": ["records"]
+            },
+            {
+              "action": ["get", "filter"],
+              "fields": [
                 "records__test_id",
                 "records__test_pass",
                 "records__test_start",
@@ -113,7 +121,7 @@
           "scope": "analyst",
           "permissions": [
             {
-              "action": ["get", "list", "filter", "history"],
+              "action": ["get", "filter", "list", "history"],
               "fields": [
                 "climb_id",
                 "published_date",
@@ -139,8 +147,16 @@
                 "scores",
                 "structure",
                 "unique_together_1",
-                "unique_together_2",
-                "records",
+                "unique_together_2"
+              ]
+            },
+            {
+              "action": ["get", "filter", "history"],
+              "fields": ["records"]
+            },
+            {
+              "action": ["get", "filter"],
+              "fields": [
                 "records__test_id",
                 "records__test_pass",
                 "records__test_start",

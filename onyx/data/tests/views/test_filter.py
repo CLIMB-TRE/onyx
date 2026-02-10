@@ -1089,6 +1089,26 @@ class TestFilterView(OnyxDataTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["data"], [])
 
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "2022-01",
+                "include": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng 2022-01",
+                "include": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
     def test_summarise_search(self):
         """
         Test searching with summarise searches over summary fields only.

@@ -1165,15 +1165,12 @@ class TestFilterView(OnyxDataTestCase):
         Test searching for records with integer values.
         """
 
-        # Search for "1" should match records where tests=1 OR text fields contain "1"
-        response = self.client.get(self.endpoint, data={"search": "1"})
+        # Search for "12345" should match records where tests=12345
+        response = self.client.get(self.endpoint, data={"search": "12345"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Verify results include records with tests=1
-        self.assertIn(
-            list(
-                TestProject.objects.filter(tests=1).values_list("climb_id", flat=True)
-            )[0],
-            [rec["climb_id"] for rec in response.json()["data"]],
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(tests=12345),
         )
 
     def test_search_decimal(self):

@@ -17,7 +17,7 @@ def get_search_terms(search_str: str) -> list[str]:
     search_terms = []
     for s in search_str.split():
         search_term = s.strip().strip("'").strip('"').strip()
-        if s:
+        if search_term:
             search_terms.append(search_term)
 
     return search_terms

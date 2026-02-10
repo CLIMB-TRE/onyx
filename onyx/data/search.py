@@ -160,7 +160,6 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
         field
         for field, onyx_field in onyx_fields.items()
         if onyx_field.onyx_type == OnyxType.DATE
-        or onyx_field.onyx_type == OnyxType.DATETIME
     ]
     boolean_fields = [
         field

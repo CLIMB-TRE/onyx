@@ -25,15 +25,15 @@ def get_search_terms(search_str: str) -> list[str]:
     return search_terms
 
 
-def get_number_value(search_term: str) -> int | float | None:
+def get_integer_value(search_term: str) -> int | None:
     """
-    Attempt to parse the search term into a number.
+    Attempt to parse the search term into an integer.
 
     Args:
         search_term: The search term to parse.
 
     Returns:
-        The number value of the search term, or None if it cannot be parsed into a number.
+        The integer value of the search term, or None if it cannot be parsed into an integer.
     """
 
     try:
@@ -42,11 +42,30 @@ def get_number_value(search_term: str) -> int | float | None:
         pass
 
     try:
-        return float(search_term)
+        float_value = float(search_term)
+        if float_value.is_integer():
+            return int(float_value)
     except Exception:
         pass
 
     return None
+
+
+def get_decimal_value(search_term: str) -> float | None:
+    """
+    Attempt to parse the search term into a decimal.
+
+    Args:
+        search_term: The search term to parse.
+
+    Returns:
+        The decimal value of the search term, or None if it cannot be parsed into a decimal.
+    """
+
+    try:
+        return float(search_term)
+    except Exception:
+        return None
 
 
 def get_date_value(search_term: str) -> datetime | None:
@@ -127,11 +146,15 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
         if onyx_field.onyx_type == OnyxType.TEXT
         or onyx_field.onyx_type == OnyxType.CHOICE
     ]
-    number_fields = [
+    integer_fields = [
         field
         for field, onyx_field in onyx_fields.items()
         if onyx_field.onyx_type == OnyxType.INTEGER
-        or onyx_field.onyx_type == OnyxType.DECIMAL
+    ]
+    decimal_fields = [
+        field
+        for field, onyx_field in onyx_fields.items()
+        if onyx_field.onyx_type == OnyxType.DECIMAL
     ]
     date_fields = [
         field
@@ -161,11 +184,17 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
             else:
                 qs.append(Q(**{f"{field}__icontains": search_term}))
 
-        # Search over number fields if the search term can be parsed into a number
-        number_value = get_number_value(search_term)
-        if number_value is not None:
-            for field in number_fields:
-                qs.append(Q(**{field: number_value}))
+        # Search over integer fields if the search term can be parsed into an integer
+        int_value = get_integer_value(search_term)
+        if int_value is not None:
+            for field in integer_fields:
+                qs.append(Q(**{field: int_value}))
+
+        # Search over decimal fields if the search term can be parsed into a decimal
+        decimal_value = get_decimal_value(search_term)
+        if decimal_value is not None:
+            for field in decimal_fields:
+                qs.append(Q(**{field: decimal_value}))
 
         # Search over date fields if the search term can be parsed into a date
         date_value = get_date_value(search_term)

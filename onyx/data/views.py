@@ -30,6 +30,7 @@ from .queryset import init_project_queryset, prefetch_nested
 from .types import Actions, Objects, OnyxType, OnyxLookup
 from .spec import generate_fields_spec
 from .fields import (
+    OnyxField,
     FieldHandler,
     flatten_fields,
     unflatten_fields,
@@ -833,7 +834,7 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
             query = None
 
         # Validate summarise fields
-        summary_fields = {}
+        summary_fields: dict[str, OnyxField] = {}
         if self.summarise:
             for field in self.summarise:
                 try:
@@ -874,15 +875,13 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
         # If the search parameter was provided
         # Form the Q object for it, and add it to the user's Q object
         if self.search:
-            # Get the fields to search over
-            search_fields = [
-                field
-                for field, onyx_field in self.handler.resolve_fields(fields).items()
-                if onyx_field.onyx_type == OnyxType.TEXT
-                or onyx_field.onyx_type == OnyxType.CHOICE
-            ]
+            if self.summarise:
+                # If the query is a summarise, search over summary fields
+                search_fields = summary_fields
+            else:
+                # Otherwise, search over response fields
+                search_fields = self.handler.resolve_fields(fields)
 
-            # Form the Q object for the search, and add it to the user's Q object
             q_object &= build_search(self.search, search_fields)
 
         # If a valid query was provided

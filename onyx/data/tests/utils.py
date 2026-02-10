@@ -253,7 +253,7 @@ def generate_test_data(n: int, api_call: bool = True):
         "": lambda: "",
     }
     concerns = [True, False, None]
-    tests = [1, 2, 3, None]
+    tests = [1, 2, 3, None, 12345]
     scores = [x + 0.12345 for x in range(10)] + [None]
     starts = [1, 2, 3, 4, 5]
     ends = [6, 7, 8, 9, 10]

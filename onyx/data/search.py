@@ -1,3 +1,5 @@
+import operator
+import functools
 from datetime import datetime
 from django.db.models import Q
 from .fields import OnyxField, OnyxType
@@ -148,60 +150,49 @@ def build_search(search_str: str, onyx_fields: dict[str, OnyxField]) -> Q:
 
     # Form the Q object for the search
     query = Q()
-    matched_field = False
 
     for search_term in search_terms:
-        q = Q()
+        qs = []
 
+        # Search over text fields using case-insensitive containment
         for field in text_fields:
-            matched_field = True
-
             if field == "site":
-                q |= Q(**{f"{field}__code__icontains": search_term})
+                qs.append(Q(**{f"{field}__code__icontains": search_term}))
             else:
-                q |= Q(**{f"{field}__icontains": search_term})
+                qs.append(Q(**{f"{field}__icontains": search_term}))
 
-        # If the search term can be parsed into a number, search over number fields
+        # Search over number fields if the search term can be parsed into a number
         number_value = get_number_value(search_term)
-
         if number_value is not None:
-            matched_field = True
-
             for field in number_fields:
-                q |= Q(**{field: number_value})
+                qs.append(Q(**{field: number_value}))
 
-        # If the search term can be parsed into a date, search over date fields
+        # Search over date fields if the search term can be parsed into a date
         date_value = get_date_value(search_term)
-
         if date_value is not None:
-            matched_field = True
-
             for field in date_fields:
-                q |= Q(**{field: date_value})
+                qs.append(Q(**{field: date_value}))
 
-        # If the search term can be parsed into a year, search over date fields for that year
+        # Search over date fields for year if the search term can be parsed into a year
         year_value = get_year_value(search_term)
-
         if year_value is not None:
-            matched_field = True
-
             for field in date_fields:
-                q |= Q(**{f"{field}__year": year_value})
+                qs.append(Q(**{f"{field}__year": year_value}))
 
-        # If the search term can be parsed into bool, search over boolean fields
+        # Search over boolean fields if the search term can be parsed into a boolean
         bool_value = get_bool_value(search_term)
-
         if bool_value is not None:
-            matched_field = True
-
             for field in boolean_fields:
-                q |= Q(**{field: bool_value})
+                qs.append(Q(**{field: bool_value}))
 
-        query &= q
-
-    # If there were no valid search fields, return a Q object that effectively evaluates to False
-    if not matched_field:
-        query = Q(pk__in=[])
+        # Add the Q objects for this term to the overall search query
+        # These are OR-ed together to allow the term to match any of the fields
+        # And then AND-ed with the overall query to combine with other search terms
+        # If there are no Q objects for this term, add a Q object representing no match
+        if qs:
+            query &= functools.reduce(operator.or_, qs)
+        else:
+            query &= Q(pk__in=[])
 
     # Return the search object
     return query

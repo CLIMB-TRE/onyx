@@ -1061,6 +1061,198 @@ class TestFilterView(OnyxDataTestCase):
             ),
         )
 
+    def test_search_include_exclude(self):
+        """
+        Test searching works only on fields included in the results.
+        """
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng",
+                "include": ["country", "climb_id"],
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(country__icontains="eng"),
+        )
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng",
+                "exclude": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "2022-01",
+                "include": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "search": "eng 2022-01",
+                "include": "country",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["data"], [])
+
+    def test_summarise_search(self):
+        """
+        Test searching with summarise searches over summary fields only.
+        """
+
+        # Searching for "eng" should find records when summarising by country
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": "country",
+                "search": "eng",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only return the "eng" country summary
+        self.assertEqual(len(response.json()["data"]), 1)
+        self.assertEqual(response.json()["data"][0]["country"], "eng")
+        self.assertEqual(
+            response.json()["data"][0]["count"],
+            TestProject.objects.filter(country="eng").count(),
+        )
+
+        # Searching for a term that exists in text fields but not in summary fields
+        # should return no results
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": "country",
+                "search": "hello",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should return no results since "hello" is not in any country values
+        self.assertEqual(response.json()["data"], [])
+
+        # Searching with multiple summary fields
+        response = self.client.get(
+            self.endpoint,
+            data={
+                "summarise": ["country", "region"],
+                "search": "eng",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # All results should have country containing "eng"
+        for row in response.json()["data"]:
+            self.assertTrue(
+                "eng" in row["country"].lower()
+                or "eng" in (row["region"] or "").lower()
+            )
+
+    def test_search_integer(self):
+        """
+        Test searching for records with integer values.
+        """
+
+        # Search for "12345" should match records where tests=12345
+        response = self.client.get(self.endpoint, data={"search": "12345"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(tests=12345),
+        )
+
+    def test_search_decimal(self):
+        """
+        Test searching for records with decimal/float values.
+        """
+
+        # Search for "0.12345" should match records where score=0.12345
+        response = self.client.get(self.endpoint, data={"search": "0.12345"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(score=0.12345),
+        )
+
+    def test_search_date(self):
+        """
+        Test searching for records with date values using ISO format.
+        """
+
+        # Search for "2022-01" should match records where collection_month=2022-01
+        response = self.client.get(self.endpoint, data={"search": "2022-01"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(Q(collection_month="2022-01-01")),
+        )
+
+    def test_search_year(self):
+        """
+        Test searching for records by year values.
+        """
+
+        # Search for "2022" should match records where collection_month year is 2022
+        response = self.client.get(self.endpoint, data={"search": "2022"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(collection_month__year=2022),
+        )
+
+    def test_search_boolean(self):
+        """
+        Test searching for records with boolean values.
+        """
+
+        # Search for "true" should match records where concern=True
+        response = self.client.get(self.endpoint, data={"search": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(concern=True),
+        )
+
+        # Search for "false" should match records where concern=False
+        response = self.client.get(self.endpoint, data={"search": "false"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(concern=False),
+        )
+
+    def test_mixed_search(self):
+        """
+        Test searching with multiple search terms across different types.
+        """
+
+        # Search for "hello 2022" should match records where text fields contain "hello" AND collection_month year is 2022
+        response = self.client.get(self.endpoint, data={"search": "hello 2022"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqualClimbIDs(
+            response.json()["data"],
+            TestProject.objects.filter(
+                Q(collection_month__year=2022)
+                & (
+                    Q(text_option_1__icontains="hello")
+                    | Q(text_option_2__icontains="hello")
+                    | Q(required_when_published__icontains="hello")
+                )
+            ),
+        )
+
     def test_summarise(self):
         """
         Test filtering and summarising columns.

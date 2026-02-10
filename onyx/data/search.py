@@ -102,7 +102,7 @@ def get_bool_value(search_term: str) -> bool | None:
         The boolean value of the search term, or None if it cannot be parsed into a boolean.
     """
 
-    if search_term.lower().strip() in ["true", "false"]:
+    if search_term.lower() in ["true", "false"]:
         return search_term.lower() == "true"
     else:
         return None

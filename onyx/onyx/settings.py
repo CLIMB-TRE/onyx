@@ -202,6 +202,9 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 1000,
 }
 
+if "test" in sys.argv:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
+
 REST_KNOX = {
     "TOKEN_TTL": timedelta(weeks=1),
     "TOKEN_LIMIT_PER_USER": None,

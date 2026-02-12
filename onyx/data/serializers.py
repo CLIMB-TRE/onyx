@@ -3,6 +3,7 @@ import hashlib
 from typing import Any
 from django.db import transaction, DatabaseError, models
 from rest_framework import serializers, exceptions
+from simple_history.utils import bulk_create_with_history
 from accounts.models import User
 from utils.defaults import CurrentUserSiteDefault, CurrentProjectDefault
 from utils.fieldserializers import (
@@ -707,9 +708,22 @@ class SerializerNode:
         # Save any nested objects, providing a link to the current instance
         for node in self.nodes.values():
             if isinstance(node, list):
+                instances = []
                 for n in node:
                     if n:
-                        n._save(link=instance)
+                        if n.serializer.instance:
+                            n._save(link=instance)
+                        else:
+                            instances.append(
+                                n.serializer.Meta.model(
+                                    **(n.serializer.validated_data | {"link": instance})
+                                )
+                            )
+                if instances:
+                    serializer_model = node[0].serializer.Meta.model
+                    bulk_create_with_history(
+                        instances, serializer_model, batch_size=100
+                    )
             else:
                 node._save(link=instance)
 

@@ -541,6 +541,12 @@ class Command(base.BaseCommand):
                         for field in permission_config.fields:
                             assert field, "Field cannot be empty."
 
+                            # Nested fields cannot have the LIST action
+                            if action == Actions.LIST.label and "__" in field:
+                                raise ValueError(
+                                    f"Nested fields cannot be used with '{Actions.LIST.label}' action: {field}"
+                                )
+
                             # Create/update permission to access the object's field
                             access_object_field = (
                                 Actions.ACCESS.label,

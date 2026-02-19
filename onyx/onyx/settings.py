@@ -187,10 +187,23 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "internal.throttling.BurstRateThrottle",
+        "internal.throttling.SustainedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "10/min",
+        "burst": "10/min",
+        "sustained": "10000/day",
+    },
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
     "DEFAULT_PAGINATION_CLASS": None,
     "PAGE_SIZE": 1000,
 }
+
+if "test" in sys.argv:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
 
 REST_KNOX = {
     "TOKEN_TTL": timedelta(weeks=1),

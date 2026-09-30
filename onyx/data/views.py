@@ -104,24 +104,23 @@ def bulk_delete_with_history(qs: QuerySet, user) -> None:
         qs.delete()
         return
 
-    if getattr(settings, "SIMPLE_HISTORY_ENABLED", True):
-        history_model = model.history.model  #  type: ignore
-        history_date = timezone.now()
-        history_model.objects.bulk_create(
-            [
-                history_model(
-                    history_date=history_date,
-                    history_user=user,
-                    history_type="-",
-                    **{
-                        field.attname: getattr(obj, field.attname)
-                        for field in history_model.tracked_fields
-                    },
-                )
-                for obj in qs.iterator()
-            ],
-            batch_size=1000,
-        )
+    history_model = model.history.model  # type: ignore
+    history_date = timezone.now()
+    history_model.objects.bulk_create(
+        [
+            history_model(
+                history_date=history_date,
+                history_user=user,
+                history_type="-",
+                **{
+                    field.attname: getattr(obj, field.attname)
+                    for field in history_model.tracked_fields
+                },
+            )
+            for obj in qs.iterator()
+        ],
+        batch_size=1000,
+    )
 
     # Delete the objects in a single query, without sending signals
     qs._raw_delete(qs.db)

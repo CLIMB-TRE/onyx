@@ -12,6 +12,7 @@ wsgi_app = "onyx.wsgi"
 
 bind = os.environ["GUNICORN_BIND"]
 workers = os.environ["GUNICORN_WORKERS"]
+timeout = 60
 
 accesslog = os.path.join(chdir, "../access.log")
 access_log_format = '%(t)s %(p)s %({x-forwarded-for}i)s %(u)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(M)s ms'

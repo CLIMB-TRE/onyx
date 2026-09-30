@@ -1,0 +1,17 @@
+[data-md-color-scheme="slate"][data-md-color-primary="black"] {
+    --md-typeset-a-color: #d63384;
+    --md-accent-fg-color: #d63384;
+}
+
+[data-md-color-primary="black"] {
+    --md-typeset-a-color: #d63384;
+    --md-accent-fg-color: #d63384;
+}
+
+.pink {
+    color: #d63384;
+}
+
+.md-grid {
+    max-width: 1440px;
+}

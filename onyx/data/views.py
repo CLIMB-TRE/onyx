@@ -5,7 +5,8 @@ from collections import namedtuple
 import pydantic
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Subquery, Q
+from django.db.models import Count, Subquery, Q, QuerySet
+from django.utils import timezone
 from rest_framework import status, exceptions
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -84,6 +85,45 @@ def get_discriminator_value(obj):
 
     else:
         return None
+
+
+def bulk_delete_with_history(qs: QuerySet, user) -> None:
+    """
+    Delete all objects in the queryset, bulk-creating their deletion history records.
+
+    A standard `qs.delete()` cannot fast-delete models with `HistoricalRecords`,
+    as simple_history listens to `post_delete`. This results in every object being
+    loaded into memory, and a separate INSERT for each historical record, which is
+    far too slow for large nested relations.
+    """
+
+    model = qs.model
+
+    # Fall back to a standard delete if the model has reverse relations to cascade
+    if model._meta.related_objects:
+        qs.delete()
+        return
+
+    history_model = model.history.model  # type: ignore
+    history_date = timezone.now()
+    history_model.objects.bulk_create(
+        [
+            history_model(
+                history_date=history_date,
+                history_user=user,
+                history_type="-",
+                **{
+                    field.attname: getattr(obj, field.attname)
+                    for field in history_model.tracked_fields
+                },
+            )
+            for obj in qs.iterator()
+        ],
+        batch_size=1000,
+    )
+
+    # Delete the objects in a single query, without sending signals
+    qs._raw_delete(qs.db)
 
 
 class RequestBody(pydantic.RootModel):
@@ -1080,7 +1120,9 @@ class PrimaryRecordViewSet(ViewSetMixin, PrimaryRecordAPIView):
 
                 # Handle any relational fields that need to be cleared
                 for relation in relations_to_clear:
-                    getattr(instance, relation).all().delete()
+                    bulk_delete_with_history(
+                        getattr(instance, relation).all(), request.user
+                    )
 
             # Set of fields to return in response
             # This includes the id_field and any anonymised fields

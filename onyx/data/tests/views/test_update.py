@@ -5,7 +5,7 @@ from rest_framework.reverse import reverse
 from ..utils import OnyxTestCase, generate_test_data
 from ...exceptions import ClimbIDNotFound
 from data.models import Anonymiser, Analysis
-from projects.testproject.models import TestProject
+from projects.testproject.models import TestProject, TestProjectRecord
 from .test_create import default_payload
 
 
@@ -1206,11 +1206,19 @@ class TestUpdateView(OnyxTestCase):
         )
         instance.refresh_from_db()
         self.assertGreater(instance.records.count(), 0)  #  type: ignore
+        record_ids = list(instance.records.values_list("id", flat=True))  # type: ignore
 
         response = self.client.patch(f"{self.endpoint(self.climb_id)}?clear=records")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         instance.refresh_from_db()
         self.assertEqual(instance.records.count(), 0)  #  type: ignore
+
+        # Check a deletion history record was created for each related object
+        deleted = TestProjectRecord.history.filter(  # type: ignore
+            id__in=record_ids, history_type="-"
+        )
+        self.assertEqual(deleted.count(), len(record_ids))
+        self.assertTrue(all(h.history_user == self.admin_user for h in deleted))
 
     def test_clear_multiple_fields(self):
         """

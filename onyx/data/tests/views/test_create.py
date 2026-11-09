@@ -95,6 +95,27 @@ class TestCreateView(OnyxTestCase):
         assert TestProjectRecord.objects.count() == 0
         self.assertEqual(response.json()["data"], {})
 
+    def test_published_timestamp(self):
+        """
+        Test that the published timestamp is set when creating a published record,
+        and not set when creating an unpublished record.
+        """
+
+        payload = copy.deepcopy(default_payload)
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
+        self.assertIsNotNone(instance.published_timestamp)
+
+        payload = copy.deepcopy(default_payload)
+        payload["sample_id"] = "sample-5678"
+        payload["unique_together_1"] = "unpublished"
+        payload["is_published"] = False
+        response = self.client.post(self.endpoint, data=payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        instance = TestProject.objects.get(climb_id=response.json()["data"]["climb_id"])
+        self.assertIsNone(instance.published_timestamp)
+
     def test_bad_request(self):
         """
         Test that an empty or badly structured payload fails.

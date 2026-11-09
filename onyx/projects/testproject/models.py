@@ -55,6 +55,7 @@ class BaseTestProject(ProjectRecord):
             models.Index(fields=["climb_id"]),
             models.Index(fields=["is_published"]),
             models.Index(fields=["published_date"]),
+            models.Index(fields=["published_timestamp"]),
             models.Index(fields=["is_suppressed"]),
             models.Index(fields=["site"]),
             models.Index(fields=["is_site_restricted"]),
@@ -94,6 +95,11 @@ class BaseTestProject(ProjectRecord):
                 field="is_published",
                 value=True,
                 required=["published_date"],
+            ),
+            conditional_value_required(
+                field="is_published",
+                value=True,
+                required=["published_timestamp"],
             ),
             conditional_value_required(
                 field="is_published",

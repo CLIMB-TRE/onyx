@@ -65,6 +65,7 @@
                 "is_site_restricted",
                 "climb_id",
                 "published_date",
+                "published_timestamp",
                 "site",
                 "sample_id",
                 "run_name",
@@ -125,6 +126,7 @@
               "fields": [
                 "climb_id",
                 "published_date",
+                "published_timestamp",
                 "site",
                 "sample_id",
                 "run_name",

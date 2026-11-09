@@ -1290,7 +1290,7 @@ class AnalysisRecordsView(ProjectRecordAPIView):
         serializer = self.serializer_cls(
             qs,
             many=True,
-            fields=unflatten_fields(["climb_id", "published_date", "site"]),
+            fields=unflatten_fields(["climb_id", "published_date", "published_timestamp", "site"]),
         )
 
         # Return response with data

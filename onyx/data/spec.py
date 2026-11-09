@@ -79,11 +79,11 @@ def generate_fields_spec(
                 required = True
                 break
         else:
-            # published_date doesn't have serializer is_published validation
-            # this is because published_date gets added after validation, on save
+            # published_date/published_timestamp don't have serializer is_published validation
+            # this is because they get added after validation, on save
             # but it does have the constraint so it is required on publish
             # TODO: Add published_date addition to serializer so it can be validated?
-            if field == "published_date":
+            if field in ("published_date", "published_timestamp"):
                 required = True
             else:
                 required = onyx_fields[field_path].required

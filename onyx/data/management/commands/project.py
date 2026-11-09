@@ -131,6 +131,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "fields": [
                             "is_published",
                             "published_date",
+                            "published_timestamp",
                             "site",
                             "analysis_id",
                             "analysis_date",
@@ -242,6 +243,7 @@ def get_analysis_groups(project: str) -> List[GroupConfig]:
                         "action": ["get", "list", "filter", "history"],
                         "fields": [
                             "published_date",
+                            "published_timestamp",
                             "site",
                             "analysis_id",
                             "analysis_date",

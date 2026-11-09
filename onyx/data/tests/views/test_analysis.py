@@ -578,6 +578,8 @@ class TestAnalysisRecordsView(OnyxAnalysisTestCase):
             {record["climb_id"] for record in response.json()["data"]},
             self.climb_ids,
         )
+        for record in response.json()["data"]:
+            self.assertIn("published_timestamp", record)
 
     def test_analysis_id_not_found(self):
         """

@@ -319,6 +319,7 @@ class PrimaryRecordSerializer(BaseRecordSerializer):
         fields = BaseRecordSerializer.Meta.fields + [
             "is_published",
             "published_date",
+            "published_timestamp",
             "is_suppressed",
             "site",
             "is_site_restricted",

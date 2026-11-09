@@ -204,6 +204,42 @@ class TestUpdateView(OnyxTestCase):
         instance.refresh_from_db()
         self.assertEqual(instance.tests, 100)
 
+    def test_published_timestamp(self):
+        """
+        Test that the published timestamp is set when a record is published,
+        and is not changed by subsequent updates.
+        """
+
+        payload = next(iter(generate_test_data(n=1)))
+        payload["sample_id"] = "sample-unpublished"
+        payload["unique_together_1"] = "unpublished"
+        payload["is_published"] = False
+        response = self.client.post(
+            reverse("projects.testproject", kwargs={"code": self.project.code}),
+            data=payload,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        climb_id = response.json()["data"]["climb_id"]
+        instance = TestProject.objects.get(climb_id=climb_id)
+        self.assertIsNone(instance.published_timestamp)
+
+        response = self.client.patch(
+            self.endpoint(climb_id),
+            data={"is_published": True},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        published_timestamp = instance.published_timestamp
+        self.assertIsNotNone(published_timestamp)
+
+        response = self.client.patch(
+            self.endpoint(climb_id),
+            data={"tests": 100},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        instance.refresh_from_db()
+        self.assertEqual(instance.published_timestamp, published_timestamp)
+
     def test_analyst_cannot_update(self):
         """
         Test that an analyst user cannot update records.

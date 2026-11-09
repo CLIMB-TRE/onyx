@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from secrets import token_hex
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.core import checks
@@ -181,6 +182,10 @@ class PrimaryRecord(BaseRecord):
         null=True,
         help_text="The date the object was published in Onyx.",
     )
+    published_timestamp = models.DateTimeField(
+        null=True,
+        help_text="The date and time the object was published in Onyx.",
+    )
     is_suppressed = models.BooleanField(
         default=False,
         help_text="Indicator for whether an object has been hidden from users.",
@@ -202,6 +207,9 @@ class PrimaryRecord(BaseRecord):
     def save(self, *args, **kwargs):
         if self.published_date is None and self.is_published:
             self.published_date = datetime.today().date()
+
+        if self.published_timestamp is None and self.is_published:
+            self.published_timestamp = timezone.now()
 
         super().save(*args, **kwargs)
 
@@ -329,6 +337,7 @@ class Analysis(PrimaryRecord):
                     "result",
                 ]
             ),
+            models.Index(fields=["published_timestamp"]),
         ]
         constraints = [
             non_futures(
